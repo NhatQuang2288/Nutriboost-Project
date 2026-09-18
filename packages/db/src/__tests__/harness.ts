@@ -23,6 +23,7 @@ import { unaccent } from '@electric-sql/pglite/contrib/unaccent'
 
 const ROOT = fileURLToPath(new URL('../../../../', import.meta.url))
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations')
+const SEED_FILE = join(ROOT, 'supabase', 'seed.sql')
 
 /**
  * Bản tối thiểu của những gì Supabase cung cấp sẵn.
@@ -51,7 +52,13 @@ const SUPABASE_STUBS = `
   end $$;
 `
 
-/** Dựng CSDL và chạy toàn bộ migration theo đúng thứ tự tên tệp. */
+/**
+ * Dựng CSDL, chạy toàn bộ migration theo đúng thứ tự tên tệp, rồi nạp seed.
+ *
+ * Nạp cả seed vì test cần dữ liệu thật để chạm tới: `public.foods` rỗng thì không kiểm được
+ * đường `food_id` hợp lệ, và `search_foods` luôn trả về không có gì. Seed chỉ chèn danh mục
+ * thực phẩm và bài tập, không chèn người dùng, nên không xung đột với dữ liệu nền của test.
+ */
 export async function createTestDatabase(): Promise<PGlite> {
   const db = new PGlite({ extensions: { citext, pgcrypto, pg_trgm, unaccent } })
   await db.exec(SUPABASE_STUBS)
@@ -63,6 +70,8 @@ export async function createTestDatabase(): Promise<PGlite> {
   for (const file of files) {
     await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
   }
+
+  await db.exec(readFileSync(SEED_FILE, 'utf8'))
 
   return db
 }
