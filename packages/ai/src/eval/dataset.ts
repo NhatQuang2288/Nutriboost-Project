@@ -27,6 +27,11 @@ export const EVAL_CASES: readonly EvalCase[] = [
   { text: 'sáng nay mình ăn phở bò', expected: ['pho-bo'], note: 'câu đầy đủ có ngữ cảnh' },
   { text: 'trưa nay tôi ăn cơm tấm sườn', expected: ['com-tam-suon'], note: 'tên món trùng số từ' },
   { text: 'tối qua mình ăn bún bò huế', expected: ['bun-bo-hue'], note: 'ba từ, có dấu' },
+  {
+    text: 'mình ăn bún chả',
+    expected: ['bun-cha'],
+    note: 'phân biệt bún chả với bún chả cá — hai món khác nhau',
+  },
   { text: 'mình vừa ăn phở gà', expected: ['pho-ga'], note: 'phân biệt phở bò và phở gà' },
   { text: 'hôm nay mình ăn cơm gà', expected: ['com-ga'], note: 'hai từ ngắn' },
   { text: 'sáng mình ăn bánh mì thịt', expected: ['banh-mi-thit'], note: 'món khô phổ biến' },
@@ -124,7 +129,6 @@ export const EVAL_CASES: readonly EvalCase[] = [
   { text: 'mình ăn', expected: [], note: 'không có món nào' },
   { text: 'mình ăn kem', expected: [], note: 'chưa có trong danh mục, không được đoán bừa' },
   { text: 'mình ăn chè đậu đen', expected: [], note: 'chưa có trong danh mục' },
-  { text: 'mình ăn bún chả', expected: [], note: 'chưa có trong danh mục' },
 ]
 
 export const EVAL_CASE_COUNT = EVAL_CASES.length

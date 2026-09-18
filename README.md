@@ -120,7 +120,7 @@ policy đều "đúng" một cách vô nghĩa. Việc đó do `packages/db/src/_
 PGlite nhưng có đổi được danh tính giữa các lời gọi — xem `CLAUDE.md`.
 
 `npm run env:check` chạy sau khi điền `.env.local`: nó xác nhận khoá hợp lệ, seed đã nạp,
-và **RLS đang chặn đúng** — service role đọc được 51 món trong khi người chưa đăng nhập
+và **RLS đang chặn đúng** — service role đọc được 91 món trong khi người chưa đăng nhập
 đọc được 0 dòng. Lệnh này cần Supabase đang chạy nên chỉ dùng ở máy, không đưa vào CI.
 
 ## Việc còn lại của nhóm
