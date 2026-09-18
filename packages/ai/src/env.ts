@@ -46,8 +46,13 @@ export function readAiEnv(): AiEnv {
     killSwitch: process.env.AI_KILL_SWITCH === 'true',
     limits: {
       parse_meal: readNumber(process.env.AI_LIMIT_PARSE_PER_DAY, DEFAULT_AI_LIMITS.parse_meal),
+      /*
+       * Biến riêng, không dùng chung với `parse_meal`. Trước đây hai dòng này cùng đọc
+       * `AI_LIMIT_PARSE_PER_DAY`, nên đặt hạn mức cho việc phân tích bữa ăn lại âm thầm đổi
+       * luôn hạn mức ước lượng — hai việc có tần suất và chi phí khác nhau.
+       */
       estimate_meal: readNumber(
-        process.env.AI_LIMIT_PARSE_PER_DAY,
+        process.env.AI_LIMIT_ESTIMATE_PER_DAY,
         DEFAULT_AI_LIMITS.estimate_meal,
       ),
       generate_plan: readNumber(process.env.AI_LIMIT_PLAN_PER_DAY, DEFAULT_AI_LIMITS.generate_plan),

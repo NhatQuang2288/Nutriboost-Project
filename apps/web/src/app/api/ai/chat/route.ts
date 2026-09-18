@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import {
   ASSISTANT,
   MEDICAL_REDIRECT_MESSAGE,
+  MOCK_FALLBACK_TEXT,
   buildChatStreamResponse,
   buildGuardrailInstructions,
   buildMockChatStreamResponse,
@@ -12,8 +13,11 @@ import {
 } from '@nutriboost/ai'
 import { assessSafety } from '@nutriboost/nutrition'
 
+import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
+import { createSupabaseAiStore } from '@/lib/ai/store'
 import { getTodayView } from '@/lib/data/today'
+import { getSessionUser } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,7 +153,38 @@ export async function POST(request: Request): Promise<Response> {
 
   const env = readAiEnv()
 
+  /*
+   * Danh tính người dùng và kho lưu trữ chi phí.
+   *
+   * Trước đây chỗ này truyền cứng `userId: null` và không có `onFinish`, nên mọi lượt chat
+   * đều không được ghi vào `ai_calls`: bảng chi phí rỗng, và trần lượt AI trong
+   * docs/PRICING.md không được cưỡng chế ở đâu cả.
+   *
+   * Khi chưa cấu hình Supabase, `store` là `null` và `checkChatAllowance` cho qua — chế độ
+   * dữ liệu mẫu không có khoá Gemini nên cũng không có gì để tiêu.
+   */
+  const user = await getSessionUser()
+  const store = createSupabaseAiStore()
+
   if (env.apiKey !== null && !env.killSwitch) {
+    const allowance = await checkChatAllowance({
+      store,
+      userId: user?.id ?? null,
+      dailyChatLimit: env.limits.chat,
+      dailyBudgetUsd: env.dailyBudgetUsd,
+    })
+
+    if (!allowance.allowed) {
+      // Không kèm thẻ giao diện nào: thẻ xác nhận bữa ăn ngay cạnh câu "đã hết lượt" sẽ gợi ý
+      // rằng bữa ăn đã được xử lý, trong khi thực tế chưa có gì được ghi.
+      return buildMockChatStreamResponse({
+        text: allowance.message ?? MOCK_FALLBACK_TEXT,
+        suggestions: ['Gợi ý bữa tối nhẹ', 'Hôm nay mình còn bao nhiêu calo?'],
+      })
+    }
+
+    const startedAt = Date.now()
+
     try {
       // Bộ công cụ tra cùng danh mục và cùng mục tiêu với màn hình, nên con số trong
       // chat luôn khớp con số trên giao diện.
@@ -165,12 +200,20 @@ export async function POST(request: Request): Promise<Response> {
 
       return await buildChatStreamResponse({
         messages: messages as never,
-        userId: null,
+        userId: user?.id ?? null,
         screen,
         facts,
         guardrails,
         tools,
         signal: request.signal,
+        onFinish: async (info) => {
+          await recordChatCall({
+            store,
+            userId: user?.id ?? null,
+            info,
+            latencyMs: Date.now() - startedAt,
+          })
+        },
       })
     } catch {
       // Rơi về đường giả thay vì trả lỗi: ứng dụng phải luôn dùng được.

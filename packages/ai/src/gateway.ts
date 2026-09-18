@@ -94,6 +94,17 @@ const MESSAGES: Readonly<Record<GatewayStatus, string | null>> = {
   error: 'Trợ lý đang gặp sự cố. Bạn thử lại sau một chút.',
 }
 
+/**
+ * Câu hiển thị ứng với một trạng thái của cổng.
+ *
+ * Xuất ra để đường chat dạng stream dùng **cùng câu chữ** với đường gọi có cấu trúc. Hai
+ * đường nói cùng một chuyện với người dùng thì phải nói giống nhau; chép lại câu chữ ở nơi
+ * khác là cách chắc chắn nhất để chúng lệch nhau.
+ */
+export function gatewayMessage(status: GatewayStatus): string | null {
+  return MESSAGES[status]
+}
+
 export function createAiGateway(deps: AiGatewayDeps): AiGateway {
   const env = deps.env ?? readAiEnv()
   const now = deps.now ?? ((): Date => new Date())
