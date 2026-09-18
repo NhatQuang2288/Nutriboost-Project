@@ -14,14 +14,21 @@ npm install
 # 2. Tạo file môi trường và điền khoá
 cp .env.example .env.local
 
-# 3. Kiểm tra mọi thứ chạy được (không cần Supabase hay Gemini thật)
+# 3. BẮT BUỘC: nối file đó vào thư mục app
+#    Next.js chỉ đọc .env.local trong apps/web, không đọc ở gốc monorepo.
+#    Bỏ bước này thì web vẫn chạy nhưng không thấy khoá nào và trợ lý Bơ
+#    im lặng trả lời mặc định — không có lỗi nào hiện ra.
+npm run env:link
+
+# 4. Kiểm tra mọi thứ chạy được (không cần Supabase hay Gemini thật)
 npm run typecheck && npm run lint && npm run test
 
-# 4. Chạy web
+# 5. Chạy web
 npm run dev
 ```
 
 Nếu `npm install` báo `EPERM`, xem mục "Cạm bẫy môi trường" trong `CLAUDE.md`.
+Nếu trợ lý Bơ trả lời chung chung, chạy `npm run env:check` trước tiên.
 
 ## Cấu trúc
 
@@ -88,8 +95,9 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
 npm run db:check    # chạy 5 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
-npm run test        # 311 test đơn vị
+npm run test        # 321 test đơn vị
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
 npm run e2e         # 72 test Playwright, desktop + mobile
 ```

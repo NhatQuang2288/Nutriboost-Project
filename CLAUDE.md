@@ -39,6 +39,7 @@ npm run dev            # chạy web ở http://localhost:3000
 npm run typecheck      # kiểm tra kiểu toàn workspace
 npm run lint
 npm run db:check       # chạy migration + seed trên PostgreSQL thật (không cần Docker)
+npm run env:link       # nối apps/web/.env.local → .env.local ở gốc (bắt buộc, chạy một lần)
 npm run env:check      # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run test           # vitest
 npm run e2e            # playwright (cần cài trình duyệt trước)
@@ -48,6 +49,21 @@ npm run eval           # chạy bộ đánh giá AI
 ```
 
 ## Cạm bẫy môi trường (đã gặp thật)
+
+### `.env.local` phải nằm trong `apps/web/` — chạy `npm run env:link`
+
+Next.js **chỉ đọc file env trong thư mục app**, không đọc ở gốc monorepo. Đặt
+`.env.local` ở gốc rồi chạy `npm run dev` thì ứng dụng vẫn khởi động, trang vẫn mở,
+nhưng **không biến nào được nạp**: Supabase trả về rỗng và trợ lý Bơ im lặng rơi về câu
+trả lời mặc định. Không có lỗi nào hiện ra để mà lần theo.
+
+```bash
+cp .env.example .env.local   # điền khoá vào file ở gốc
+npm run env:link             # nối apps/web/.env.local → ../../.env.local
+npm run env:check            # kiểm tra, bao gồm cả symlink này
+```
+
+Dùng symlink để chỉ có một file phải sửa. `env:check` báo lỗi nếu thiếu symlink.
 
 ### `npm install` lỗi EPERM
 
@@ -79,6 +95,23 @@ Nâng lên TypeScript 7 sẽ phá toolchain lint. Chỉ nâng khi `typescript-es
 - Mọi hằng số dinh dưỡng phải kèm nguồn tham chiếu trong comment.
 - Comment và chuỗi hiển thị bằng tiếng Việt có dấu đầy đủ.
 - Chữ trong UI là tiếng Việt, giọng thân thiện, không dùng từ "chữa bệnh".
+
+### Công cụ của trợ lý Bơ không được ném lỗi
+
+Khi một tool không làm được việc được yêu cầu, **trả về `toolRefusal(message)`** thay vì
+`throw`. AI SDK che nội dung lỗi trước khi nó tới model, nên model không biết vì sao và sẽ
+tự bịa ra lý do. Đã xảy ra thật: khi chưa nối cơ sở dữ liệu, Bơ nói với người dùng "lỗi hệ
+thống tạm thời, bạn thử lại sau" — trong khi thử lại bao nhiêu lần cũng không được.
+
+`message` phải nói thẳng sự thật và chỉ rõ model phải nói gì. Cầu nối trong
+`packages/ai/src/chat.ts` bỏ qua kết quả từ chối nên không có thẻ giao diện nào được dựng.
+
+### Đầu ra công cụ phải tới được giao diện
+
+Model phát ra phần `tool-*`, còn giao diện **chỉ vẽ từ `data-*`**. Cầu nối
+`bridgeToolOutputsToDataParts` trong `packages/ai/src/chat.ts` làm việc đó. Thêm tool mới
+thì phải có tên trong `TOOL_TO_COMPONENT`, nếu không giao diện sẽ im lặng không hiện gì —
+không lỗi, không log. `packages/ai/src/__tests__/chat.test.ts` khoá bất biến này lại.
 
 ## Trước khi mở PR
 

@@ -39,7 +39,15 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npx next start --port 3210',
+    /*
+     * Build lại ngay trong webServer, có chủ ý.
+     *
+     * `NEXT_PUBLIC_*` được nhúng vào bundle LÚC BUILD, không phải lúc chạy. Nếu dùng bản
+     * build sẵn trên máy — bản đó mang cấu hình Supabase thật trong `.env.local` — thì
+     * các test kiểm hành vi "chưa cấu hình Supabase" sẽ hỏng. Tự build với biến giả ở
+     * dưới khiến bộ test không phụ thuộc vào trạng thái máy của từng người.
+     */
+    command: 'npx next build && npx next start --port 3210',
     cwd: 'apps/web',
     url: 'http://127.0.0.1:3210/hom-nay',
     reuseExistingServer: process.env.CI !== 'true',
@@ -49,6 +57,18 @@ export default defineConfig({
       // nên test không phụ thuộc dịch vụ ngoài và không tốn tiền.
       AI_KILL_SWITCH: 'true',
       GEMINI_API_KEY: '',
+      /*
+       * Phải khai báo RỖNG, không được bỏ trống hai dòng này.
+       *
+       * `@next/env` chỉ lấy biến từ `.env.local` khi biến đó CHƯA có trong `process.env`.
+       * Không khai báo gì thì file `.env.local` của máy — vốn tồn tại thật nhờ
+       * `npm run env:link` — sẽ được nạp, và ba test "nói thẳng là chưa cấu hình
+       * Supabase" sẽ đỏ ngay trên máy đã cấu hình, trong khi vẫn xanh trên CI.
+       * Khai báo rỗng thì `readSupabaseConfig()` coi như chưa cấu hình, đúng ý định.
+       */
+      NEXT_PUBLIC_SUPABASE_URL: '',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: '',
+      SUPABASE_SERVICE_ROLE_KEY: '',
     },
   },
 })

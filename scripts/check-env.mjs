@@ -11,9 +11,18 @@
  * Không in khoá ra màn hình, chỉ in tiền tố và độ dài.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const ENV_FILE = '.env.local'
+
+/**
+ * Next.js đọc `.env.local` trong **thư mục app**, không đọc ở gốc monorepo.
+ * App nằm ở `apps/web` nên file ở gốc một mình là vô ích với `npm run dev`.
+ *
+ * Cách chữa: symlink `apps/web/.env.local` trỏ về file gốc. Một nguồn duy nhất,
+ * cả script này lẫn Next đều đọc đúng.
+ */
+const APP_ENV_LINK = 'apps/web/.env.local'
 
 /** Biến bắt buộc phải có. */
 const REQUIRED = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']
@@ -122,6 +131,24 @@ async function main() {
     console.error('`npx supabase@2.117.0 status` để in lại.')
     process.exit(1)
   }
+
+  /*
+   * Next.js đọc env trong thư mục app, không đọc ở gốc monorepo. Thiếu symlink này thì
+   * `npm run dev` vẫn khởi động bình thường nhưng không thấy khoá nào — trợ lý Bơ âm
+   * thầm rơi về câu trả lời mặc định và không có lỗi nào hiện ra. Vì vậy đây là kiểm
+   * tra bắt buộc chứ không phải lời khuyên.
+   */
+  console.info('')
+  console.info('Next.js có đọc được file này không')
+  if (!existsSync(APP_ENV_LINK)) {
+    console.error(`  LỖI   thiếu ${APP_ENV_LINK}`)
+    console.error('        Không có nó, Next.js KHÔNG thấy biến nào, và trợ lý Bơ')
+    console.error('        im lặng trả về câu mặc định chứ không báo lỗi.')
+    console.error('')
+    console.error('        Chạy: npm run env:link')
+    process.exit(1)
+  }
+  console.info(`  OK    ${APP_ENV_LINK} → ${ENV_FILE}`)
 
   const url = env.get('NEXT_PUBLIC_SUPABASE_URL')
   const anonKey = env.get('NEXT_PUBLIC_SUPABASE_ANON_KEY')
