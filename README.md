@@ -88,6 +88,7 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
 npm run db:check    # chạy 5 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run test        # 311 test đơn vị
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
 npm run e2e         # 72 test Playwright, desktop + mobile
@@ -96,6 +97,10 @@ npm run e2e         # 72 test Playwright, desktop + mobile
 `npm run db:check` là bước bắt buộc trước khi chạy `supabase db reset`: nó dựng một
 PostgreSQL thật trong bộ nhớ, chạy cả 5 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
 lỗi cú pháp PL/pgSQL và lỗi ràng buộc dữ liệu lộ ra ở CI thay vì ở máy từng người.
+
+`npm run env:check` chạy sau khi điền `.env.local`: nó xác nhận khoá hợp lệ, seed đã nạp,
+và **RLS đang chặn đúng** — service role đọc được 51 món trong khi người chưa đăng nhập
+đọc được 0 dòng. Lệnh này cần Supabase đang chạy nên chỉ dùng ở máy, không đưa vào CI.
 
 ## Việc còn lại của nhóm
 
