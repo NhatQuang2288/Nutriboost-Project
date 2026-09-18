@@ -105,7 +105,7 @@ npm run db:check    # chạy 10 migration + seed trên PostgreSQL thật (PGlite
 npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run check:live  # kiểm chứng đường dữ liệu thật qua PostgREST + RLS thật (cần Supabase)
-npm run test        # 454 test đơn vị, trong đó 55 test RLS chạy trên PostgreSQL thật
+npm run test        # 461 test đơn vị, trong đó 55 test RLS chạy trên PostgreSQL thật
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
 npm run e2e         # 78 test Playwright, desktop + mobile
 npm run icons:generate  # sinh lại icon PWA (chỉ cần khi đổi hình)

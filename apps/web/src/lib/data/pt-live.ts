@@ -1,4 +1,4 @@
-import { buildPlan, buildWorkoutPlan } from '@nutriboost/ai'
+import { buildPlan, buildWorkoutPlan, type ReminderKind } from '@nutriboost/ai'
 import { type Goal } from '@nutriboost/nutrition'
 import { EXERCISES, buildDataset } from '@nutriboost/seed'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -13,6 +13,7 @@ import {
   type PtClient,
   type PtClientDetail,
   type PtOverview,
+  type PtReminderView,
   type PtSubscription,
   type PtTier,
   TIER_LABELS,
@@ -148,6 +149,35 @@ export async function readLivePtOverview(now: Date): Promise<PtOverview | null> 
   }
 }
 
+/**
+ * Gói để **đánh dấu** trên bảng giá, hoặc `null` khi không gói nào là của người đang xem.
+ *
+ * Ba kết quả, và cả ba đều có nghĩa:
+ *   • Có gói → đánh dấu đúng gói đó.
+ *   • Là PT nhưng chưa mua gói → `null`. Đánh dấu "Plus" cho họ là nói dối về thứ họ chưa mua.
+ *   • Không có phiên (chế độ dữ liệu mẫu) → gói giả định của PT mẫu, để giao diện có nội dung.
+ *     Bộ kiểm thử đầu-cuối chạy ở nhánh này.
+ */
+export async function readCurrentTierForDisplay(): Promise<PtTier | null> {
+  const user = await getSessionUser()
+  if (user === null) return 'plus'
+  if (user.role !== 'pt') return null
+
+  const supabase = await createSupabaseServerClient()
+  if (supabase === null) return 'plus'
+
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('tier')
+    .eq('owner_id', user.id)
+    .in('status', ['trialing', 'active', 'past_due'])
+    .order('current_period_end', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return data === null ? null : (data as { tier: PtTier }).tier
+}
+
 export async function readLivePtClientDetail(
   clientId: string,
   now: Date,
@@ -175,12 +205,13 @@ export async function readLivePtClientDetail(
   const today = localDateIn(DEFAULT_TIMEZONE, now)
   const weekStart = startOfWeekIso(today)
 
-  const [profiles, healths, weights, summaries, drafts] = await Promise.all([
+  const [profiles, healths, weights, summaries, drafts, reminders] = await Promise.all([
     readProfiles(supabase, [clientId]),
     readHealthProfiles(supabase, [clientId]),
     readWeights(supabase, [clientId], today),
     readSummaries(supabase, [clientId], today),
     readDraftPlans(supabase, [clientId]),
+    readReminders(supabase, clientId),
   ])
 
   const profile = profiles.get(clientId)
@@ -227,7 +258,14 @@ export async function readLivePtClientDetail(
     exercises: EXERCISES,
   })
 
-  return { source: 'live', client, plan, workout, targetKcal: targets.targetKcal }
+  return {
+    source: 'live',
+    client,
+    plan,
+    workout,
+    targetKcal: targets.targetKcal,
+    reminders,
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -503,6 +541,33 @@ async function readDraftPlans(
         entry === undefined || entry.days.size === 0 ? 0 : Math.round(entry.kcal / entry.days.size),
     }
   })
+}
+
+/**
+ * Luật nhắc nhở đang bật của một khách.
+ *
+ * Chỉ lấy luật `enabled` — một luật đã tắt không phải là "nhắc nhở đang bật", và hiện nó ra
+ * sẽ khiến PT tưởng khách đang được nhắc trong khi không phải.
+ */
+async function readReminders(
+  supabase: SupabaseClient,
+  clientId: string,
+): Promise<PtReminderView[]> {
+  const { data } = await supabase
+    .from('reminder_rules')
+    .select('id, kind, time_of_day, days')
+    .eq('user_id', clientId)
+    .eq('enabled', true)
+    .order('time_of_day', { ascending: true })
+
+  return (
+    (data ?? []) as { id: string; kind: ReminderKind; time_of_day: string; days: number[] }[]
+  ).map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    timeOfDay: row.time_of_day,
+    days: row.days ?? [],
+  }))
 }
 
 /* ---------------------------------------------------------------------------

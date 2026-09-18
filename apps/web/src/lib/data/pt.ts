@@ -1,3 +1,4 @@
+import { type ReminderKind } from '@nutriboost/ai'
 import { type Goal } from '@nutriboost/nutrition'
 import { buildPlan, buildWorkoutPlan, type BuiltPlan, type BuiltWorkoutPlan } from '@nutriboost/ai'
 import { EXERCISES, buildDataset } from '@nutriboost/seed'
@@ -5,7 +6,7 @@ import { EXERCISES, buildDataset } from '@nutriboost/seed'
 import { DEFAULT_TIMEZONE, localDateIn } from '@/lib/date'
 
 import { startOfWeekIso } from './plan'
-import { readLivePtClientDetail, readLivePtOverview } from './pt-live'
+import { readCurrentTierForDisplay, readLivePtClientDetail, readLivePtOverview } from './pt-live'
 
 /**
  * Lớp dữ liệu của console PT.
@@ -94,12 +95,50 @@ export interface PtOverview {
   weekStart: string
 }
 
+/**
+ * Một luật nhắc nhở của khách, đọc từ `reminder_rules`.
+ *
+ * Trước đây khối "Nhắc nhở đang bật" trong hồ sơ khách là chữ viết cứng trong trang: ba dòng
+ * "12:30 mỗi ngày", "07:00 thứ Hai", "18:00 các ngày tập" hiện ra cho **mọi** khách, kể cả
+ * khách chưa từng bật nhắc nhở nào. Với dữ liệu mẫu thì vô hại; với một khách thật thì đó là
+ * nói sai về cài đặt của họ.
+ */
+export interface PtReminderView {
+  id: string
+  kind: ReminderKind
+  timeOfDay: string
+  /** 0 = Chủ nhật … 6 = Thứ bảy, giống `reminder_rules.days`. */
+  days: readonly number[]
+}
+
+const WEEKDAY_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] as const
+
+/**
+ * Ngày trong tuần của một luật nhắc, viết gọn.
+ *
+ * Viết riêng thay vì dùng `weekdayLabel` của `lib/date`: hàm đó nhận một `Date` và trả về
+ * "Thứ Năm" — đúng cho một ngày cụ thể, nhưng ở đây là một *tập* ngày lặp lại hằng tuần, và
+ * "T2, T4, T6" đọc nhanh hơn "Thứ Hai, Thứ Tư, Thứ Sáu" khi đã có ba luật trên màn hình.
+ */
+export function formatReminderDays(days: readonly number[]): string {
+  // Khử trùng lặp: CSDL không cấm một luật khai trùng ngày, và "T2, T2" là lỗi hiển thị.
+  const unique = [...new Set(days.filter((day) => day >= 0 && day <= 6))].sort((a, b) => a - b)
+
+  if (unique.length === 0) return 'không ngày nào'
+  if (unique.length === 7) return 'mỗi ngày'
+  if (unique.length === 5 && [1, 2, 3, 4, 5].every((day) => unique.includes(day))) {
+    return 'các ngày trong tuần'
+  }
+  return unique.map((day) => WEEKDAY_SHORT[day] ?? '?').join(', ')
+}
+
 export interface PtClientDetail {
   source: 'demo' | 'live'
   client: PtClient
   plan: BuiltPlan
   workout: BuiltWorkoutPlan
   targetKcal: number
+  reminders: readonly PtReminderView[]
 }
 
 /**
@@ -198,6 +237,12 @@ function goalsFor(goal: Goal, weightKg: number) {
     fatG: goal === 'lose' ? 55 : 70,
   }
 }
+
+const DEMO_REMINDERS: readonly PtReminderView[] = [
+  { id: 'demo-log-meal', kind: 'log_meal', timeOfDay: '12:30', days: [0, 1, 2, 3, 4, 5, 6] },
+  { id: 'demo-weigh-in', kind: 'weigh_in', timeOfDay: '07:00', days: [1] },
+  { id: 'demo-workout', kind: 'workout', timeOfDay: '18:00', days: [1, 3, 5] },
+]
 
 const CLIENT_WEIGHTS: Readonly<Record<string, number>> = {
   minh: 74,
@@ -316,7 +361,15 @@ function buildDemoClientDetail(clientId: string, now: Date): PtClientDetail | nu
     exercises: EXERCISES,
   })
 
-  return { source: 'demo', client, plan, workout, targetKcal: targets.targetKcal }
+  return {
+    source: 'demo',
+    client,
+    plan,
+    workout,
+    targetKcal: targets.targetKcal,
+    // Dữ liệu mẫu: ba luật điển hình, để giao diện có nội dung mà dựng.
+    reminders: DEMO_REMINDERS,
+  }
 }
 
 /** Danh sách gói để hiển thị ở tab Gói dịch vụ. */
@@ -330,7 +383,11 @@ export interface TierOffer {
   current: boolean
 }
 
-export function getTierOffers(): TierOffer[] {
+export async function getTierOffers(): Promise<TierOffer[]> {
+  // Gói để đánh dấu đọc từ CSDL, không phải hằng số. Trước đây chỗ này luôn đánh dấu Plus,
+  // nên một PT đang dùng gói Diamond vẫn thấy "gói hiện tại" nằm ở Plus.
+  const currentTier = await readCurrentTierForDisplay()
+
   return (['plus', 'premium', 'diamond'] as const).map((tier) => {
     const config = TIER_CONFIG[tier]
     return {
@@ -340,7 +397,7 @@ export function getTierOffers(): TierOffer[] {
       clientLimit: config.clientLimit,
       pricePerClient: Math.round(config.priceVnd / config.clientLimit),
       aiTurnsPerClient: 600,
-      current: tier === CURRENT_TIER,
+      current: tier === currentTier,
     }
   })
 }

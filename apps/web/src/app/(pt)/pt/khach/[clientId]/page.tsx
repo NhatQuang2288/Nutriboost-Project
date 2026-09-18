@@ -2,10 +2,17 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-import { BoIcon, CalendarIcon, ChevronLeftIcon, FlameIcon, ScaleIcon } from '@/components/icons'
+import { REMINDER_LABELS, QUIET_HOURS_END, QUIET_HOURS_START } from '@nutriboost/ai'
+
+import { BoIcon, CalendarIcon, ChevronLeftIcon, FlameIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 import { MEAL_LABELS, type MealType } from '@/lib/data/today'
-import { CLIENT_STATUS_LABELS, formatVnd, getPtClientDetail } from '@/lib/data/pt'
+import {
+  CLIENT_STATUS_LABELS,
+  formatReminderDays,
+  formatVnd,
+  getPtClientDetail,
+} from '@/lib/data/pt'
 
 export const metadata: Metadata = { title: 'Hồ sơ khách hàng' }
 export const dynamic = 'force-dynamic'
@@ -19,7 +26,7 @@ export default async function PtClientPage({ params }: { params: Promise<{ clien
 
   if (detail === null) notFound()
 
-  const { client, plan, workout, targetKcal } = detail
+  const { client, plan, workout, targetKcal, reminders } = detail
 
   return (
     <div className="flex flex-col gap-5">
@@ -137,24 +144,40 @@ export default async function PtClientPage({ params }: { params: Promise<{ clien
       </Card>
 
       <Card>
-        <SectionTitle>Nhắc nhở đang bật</SectionTitle>
-        <ul className="text-body text-ink-muted flex flex-col gap-2">
-          <li className="flex items-center gap-2">
-            <CalendarIcon size={15} className="text-ink-faint" />
-            Ghi bữa ăn — 12:30 mỗi ngày
-          </li>
-          <li className="flex items-center gap-2">
-            <ScaleIcon size={15} className="text-ink-faint" />
-            Cân nặng — 07:00 thứ Hai
-          </li>
-          <li className="flex items-center gap-2">
-            <FlameIcon size={15} className="text-ink-faint" />
-            Buổi tập — 18:00 các ngày tập
-          </li>
-        </ul>
+        <SectionTitle
+          action={
+            <span className="text-caption text-ink-faint">
+              {reminders.length === 0 ? 'chưa bật' : `${reminders.length} luật`}
+            </span>
+          }
+        >
+          Nhắc nhở đang bật
+        </SectionTitle>
+
+        {/*
+          Đọc từ `reminder_rules`, không phải chữ viết cứng. Trước đây khối này hiện ba dòng
+          "12:30 mỗi ngày", "07:00 thứ Hai", "18:00 các ngày tập" cho MỌI khách — kể cả khách
+          chưa bật nhắc nhở nào. Với dữ liệu mẫu thì vô hại; với một khách thật thì đó là nói
+          sai về cài đặt của họ.
+        */}
+        {reminders.length === 0 ? (
+          <p className="text-body text-ink-muted">
+            Khách chưa bật nhắc nhở nào. Bạn có thể nhắc họ bật trong ứng dụng.
+          </p>
+        ) : (
+          <ul className="text-body text-ink-muted flex flex-col gap-2">
+            {reminders.map((reminder) => (
+              <li key={reminder.id} className="flex items-center gap-2">
+                <CalendarIcon size={15} className="text-ink-faint shrink-0" />
+                {REMINDER_LABELS[reminder.kind]} — {reminder.timeOfDay}{' '}
+                {formatReminderDays(reminder.days)}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <p className="text-caption text-ink-faint mt-3">
-          Tối đa 4 lần nhắc mỗi ngày, không gửi trong khung 21:30–06:30. PT chỉnh được giờ nhắc cho
-          từng khách.
+          Không gửi trong khung {quietHoursLabel()}. PT chỉnh được giờ nhắc cho từng khách.
         </p>
       </Card>
 
@@ -206,4 +229,16 @@ function dayLabel(isoDate: string): string {
   if (year === undefined || month === undefined || day === undefined) return isoDate
   const index = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
   return `${WEEKDAYS[index] ?? ''} ${day}/${month}`
+}
+
+/**
+ * Khung giờ yên lặng, đọc từ hằng số của `@nutriboost/ai` thay vì chép lại.
+ *
+ * Chép lại thì sửa một bên là hai bên lệch nhau, và người dùng sẽ thấy ứng dụng nhắc trong
+ * đúng khung giờ mà nó tuyên bố là không nhắc.
+ */
+function quietHoursLabel(): string {
+  const format = (minutes: number): string =>
+    `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+  return `${format(QUIET_HOURS_START)}–${format(QUIET_HOURS_END)}`
 }

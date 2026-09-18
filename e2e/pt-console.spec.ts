@@ -143,10 +143,17 @@ test.describe('hồ sơ khách hàng', () => {
     await expect(page.getByText('86%')).toBeVisible()
   })
 
-  test('hiện nhắc nhở đang bật kèm giới hạn tần suất', async ({ page }) => {
+  test('hiện nhắc nhở đang bật, đọc từ dữ liệu chứ không viết cứng trong trang', async ({
+    page,
+  }) => {
     await page.goto('/pt/khach/minh')
+
     await expect(page.getByRole('heading', { name: 'Nhắc nhở đang bật' })).toBeVisible()
-    await expect(page.getByText('Tối đa 4 lần nhắc mỗi ngày', { exact: false })).toBeVisible()
+    // Ba luật của dữ liệu mẫu, kèm ngày trong tuần viết gọn.
+    await expect(page.getByText('Nhắc ghi bữa ăn — 12:30 mỗi ngày')).toBeVisible()
+    await expect(page.getByText('Nhắc buổi tập — 18:00 T2, T4, T6')).toBeVisible()
+    // Khung giờ yên lặng lấy từ hằng số của @nutriboost/ai, không chép lại trong trang.
+    await expect(page.getByText('21:30–06:30', { exact: false })).toBeVisible()
   })
 
   test('khách không tồn tại trả 404', async ({ page }) => {

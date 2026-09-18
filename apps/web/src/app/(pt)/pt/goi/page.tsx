@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic'
  * mà bảng giá gốc chưa nêu, và là ràng buộc quyết định biên lợi nhuận (docs/PRICING.md §2).
  * Nói rõ ngay trên giao diện để tránh tranh chấp về sau.
  */
-export default function TiersPage() {
-  const offers = getTierOffers()
+export default async function TiersPage() {
+  const offers = await getTierOffers()
 
   return (
     <div className="flex flex-col gap-5">
