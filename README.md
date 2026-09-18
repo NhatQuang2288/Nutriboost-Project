@@ -103,6 +103,7 @@ npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng 
 npm run db:check    # chạy 9 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
 npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
+npm run check:live  # kiểm chứng đường dữ liệu thật qua PostgREST + RLS thật (cần Supabase)
 npm run test        # 425 test đơn vị, trong đó 52 test RLS chạy trên PostgreSQL thật
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
 npm run e2e         # 77 test Playwright, desktop + mobile

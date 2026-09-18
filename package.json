@@ -30,6 +30,7 @@
     "db:check": "node scripts/check-migrations.mjs",
     "env:link": "node scripts/link-env.mjs",
     "env:check": "node scripts/check-env.mjs",
+    "check:live": "node scripts/check-live.mjs",
     "icons:generate": "node scripts/generate-icons.mjs",
     "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts",
     "seed": "tsx packages/seed/src/cli.ts",
