@@ -21,6 +21,15 @@ type Props<K extends keyof typeof GENERATIVE_COMPONENTS> = z.infer<
 /* ------------------------------------------------------------------------- */
 
 export function FoodCandidateChips({ props }: { props: Props<'food_candidate_chips'> }) {
+  if (props.candidates.length === 0) {
+    // Trạng thái rỗng là bắt buộc: tra không ra cũng phải nói, không được biến mất im lặng.
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-3">
+        <p className="text-caption text-ink-muted">{props.promptText}</p>
+      </div>
+    )
+  }
+
   return (
     <div className="border-line-subtle bg-surface rounded-lg border p-3">
       <p className="text-caption text-ink-muted mb-2">{props.promptText}</p>
@@ -124,6 +133,17 @@ export function TargetSummaryCard({ props }: { props: Props<'target_summary_card
 }
 
 export function ProgressChartCard({ props }: { props: Props<'progress_chart_card'> }) {
+  if (props.points.length === 0) {
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-4">
+        <p className="text-body text-ink">Chưa đủ dữ liệu để vẽ biểu đồ</p>
+        <p className="text-caption text-ink-muted mt-1">
+          Cần ít nhất vài ngày ghi nhật ký. Ghi đều mỗi ngày để thấy xu hướng thật.
+        </p>
+      </div>
+    )
+  }
+
   const max = Math.max(...props.points.map((point) => point.value), 1)
 
   return (

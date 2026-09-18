@@ -6,12 +6,13 @@ import {
   buildChatStreamResponse,
   buildGuardrailInstructions,
   buildMockChatStreamResponse,
+  createAssistantTools,
   isOutOfScopeMedicalQuestion,
   readAiEnv,
 } from '@nutriboost/ai'
 import { assessSafety } from '@nutriboost/nutrition'
 
-import { estimateMeal } from '@/lib/ai/meal-estimator'
+import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { getTodayView } from '@/lib/data/today'
 
 export const dynamic = 'force-dynamic'
@@ -150,12 +151,25 @@ export async function POST(request: Request): Promise<Response> {
 
   if (env.apiKey !== null && !env.killSwitch) {
     try {
+      // Bộ công cụ tra cùng danh mục và cùng mục tiêu với màn hình, nên con số trong
+      // chat luôn khớp con số trên giao diện.
+      const tools = createAssistantTools({
+        catalogue: MEAL_CATALOGUE,
+        estimator: mealEstimator,
+        targets: view.targets,
+        safety,
+        today: view.localDate,
+        // `logMeal` và `readProgress` chưa được nối vì chưa có Supabase. Khi thiếu,
+        // công cụ tương ứng báo rõ là chưa ghi được, chứ không giả vờ thành công.
+      })
+
       return await buildChatStreamResponse({
         messages: messages as never,
         userId: null,
         screen,
         facts,
         guardrails,
+        tools,
         signal: request.signal,
       })
     } catch {

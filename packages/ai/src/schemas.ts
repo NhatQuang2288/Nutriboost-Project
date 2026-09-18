@@ -8,7 +8,21 @@ import { z } from 'zod'
  * nhưng model vẫn có thể trả sai, nên luôn kiểm tra lại.
  * ======================================================================= */
 
-const uuid = z.string().uuid()
+/**
+ * Tham chiếu tới một món trong danh mục.
+ *
+ * Chấp nhận cả hai dạng id đang tồn tại song song:
+ *   • **slug** — danh mục trong `@nutriboost/seed` (ví dụ `pho-bo`), dùng khi chưa nối CSDL;
+ *   • **UUID** — khoá chính bảng `foods` khi đã nối Supabase.
+ *
+ * Trước đây trường này bắt buộc là UUID, nên khi chạy bằng danh mục seed thì id món
+ * luôn phải để `null` và thẻ xác nhận mất liên kết tới món.
+ */
+const foodRef = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9-]*$/i, 'Id món chỉ gồm chữ, số và dấu gạch ngang')
 
 const mealType = z.enum(['breakfast', 'lunch', 'dinner', 'snack'])
 
@@ -27,7 +41,7 @@ const severity = z.enum(['info', 'warning', 'refer'])
  */
 export const parsedMealItemSchema = z.object({
   /** Id món trong CSDL, hoặc null khi không món nào trong danh sách khớp. */
-  foodId: uuid.nullable(),
+  foodId: foodRef.nullable(),
   /** Tên món viết lại bằng tiếng Việt có dấu, để hiển thị. */
   displayName: z.string().min(1).max(120),
   /** Khối lượng ước lượng, gram. */
@@ -59,7 +73,7 @@ export const planDraftItemSchema = z.object({
   /** 0 = ngày đầu tuần. */
   dayOffset: z.number().int().min(0).max(6),
   mealType,
-  foodId: uuid,
+  foodId: foodRef,
   displayName: z.string().min(1).max(120),
   grams: z.number().min(1).max(2000),
   /** Lý do ngắn gọn, hiển thị được cho người dùng. Tối đa 140 ký tự. */
@@ -107,7 +121,7 @@ export const threadTitleSchema = z.object({
  * ------------------------------------------------------------------------- */
 
 export const foodCandidateSchema = z.object({
-  foodId: uuid,
+  foodId: foodRef,
   nameVi: z.string().min(1).max(120),
   servingName: z.string().max(60).nullable(),
   servingGrams: z.number().min(1).max(2000).nullable(),
@@ -115,7 +129,7 @@ export const foodCandidateSchema = z.object({
 })
 
 export const mealConfirmItemSchema = z.object({
-  foodId: uuid.nullable(),
+  foodId: foodRef.nullable(),
   displayName: z.string().min(1).max(120),
   grams: z.number().min(0).max(3000),
   kcal: z.number().min(0).max(5000),
@@ -134,7 +148,9 @@ export const macroSummarySchema = z.object({
 
 export const GENERATIVE_COMPONENTS = {
   food_candidate_chips: z.object({
-    candidates: z.array(foodCandidateSchema).min(1).max(8),
+    // Cho phép rỗng: khi không tìm thấy món nào, thẻ hiển thị lời nhắn thay vì biến mất
+    // im lặng — người dùng cần biết là đã tra nhưng không ra.
+    candidates: z.array(foodCandidateSchema).max(8),
     promptText: z.string().max(120),
   }),
 

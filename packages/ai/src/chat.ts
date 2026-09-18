@@ -3,7 +3,9 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
   streamText,
+  type ToolSet,
   type UIMessage,
 } from 'ai'
 
@@ -42,6 +44,10 @@ export interface ChatStreamOptions {
   facts: readonly string[]
   guardrails: GuardrailInstructions
   rollingSummary?: string | null
+  /** Bộ công cụ của trợ lý. Có tool thì model mới tra cứu và ghi dữ liệu được. */
+  tools?: ToolSet
+  /** Số vòng model được gọi tool rồi trả lời. Mặc định 4. */
+  maxSteps?: number
   /** Ghi nhật ký sau khi stream xong. Lỗi ở đây không được làm hỏng stream. */
   onFinish?: (info: {
     text: string
@@ -92,6 +98,11 @@ export async function buildChatStreamResponse(options: ChatStreamOptions): Promi
     messages: modelMessages,
     maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: DEFAULT_TEMPERATURE,
+    // Có tool thì cho model gọi tool rồi trả lời, tối đa vài vòng. Nhờ vậy mọi con số
+    // trong câu trả lời đều đến từ công cụ, không phải từ trí nhớ của model.
+    ...(options.tools === undefined
+      ? {}
+      : { tools: options.tools, stopWhen: stepCountIs(options.maxSteps ?? 4) }),
     ...(options.signal === undefined ? {} : { abortSignal: options.signal }),
     onFinish: async ({ text, usage }) => {
       if (options.onFinish === undefined) return

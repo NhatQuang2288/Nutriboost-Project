@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./schemas": "./src/schemas.ts",
     "./identity": "./src/identity.ts",
-    "./guardrails": "./src/guardrails.ts"
+    "./guardrails": "./src/guardrails.ts",
+    "./tools": "./src/tools/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -11,10 +11,18 @@ import { buildDataset } from '@nutriboost/seed'
  * (pg_trgm) — phần còn lại không đổi.
  */
 
-const estimator = createMealEstimator(buildDataset().all)
+const CATALOGUE = buildDataset().all
+
+const estimator = createMealEstimator(CATALOGUE)
 
 export const estimateMeal = estimator.estimate
 export const suggestFoods = estimator.suggest
+
+/** Danh mục món đang dùng, để bộ công cụ AI tra cứu cùng một nguồn dữ liệu. */
+export const MEAL_CATALOGUE = CATALOGUE
+
+/** Chính bộ ước lượng này, dùng khi cần tiêm vào bộ công cụ. */
+export const mealEstimator = estimator
 
 export { detectServingMultiplier } from '@nutriboost/ai'
 export type { EstimatedItem, MealCatalogueEntry, MealEstimate } from '@nutriboost/ai'
