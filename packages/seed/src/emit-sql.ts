@@ -1,3 +1,4 @@
+import { EXERCISES, EXERCISE_SOURCE } from './data/exercises'
 import type { BuiltDataset } from './index'
 
 /**
@@ -144,6 +145,55 @@ export function emitDishComponentsSql(dataset: BuiltDataset): string {
   ].join('\n')
 }
 
+export function emitExercisesSql(): string {
+  const columns = [
+    'slug',
+    'name_vi',
+    'muscle_group',
+    'equipment',
+    'level',
+    'measure',
+    'met',
+    'contraindications',
+    'cue',
+    'source_ref',
+  ]
+
+  const values = EXERCISES.map((exercise) => {
+    const contraindications =
+      exercise.contraindications === undefined || exercise.contraindications.length === 0
+        ? "'{}'::public.injury_area[]"
+        : `array[${exercise.contraindications.map((area) => sqlString(area)).join(', ')}]::public.injury_area[]`
+
+    return [
+      sqlString(exercise.slug),
+      sqlString(exercise.nameVi),
+      sqlString(exercise.muscleGroup),
+      sqlString(exercise.equipment),
+      sqlString(exercise.level),
+      sqlString(exercise.measure),
+      String(exercise.met),
+      contraindications,
+      sqlString(exercise.cue),
+      sqlString(EXERCISE_SOURCE),
+    ].join(', ')
+  })
+
+  const updates = columns
+    .filter((column) => column !== 'slug')
+    .map((column) => `    ${column} = excluded.${column}`)
+    .join(',\n')
+
+  return [
+    `insert into public.exercises (${columns.join(', ')})`,
+    'values',
+    values.map((row) => `  (${row})`).join(',\n'),
+    'on conflict (slug) do update set',
+    updates,
+    ';',
+  ].join('\n')
+}
+
 export function emitSeedSql(dataset: BuiltDataset): string {
   return [
     HEADER,
@@ -160,6 +210,10 @@ export function emitSeedSql(dataset: BuiltDataset): string {
     '--    Bước này khiến CSDL trở thành nguồn chân lý: dù file trên có sai sót,',
     '--    con số cuối cùng vẫn nhất quán với thành phần.',
     "select public.recompute_dish_nutrients(id) from public.foods where kind = 'dish';",
+    '',
+    '-- 5. Danh mục bài tập',
+    '--    MET là nguồn chân lý để tính kcal đốt của buổi tập; không được để model tự đoán.',
+    emitExercisesSql(),
     '',
   ].join('\n')
 }

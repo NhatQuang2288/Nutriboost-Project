@@ -225,3 +225,52 @@ on conflict (dish_id, ingredient_id) do update set grams = excluded.grams;
 --    Bước này khiến CSDL trở thành nguồn chân lý: dù file trên có sai sót,
 --    con số cuối cùng vẫn nhất quán với thành phần.
 select public.recompute_dish_nutrients(id) from public.foods where kind = 'dish';
+
+-- 5. Danh mục bài tập
+--    MET là nguồn chân lý để tính kcal đốt của buổi tập; không được để model tự đoán.
+insert into public.exercises (slug, name_vi, muscle_group, equipment, level, measure, met, contraindications, cue, source_ref)
+values
+  ('squat-bodyweight', 'Squat không tạ', 'legs', 'bodyweight', 'beginner', 'reps', 5, '{}'::public.injury_area[], 'Hạ hông như ngồi xuống ghế, đầu gối hướng theo mũi chân.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('squat-goblet', 'Goblet squat', 'legs', 'dumbbell', 'beginner', 'reps', 5, '{}'::public.injury_area[], 'Ôm tạ trước ngực, giữ thân trên thẳng.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('lunge', 'Chùng chân (lunge)', 'legs', 'bodyweight', 'beginner', 'reps', 5, array['knee']::public.injury_area[], 'Bước tới, hạ gối sau gần sàn rồi đẩy về.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('deadlift-romanian', 'Romanian deadlift', 'glutes', 'barbell', 'intermediate', 'reps', 6, array['lower_back']::public.injury_area[], 'Đẩy hông ra sau, giữ lưng thẳng, cảm nhận căng mặt sau đùi.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('hip-thrust', 'Hip thrust', 'glutes', 'barbell', 'intermediate', 'reps', 5, '{}'::public.injury_area[], 'Tựa lưng trên ghế, siết mông ở đỉnh rồi hạ chậm.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('calf-raise', 'Nhón gót', 'legs', 'bodyweight', 'beginner', 'reps', 3.5, '{}'::public.injury_area[], 'Lên hết cỡ rồi hạ chậm, không nảy.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('leg-press', 'Đạp đùi máy', 'legs', 'machine', 'beginner', 'reps', 5, '{}'::public.injury_area[], 'Không khoá khớp gối ở đỉnh.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('push-up', 'Hít đất', 'chest', 'bodyweight', 'beginner', 'reps', 4.3, array['wrist', 'shoulder']::public.injury_area[], 'Thân người thành một đường thẳng, khuỷu tay hơi khép.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('bench-press', 'Đẩy ngực ghế ngang', 'chest', 'barbell', 'intermediate', 'reps', 5, array['shoulder']::public.injury_area[], 'Siết vai về sau, hạ tạ tới ngang ngực.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('dumbbell-shoulder-press', 'Đẩy vai tạ đơn', 'shoulders', 'dumbbell', 'beginner', 'reps', 5, array['shoulder']::public.injury_area[], 'Đẩy thẳng lên, không ưỡn lưng.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('lateral-raise', 'Nâng vai ngang', 'shoulders', 'dumbbell', 'beginner', 'reps', 4, '{}'::public.injury_area[], 'Nâng tới ngang vai, khuỷu hơi cong.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('triceps-dip', 'Chống xà kép', 'arms', 'bodyweight', 'intermediate', 'reps', 5, array['shoulder', 'wrist']::public.injury_area[], 'Hạ tới khi khuỷu vuông góc rồi đẩy lên.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('pull-up', 'Hít xà', 'back', 'bodyweight', 'advanced', 'reps', 8, array['shoulder', 'wrist']::public.injury_area[], 'Kéo bằng lưng, không đung đưa người.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('lat-pulldown', 'Kéo xô máy', 'back', 'machine', 'beginner', 'reps', 5, '{}'::public.injury_area[], 'Kéo thanh về ngực trên, siết xô ở cuối.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('seated-row', 'Kéo cáp ngồi', 'back', 'machine', 'beginner', 'reps', 5, '{}'::public.injury_area[], 'Giữ lưng thẳng, kéo khuỷu ra sau.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('band-row', 'Kéo dây kháng lực', 'back', 'band', 'beginner', 'reps', 4, '{}'::public.injury_area[], 'Siết bả vai lại với nhau ở cuối động tác.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('biceps-curl', 'Cuốn tay trước', 'arms', 'dumbbell', 'beginner', 'reps', 3.5, '{}'::public.injury_area[], 'Giữ khuỷu cố định, không vung người.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('plank', 'Plank', 'core', 'bodyweight', 'beginner', 'time', 3.5, '{}'::public.injury_area[], 'Siết bụng và mông, giữ hông không võng.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('dead-bug', 'Dead bug', 'core', 'bodyweight', 'beginner', 'reps', 3, '{}'::public.injury_area[], 'Giữ lưng dưới áp sàn suốt động tác.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('russian-twist', 'Xoay người kiểu Nga', 'core', 'bodyweight', 'intermediate', 'reps', 4, array['lower_back']::public.injury_area[], 'Xoay từ thân trên, không kéo bằng tay.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('hanging-leg-raise', 'Treo xà nâng chân', 'core', 'bodyweight', 'advanced', 'reps', 5, array['shoulder', 'lower_back']::public.injury_area[], 'Nâng chân có kiểm soát, không đung đưa.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('walking-brisk', 'Đi bộ nhanh', 'cardio', 'bodyweight', 'beginner', 'time', 4.3, '{}'::public.injury_area[], 'Đi nhanh tới mức nói được nhưng không hát được.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('running', 'Chạy bộ', 'cardio', 'bodyweight', 'intermediate', 'time', 9.8, array['knee', 'ankle']::public.injury_area[], 'Tiếp đất bằng giữa bàn chân, nhịp thở đều.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('cycling', 'Đạp xe', 'cardio', 'cardio_machine', 'beginner', 'time', 7.5, '{}'::public.injury_area[], 'Giữ nhịp đều, điều chỉnh lực cản vừa sức.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('rowing', 'Chèo thuyền máy', 'full_body', 'cardio_machine', 'intermediate', 'time', 7, array['lower_back']::public.injury_area[], 'Đẩy bằng chân trước, rồi mới kéo tay.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('jump-rope', 'Nhảy dây', 'cardio', 'bodyweight', 'intermediate', 'time', 10, array['knee', 'ankle']::public.injury_area[], 'Nhảy thấp, tiếp đất nhẹ bằng mũi chân.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('burpee', 'Burpee', 'full_body', 'bodyweight', 'advanced', 'time', 8, array['knee', 'lower_back', 'wrist']::public.injury_area[], 'Giữ nhịp đều, hạ xuống bằng tay chắc.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('mountain-climber', 'Leo núi tại chỗ', 'full_body', 'bodyweight', 'intermediate', 'time', 8, array['wrist']::public.injury_area[], 'Hông giữ thấp, đổi chân nhanh.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('kettlebell-swing', 'Vung tạ ấm', 'full_body', 'dumbbell', 'intermediate', 'reps', 9.8, array['lower_back']::public.injury_area[], 'Lực phát ra từ hông, tay chỉ giữ tạ.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('arm-circle', 'Xoay vai khởi động', 'mobility', 'bodyweight', 'beginner', 'time', 2.3, '{}'::public.injury_area[], 'Xoay chậm, tăng dần biên độ.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('cat-cow', 'Mèo–bò giãn cột sống', 'mobility', 'bodyweight', 'beginner', 'time', 2.3, '{}'::public.injury_area[], 'Phối hợp hơi thở với chuyển động.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('hip-opener', 'Giãn hông', 'mobility', 'bodyweight', 'beginner', 'time', 2.3, '{}'::public.injury_area[], 'Giữ 30 giây mỗi bên, không nảy.', 'MET theo 2011 Compendium of Physical Activities'),
+  ('hamstring-stretch', 'Giãn mặt sau đùi', 'mobility', 'bodyweight', 'beginner', 'time', 2.3, '{}'::public.injury_area[], 'Giữ thẳng lưng, gập từ hông.', 'MET theo 2011 Compendium of Physical Activities')
+on conflict (slug) do update set
+    name_vi = excluded.name_vi,
+    muscle_group = excluded.muscle_group,
+    equipment = excluded.equipment,
+    level = excluded.level,
+    measure = excluded.measure,
+    met = excluded.met,
+    contraindications = excluded.contraindications,
+    cue = excluded.cue,
+    source_ref = excluded.source_ref
+;
