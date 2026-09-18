@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
-import { ChevronRightIcon, InfoIcon, LeafIcon } from '@/components/icons'
+import { DeleteAccountCard } from '@/components/account/DeleteAccountCard'
+import { InfoIcon, LeafIcon, LogOutIcon, MailIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 import { ACTIVITY_LABELS } from '@nutriboost/nutrition'
 import { getTodayView } from '@/lib/data/today'
+import { getSessionUser } from '@/lib/supabase/server'
 
 export const metadata: Metadata = { title: 'Tôi' }
 export const dynamic = 'force-dynamic'
@@ -15,9 +16,10 @@ const GOAL_LABELS = {
   gain: 'Tăng cân',
 } as const
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
   const view = getTodayView()
   const { profile, targets } = view
+  const user = await getSessionUser()
 
   return (
     <div className="flex flex-col gap-5">
@@ -57,33 +59,48 @@ export default function ProfilePage() {
 
       <Card>
         <SectionTitle>Tài khoản</SectionTitle>
-        <nav className="flex flex-col">
-          <NavRow href="/toi" label="Chỉnh sửa hồ sơ" />
-          <NavRow href="/toi" label="Dị ứng và món không ăn" />
-          <NavRow href="/toi" label="Thông báo nhắc nhở" />
-        </nav>
+        {user === null ? (
+          <p className="text-body text-ink-muted">
+            Bạn đang dùng ở chế độ dữ liệu mẫu nên chưa có tài khoản. Điền khoá Supabase vào{' '}
+            <code className="text-caption">.env.local</code> rồi đăng nhập để Bơ nhớ hồ sơ của bạn.
+          </p>
+        ) : (
+          <div className="flex flex-col">
+            <div className="border-line-subtle flex items-center gap-2.5 border-b py-2.5">
+              <MailIcon size={16} className="text-ink-faint shrink-0" />
+              <span className="text-body text-ink truncate">{user.email ?? 'Không rõ email'}</span>
+            </div>
+            <form action="/dang-xuat" method="post" className="pt-3">
+              <button
+                type="submit"
+                className="border-line bg-surface text-ink text-label flex min-h-11 items-center justify-center gap-2 rounded-md border px-5 font-semibold transition-colors duration-(--duration-fast)"
+              >
+                <LogOutIcon size={16} />
+                Đăng xuất
+              </button>
+            </form>
+          </div>
+        )}
       </Card>
 
-      <Card className="border-warning/30 bg-warning-surface">
-        <div className="flex gap-3">
-          <span className="text-warning-text mt-0.5 shrink-0">
-            <InfoIcon size={18} />
-          </span>
-          <div className="flex flex-col gap-2">
-            <p className="text-body text-warning-text font-semibold">Quyền riêng tư dữ liệu</p>
-            <p className="text-caption text-warning-text">
-              Dữ liệu sức khoẻ của bạn chỉ dùng để tạo gợi ý trong ứng dụng. Bạn có thể yêu cầu xoá
-              toàn bộ dữ liệu bất cứ lúc nào.
-            </p>
-            <button
-              type="button"
-              className="border-warning/40 text-caption text-warning-text self-start rounded-md border px-3 py-2 font-semibold transition-colors duration-(--duration-fast)"
-            >
-              Xoá toàn bộ dữ liệu của tôi
-            </button>
+      {user === null ? (
+        <Card className="border-warning/30 bg-warning-surface">
+          <div className="flex gap-3">
+            <span className="text-warning-text mt-0.5 shrink-0">
+              <InfoIcon size={18} />
+            </span>
+            <div className="flex flex-col gap-1">
+              <p className="text-body text-warning-text font-semibold">Quyền riêng tư dữ liệu</p>
+              <p className="text-caption text-warning-text">
+                Dữ liệu sức khoẻ của bạn chỉ dùng để tạo gợi ý trong ứng dụng. Ở chế độ dữ liệu mẫu
+                không có dữ liệu nào của bạn được lưu, nên không có gì để xoá.
+              </p>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : (
+        <DeleteAccountCard />
+      )}
 
       <Disclaimer />
     </div>
@@ -100,17 +117,5 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
         {value}
       </dd>
     </div>
-  )
-}
-
-function NavRow({ href, label }: { href: '/toi'; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="touch-target border-line-subtle text-body text-ink flex items-center justify-between border-b py-3 last:border-b-0"
-    >
-      {label}
-      <ChevronRightIcon size={18} className="text-ink-faint" />
-    </Link>
   )
 }

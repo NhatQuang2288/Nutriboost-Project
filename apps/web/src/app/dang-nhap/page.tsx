@@ -2,7 +2,7 @@ import { isSupabaseConfigured } from '@nutriboost/db'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-import { BoIcon, InfoIcon } from '@/components/icons'
+import { BoIcon, CheckIcon, InfoIcon } from '@/components/icons'
 import { Disclaimer } from '@/components/ui'
 
 import { SignInForm } from './SignInForm'
@@ -10,6 +10,20 @@ import { SignInForm } from './SignInForm'
 export const metadata: Metadata = {
   title: 'Đăng nhập',
   robots: { index: false, follow: false },
+}
+
+/**
+ * Lời giải thích cho từng mã lỗi mà `/auth/callback` có thể trả về.
+ *
+ * Dùng mã chứ không truyền thẳng câu chữ qua URL: thông báo lỗi hiển thị cho người dùng
+ * không được phép do URL quyết định.
+ */
+const SIGN_IN_ERRORS: Readonly<Record<string, string>> = {
+  '': 'Không đăng nhập được. Bạn thử lại nhé.',
+  'chua-cau-hinh': 'Chưa cấu hình Supabase nên chưa đăng nhập được.',
+  'link-khong-dung':
+    'Liên kết này không dùng được. Có thể liên kết đã hết hạn, hoặc đã được dùng rồi. Bạn yêu cầu một liên kết mới nhé.',
+  'link-thieu-ma': 'Liên kết thiếu mã xác nhận. Bạn yêu cầu một liên kết mới nhé.',
 }
 
 /**
@@ -22,7 +36,12 @@ export const metadata: Metadata = {
  * Nhánh thứ hai tồn tại có chủ ý: cả đội phải dựng và kiểm thử được sản phẩm trước khi
  * có tài khoản Supabase.
  */
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; loi?: string; xong?: string }>
+}) {
+  const { next, loi, xong } = await searchParams
   const configured = isSupabaseConfigured()
 
   return (
@@ -38,8 +57,36 @@ export default function SignInPage() {
         <p className="text-body text-ink-muted">Đăng nhập để Bơ nhớ hồ sơ và nhật ký của bạn.</p>
       </header>
 
+      {xong === undefined ? null : (
+        <div
+          role="status"
+          className="border-success/30 bg-success-surface flex items-start gap-3 rounded-lg border p-4"
+        >
+          <span className="text-success-text mt-0.5 shrink-0">
+            <CheckIcon size={18} />
+          </span>
+          <p className="text-caption text-success-text">
+            Đã xoá toàn bộ dữ liệu và tài khoản của bạn. Cảm ơn bạn đã dùng NutriBoost.
+          </p>
+        </div>
+      )}
+
+      {loi === undefined ? null : (
+        <div
+          role="alert"
+          className="border-danger/30 bg-danger-surface flex items-start gap-3 rounded-lg border p-4"
+        >
+          <span className="text-danger-text mt-0.5 shrink-0">
+            <InfoIcon size={18} />
+          </span>
+          <p className="text-caption text-danger-text">
+            {SIGN_IN_ERRORS[loi] ?? SIGN_IN_ERRORS['']}
+          </p>
+        </div>
+      )}
+
       {configured ? (
-        <SignInForm />
+        <SignInForm {...(next === undefined ? {} : { next })} />
       ) : (
         <div className="border-warning/30 bg-warning-surface flex flex-col gap-3 rounded-lg border p-4">
           <div className="flex gap-3">

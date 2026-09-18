@@ -338,6 +338,29 @@ export function MicIcon(props: IconProps) {
   )
 }
 
+/* -------------------------------------------------------------------------
+ * Tài khoản
+ * ----------------------------------------------------------------------- */
+
+export function LogOutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14.5 4.5H6.5A1.5 1.5 0 0 0 5 6v12a1.5 1.5 0 0 0 1.5 1.5h8" />
+      <path d="M17 8.5 20.5 12 17 15.5" />
+      <path d="M10.5 12h10" />
+    </Icon>
+  )
+}
+
+export function MailIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="1.8" />
+      <path d="m4.5 7.5 7.5 5.2 7.5-5.2" />
+    </Icon>
+  )
+}
+
 export { BoIcon } from './BoIcon'
 export type { BoIconProps, BoIconState } from './BoIcon'
 export { BoMascot } from './BoMascot'

@@ -10,7 +10,7 @@ import { CheckIcon, SendIcon } from '@/components/icons'
  * Một ô nhập, một nút. Không mật khẩu, không bước xác nhận thứ hai — đúng nguyên tắc
  * "hạn chế thao tác cho người dùng".
  */
-export function SignInForm() {
+export function SignInForm({ next }: { next?: string }) {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [message, setMessage] = useState<string | null>(null)
@@ -27,7 +27,7 @@ export function SignInForm() {
       const response = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(next === undefined ? { email } : { email, next }),
       })
       const payload = (await response.json()) as { ok?: boolean; error?: string }
 

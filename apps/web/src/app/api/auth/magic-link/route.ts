@@ -1,8 +1,9 @@
-import { createServerClient } from '@supabase/ssr'
-import { readSupabaseConfig } from '@nutriboost/db'
-import { cookies } from 'next/headers'
+import { isSupabaseConfigured } from '@nutriboost/db'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+
+import { safeNextPath } from '@/lib/auth/redirect'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,11 +18,12 @@ export const dynamic = 'force-dynamic'
 
 const requestSchema = z.object({
   email: z.string().email('Email không hợp lệ'),
+  /** Đường dẫn quay lại sau khi đăng nhập. Chỉ nhận đường dẫn nội bộ. */
+  next: z.string().optional(),
 })
 
 export async function POST(request: Request): Promise<Response> {
-  const config = readSupabaseConfig()
-  if (config === null) {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json(
       {
         error:
@@ -47,22 +49,24 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  const cookieStore = await cookies()
-  const supabase = createServerClient(config.url, config.anonKey, {
-    cookies: {
-      getAll: () => cookieStore.getAll(),
-      setAll: (list) => {
-        for (const { name, value, options } of list) {
-          cookieStore.set(name, value, options)
-        }
-      },
-    },
-  })
+  const supabase = await createSupabaseServerClient()
+  if (supabase === null) {
+    return NextResponse.json({ error: 'Chưa kết nối được Supabase.' }, { status: 503 })
+  }
 
+  /*
+   * `emailRedirectTo` phải trỏ tới `/auth/callback`, không phải thẳng vào `/hom-nay`.
+   * Supabase gắn `?code=…` vào URL này, và phải có người đổi mã đó thành phiên — việc đó
+   * nằm ở route callback. Trỏ thẳng vào màn hình là luồng đăng nhập đứt ở bước cuối:
+   * người dùng bấm liên kết, về tới trang chủ, và vẫn chưa đăng nhập.
+   */
   const origin = new URL(request.url).origin
+  const next = safeNextPath(parsed.data.next)
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: { emailRedirectTo: `${origin}/hom-nay` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+    },
   })
 
   if (error !== null) {
