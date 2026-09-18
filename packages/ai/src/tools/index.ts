@@ -88,6 +88,34 @@ export type AssistantToolName = keyof typeof TOOL_TO_COMPONENT
 
 export const ASSISTANT_TOOL_NAMES = Object.keys(TOOL_TO_COMPONENT) as AssistantToolName[]
 
+/**
+ * Kết quả khi công cụ không làm được việc được yêu cầu.
+ *
+ * Trả về chứ KHÔNG ném lỗi, và đây là chủ ý. AI SDK che nội dung lỗi trước khi nó tới
+ * model, nên model không biết vì sao công cụ hỏng và sẽ tự bịa ra lý do. Đã xảy ra
+ * thật: khi chưa nối cơ sở dữ liệu, Bơ nói với người dùng "lỗi hệ thống tạm thời,
+ * bạn thử lại sau" — trong khi thử lại bao nhiêu lần cũng không được.
+ *
+ * Vì vậy: `message` phải nói thẳng sự thật, và model đọc được nguyên văn để nói lại.
+ */
+export interface ToolRefusal {
+  refused: true
+  /** Lý do nói thẳng cho model, kèm chỉ dẫn phải nói gì với người dùng. */
+  message: string
+}
+
+/** Dựng kết quả từ chối. Không dùng cho lỗi lập trình — chỗ đó cứ để ném. */
+export function toolRefusal(message: string): ToolRefusal {
+  return { refused: true, message }
+}
+
+/** Phân biệt kết quả từ chối với payload giao diện. */
+export function isToolRefusal(value: unknown): value is ToolRefusal {
+  return (
+    typeof value === 'object' && value !== null && (value as { refused?: unknown }).refused === true
+  )
+}
+
 const WEEKDAY_LABELS_VI = [
   'Chủ nhật',
   'Thứ hai',
@@ -196,12 +224,24 @@ export function createAssistantTools(context: ToolContext) {
           .max(20),
       }),
       execute: async ({ mealType, rawInput, items }) => {
-        // Tính dinh dưỡng từ danh mục. Đây là điểm chặn model bịa con số.
+        /*
+         * Tính dinh dưỡng từ danh mục. Đây là điểm chặn model bịa con số.
+         *
+         * Món không có trong danh mục thì TỪ CHỐI chứ không ném: model cần đọc được lý
+         * do để gọi lại `search_food` và tự sửa, thay vì nhận một lỗi đã bị che.
+         */
+        const unknown = items.filter((item) => !bySlug.has(item.foodId))
+        if (unknown.length > 0) {
+          return toolRefusal(
+            `CHƯA ghi được: không có món nào tên ${unknown
+              .map((item) => `"${item.foodId}"`)
+              .join(', ')} trong danh mục. Hãy gọi search_food để tìm đúng món rồi thử lại. ` +
+              'Đừng nói với người dùng là đã ghi.',
+          )
+        }
+
         const resolved = items.map((item) => {
-          const food = bySlug.get(item.foodId)
-          if (food === undefined) {
-            throw new Error(`Không có món "${item.foodId}" trong danh mục.`)
-          }
+          const food = bySlug.get(item.foodId)!
           const factor = item.grams / 100
           return {
             foodId: food.slug,
@@ -217,7 +257,11 @@ export function createAssistantTools(context: ToolContext) {
         const totalKcal = resolved.reduce((sum, item) => sum + item.kcal, 0)
 
         if (context.logMeal === undefined) {
-          throw new Error('Chưa nối cơ sở dữ liệu nên chưa ghi được nhật ký.')
+          return toolRefusal(
+            'CHƯA ghi được: bản này chưa nối cơ sở dữ liệu nên tính năng ghi nhật ký ' +
+              'chưa hoạt động. Bữa ăn CHƯA được lưu. Hãy nói thật với người dùng là chưa ' +
+              'lưu được, và đừng bảo họ thử lại sau vì thử lại cũng không được.',
+          )
         }
 
         const result = await context.logMeal({
@@ -333,11 +377,14 @@ export function createAssistantTools(context: ToolContext) {
     show_safety_notice: tool({
       description:
         'Hiện thẻ cảnh báo an toàn từ hồ sơ sức khoẻ đã đánh giá. ' +
-        'Chỉ gọi khi hồ sơ có điểm cần lưu ý; nếu không, hệ thống sẽ báo lỗi.',
+        'Chỉ gọi khi hồ sơ có điểm cần lưu ý; nếu không có gì, công cụ sẽ từ chối.',
       inputSchema: z.object({}),
       execute: async () => {
         if (context.safety.level === 'ok' || context.safety.reasons.length === 0) {
-          throw new Error('Hồ sơ này không có điểm nào cần cảnh báo.')
+          return toolRefusal(
+            'Không có gì để cảnh báo: hồ sơ này không có điểm nào cần lưu ý. ' +
+              'Hãy trả lời bình thường, đừng nhắc tới cảnh báo an toàn.',
+          )
         }
 
         return GENERATIVE_COMPONENTS.safety_notice_card.parse({

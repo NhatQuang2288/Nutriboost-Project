@@ -7,6 +7,7 @@ import {
   streamText,
   type ToolSet,
   type UIMessage,
+  type UIMessageChunk,
 } from 'ai'
 
 import { type AiEnv, readAiEnv } from './env'
@@ -14,6 +15,7 @@ import type { GuardrailInstructions } from './guardrails'
 import { ASSISTANT } from './identity'
 import { DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_TEMPERATURE } from './gateway'
 import { buildChatSystemPrompt } from './prompts'
+import { TOOL_TO_COMPONENT, isToolRefusal, type AssistantToolName } from './tools'
 
 /**
  * Dựng phản hồi chat dạng stream theo giao thức UI message của AI SDK.
@@ -120,7 +122,70 @@ export async function buildChatStreamResponse(options: ChatStreamOptions): Promi
     },
   })
 
-  return result.toUIMessageStreamResponse()
+  /*
+   * Chuyển đầu ra công cụ thành phần `data-*` trước khi trả về trình duyệt.
+   *
+   * Vì sao bắt buộc: model phát ra phần `tool-*`, còn giao diện CHỈ vẽ từ `data-*`
+   * (`GenerativePart` trong `AssistantDock`). Thiếu cầu này thì công cụ vẫn chạy và
+   * vẫn tính đúng, nhưng người dùng không thấy thẻ nào — hỏng im lặng, không có lỗi
+   * nào trong log để lần theo.
+   */
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.merge(bridgeToolOutputsToDataParts(result.toUIMessageStream()))
+    },
+  })
+
+  return createUIMessageStreamResponse({ stream })
+}
+
+/**
+ * Biến mỗi đầu ra công cụ thành một phần giao diện `data-*`.
+ *
+ * Phần `tool-*` gốc vẫn được giữ nguyên: nó mang tham số model đã truyền, hữu ích khi
+ * cần soi lại, và giao diện vốn bỏ qua nó.
+ *
+ * Chunk `tool-output-available` KHÔNG kèm tên công cụ, chỉ có `toolCallId` — nên phải
+ * nhớ tên từ `tool-input-start`. Đây là chi tiết dễ làm sai nhất trong tệp này.
+ *
+ * Xuất ra để kiểm thử được trực tiếp, không cần gọi mạng.
+ */
+export function bridgeToolOutputsToDataParts(
+  source: ReadableStream<UIMessageChunk>,
+): ReadableStream<UIMessageChunk> {
+  const toolByCallId = new Map<string, AssistantToolName>()
+
+  return source.pipeThrough(
+    new TransformStream<UIMessageChunk, UIMessageChunk>({
+      transform(chunk, controller) {
+        controller.enqueue(chunk)
+
+        if (chunk.type === 'tool-input-start') {
+          if (chunk.toolName in TOOL_TO_COMPONENT) {
+            toolByCallId.set(chunk.toolCallId, chunk.toolName as AssistantToolName)
+          }
+          return
+        }
+
+        if (chunk.type !== 'tool-output-available') return
+
+        const toolName = toolByCallId.get(chunk.toolCallId)
+        if (toolName === undefined) return
+
+        // Công cụ từ chối thì chỉ trả lời bằng lời, không dựng thẻ nào cả. Model đã đọc
+        // được lý do trong `message` và sẽ nói lại cho người dùng.
+        if (isToolRefusal(chunk.output)) return
+
+        // Công cụ đã kiểm payload bằng zod trước khi trả về, nên đầu ra ở đây chính là
+        // props của component. Giao diện vẫn kiểm lại lần nữa và có thẻ dự phòng.
+        controller.enqueue({
+          type: `data-${TOOL_TO_COMPONENT[toolName]}`,
+          id: `bo-${chunk.toolCallId}`,
+          data: chunk.output,
+        } as never)
+      },
+    }),
+  )
 }
 
 /**

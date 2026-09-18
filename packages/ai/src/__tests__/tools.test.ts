@@ -9,6 +9,7 @@ import {
   createAssistantTools,
   weekdayLabelVi,
   type LoggedMealRequest,
+  type ToolRefusal,
 } from '../tools/index'
 
 const CATALOGUE: readonly MealCatalogueEntry[] = [
@@ -164,18 +165,32 @@ describe('log_meal — model không thể bịa con số', () => {
     expect(output.total.kcal).toBe(Math.round((137 * 353) / 100))
   })
 
-  it('từ chối món không có trong danh mục', async () => {
+  it('từ chối món không có trong danh mục, và nói rõ lý do cho model', async () => {
     const tools = createAssistantTools(makeContext({ logMeal: async () => ({ remainingKcal: 0 }) }))
-    await expect(
-      run(tools.log_meal, { mealType: 'lunch', items: [{ foodId: 'khong-ton-tai', grams: 100 }] }),
-    ).rejects.toThrow(/Không có món/)
+    const output = (await run(tools.log_meal, {
+      mealType: 'lunch',
+      items: [{ foodId: 'khong-ton-tai', grams: 100 }],
+    })) as ToolRefusal
+
+    // Trả về chứ không ném: lỗi bị ném sẽ bị AI SDK che, model không biết vì sao và
+    // sẽ bịa ra lý do. Đây là bài học từ một lỗi đã xảy ra thật.
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/khong-ton-tai/)
+    expect(output.message).toMatch(/search_food/)
   })
 
-  it('báo rõ khi chưa nối cơ sở dữ liệu', async () => {
+  it('nói thẳng là chưa nối cơ sở dữ liệu và bữa ăn CHƯA được lưu', async () => {
     const tools = createAssistantTools(makeContext())
-    await expect(
-      run(tools.log_meal, { mealType: 'lunch', items: [{ foodId: 'pho-bo', grams: 200 }] }),
-    ).rejects.toThrow(/Chưa nối cơ sở dữ liệu/)
+    const output = (await run(tools.log_meal, {
+      mealType: 'lunch',
+      items: [{ foodId: 'pho-bo', grams: 200 }],
+    })) as ToolRefusal
+
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/chưa nối cơ sở dữ liệu/)
+    expect(output.message).toMatch(/CHƯA được lưu/)
+    // Không được gợi ý thử lại: thử lại cũng không được, nói vậy là nói dối.
+    expect(output.message).toMatch(/đừng bảo họ thử lại/)
   })
 
   it('chuyển yêu cầu ghi xuống lớp dưới với số liệu đã tính', async () => {
@@ -266,9 +281,11 @@ describe('generate_plan', () => {
 describe('show_safety_notice', () => {
   it('từ chối dựng cảnh báo khi hồ sơ không có gì đáng lo', async () => {
     const tools = createAssistantTools(makeContext())
-    await expect(run(tools.show_safety_notice, {})).rejects.toThrow(
-      /không có điểm nào cần cảnh báo/,
-    )
+    const output = (await run(tools.show_safety_notice, {})) as ToolRefusal
+
+    // Không có gì đáng lo không phải là lỗi — chỉ là không có gì để hiện.
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/không có điểm nào cần lưu ý/)
   })
 
   it('dựng cảnh báo đúng mức độ khi hồ sơ cần chuyển hướng', async () => {
