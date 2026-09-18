@@ -10,6 +10,7 @@ import {
   computeEnergyTargets,
 } from '@nutriboost/nutrition'
 import { DEFAULT_TIMEZONE, localDateIn } from '@/lib/date'
+import { ONBOARDING_RATE_KG_PER_WEEK } from '@/lib/onboarding'
 import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
@@ -45,7 +46,11 @@ const inputSchema = z.object({
     .max(400, 'Cân nặng tối đa 400 kg.'),
   activityLevel: z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active']),
   goal: z.enum(['lose', 'maintain', 'gain']),
-  rateKgPerWeek: z.coerce.number().min(0).max(1).default(0.5),
+  /*
+   * Mặc định là tốc độ của onboarding, KHÔNG phải `DEFAULT_RATE_KG_PER_WEEK` của lõi dinh
+   * dưỡng (0,5). Hai giá trị này từng lệch nhau và làm con số hiện ra khác con số được lưu.
+   */
+  rateKgPerWeek: z.coerce.number().min(0).max(1).default(ONBOARDING_RATE_KG_PER_WEEK),
   medicalFlags: z.array(z.string()).max(10).default([]),
   /** Đồng ý xử lý dữ liệu sức khoẻ. Bắt buộc — không có thì không lưu gì cả. */
   consent: z.literal('true', { message: 'Bạn cần đồng ý trước khi mình lưu hồ sơ.' }),
@@ -73,7 +78,7 @@ export async function completeOnboardingAction(formData: FormData): Promise<Acti
     weightKg: formData.get('weightKg'),
     activityLevel: formData.get('activityLevel'),
     goal: formData.get('goal'),
-    rateKgPerWeek: formData.get('rateKgPerWeek') ?? 0.5,
+    rateKgPerWeek: formData.get('rateKgPerWeek') ?? ONBOARDING_RATE_KG_PER_WEEK,
     medicalFlags: formData.getAll('medicalFlags').map(String),
     consent: formData.get('consent'),
   })

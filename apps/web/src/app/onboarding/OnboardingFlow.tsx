@@ -18,6 +18,7 @@ import {
 import { BoIcon, BoMascot, CheckIcon, ChevronLeftIcon } from '@/components/icons'
 import { Card, Disclaimer, SafetyNotice } from '@/components/ui'
 import { completeOnboardingAction } from '@/lib/actions/onboarding'
+import { ONBOARDING_RATE_KG_PER_WEEK, rateForGoal } from '@/lib/onboarding'
 
 /**
  * Onboarding — 5 câu hỏi, mỗi câu một màn.
@@ -97,7 +98,7 @@ export function OnboardingFlow({ next }: { next?: string }) {
       sex,
       activityLevel,
       goal,
-      rateKgPerWeek: goal === 'maintain' ? undefined : 0.35,
+      rateKgPerWeek: goal === 'maintain' ? undefined : ONBOARDING_RATE_KG_PER_WEEK,
     })
     const bmi = computeBmi(weightKg, heightCm, 'asia')
     const safety = assessSafety({ bmi: bmi.bmi, age, goal, medicalFlags: [] })
@@ -509,6 +510,12 @@ function ResultStep({
     form.set('weightKg', String(answers.weightKg ?? ''))
     form.set('activityLevel', answers.activityLevel ?? '')
     form.set('goal', answers.goal ?? '')
+    /*
+     * Gửi ĐÚNG tốc độ đã dùng để tính con số trên màn này. Thiếu dòng này thì máy chủ rơi về
+     * mặc định của nó, và nếu hai bên khác nhau thì người dùng thấy một con số rồi ứng dụng
+     * lưu một con số khác — đã xảy ra thật với 0,35 so với 0,5.
+     */
+    form.set('rateKgPerWeek', String(rateForGoal(answers.goal ?? 'maintain')))
     form.set('consent', 'true')
 
     startTransition(async () => {
