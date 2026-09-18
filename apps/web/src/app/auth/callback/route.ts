@@ -1,7 +1,8 @@
 import { type EmailOtpType, type SupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { safeNextPath } from '@/lib/auth/redirect'
+import { NEXT_COOKIE, safeNextPath } from '@/lib/auth/redirect'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +35,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
-  const next = safeNextPath(searchParams.get('next'))
+  /*
+   * Đích đến đọc từ cookie do `/api/auth/magic-link` đặt. Vẫn nhận thêm `?next=` để những
+   * liên kết đã gửi trước khi đổi cách vẫn hoạt động.
+   */
+  const cookieStore = await cookies()
+  const next = safeNextPath(searchParams.get('next') ?? cookieStore.get(NEXT_COOKIE)?.value)
 
   const supabase = await createSupabaseServerClient()
   if (supabase === null) {
@@ -62,6 +68,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * onboarding sẽ mất mã mời ở giữa đường và phải nhờ PT gửi lại.
    */
   const onboarded = await isOnboarded(supabase)
+
+  // Dùng xong thì xoá: cookie còn nằm lại nghĩa là lần đăng nhập sau ở cùng trình duyệt sẽ
+  // bị đưa tới đích đến của lần trước.
+  cookieStore.delete(NEXT_COOKIE)
+
   if (onboarded) {
     return NextResponse.redirect(`${origin}${next}`)
   }

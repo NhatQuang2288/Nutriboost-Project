@@ -1,8 +1,9 @@
 import { isSupabaseConfigured } from '@nutriboost/db'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { safeNextPath } from '@/lib/auth/redirect'
+import { NEXT_COOKIE, safeNextPath } from '@/lib/auth/redirect'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -57,16 +58,33 @@ export async function POST(request: Request): Promise<Response> {
   /*
    * `emailRedirectTo` phải trỏ tới `/auth/callback`, không phải thẳng vào `/hom-nay`.
    * Supabase gắn `?code=…` vào URL này, và phải có người đổi mã đó thành phiên — việc đó
-   * nằm ở route callback. Trỏ thẳng vào màn hình là luồng đăng nhập đứt ở bước cuối:
-   * người dùng bấm liên kết, về tới trang chủ, và vẫn chưa đăng nhập.
+   * nằm ở route callback.
+   *
+   * URL này **không kèm tham số nào**, và đó là điều kiện để nó chạy được: danh sách URL
+   * được phép của Supabase khớp chính xác, nên `…/auth/callback?next=…` không khớp
+   * `…/auth/callback` và Supabase từ chối, lặng lẽ trả người dùng về `site_url`. Đã xảy ra
+   * thật: liên kết đổ vào trang chủ kèm `?code=…` mà không ai đổi mã đó thành phiên.
+   *
+   * Đích đến đi bằng cookie thay vì chuỗi truy vấn.
    */
   const origin = new URL(request.url).origin
   const next = safeNextPath(parsed.data.next)
+
+  const cookieStore = await cookies()
+  cookieStore.set(NEXT_COOKIE, next, {
+    httpOnly: true,
+    // `lax` là mức tối thiểu vẫn cho cookie đi kèm khi người dùng mở liên kết trong email:
+    // đó là một lượt điều hướng cấp cao nhất từ tên miền khác.
+    sameSite: 'lax',
+    // Trên `http://127.0.0.1`, cookie có `secure` sẽ bị trình duyệt bỏ luôn.
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60,
+  })
+
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-    },
+    options: { emailRedirectTo: `${origin}/auth/callback` },
   })
 
   if (error !== null) {

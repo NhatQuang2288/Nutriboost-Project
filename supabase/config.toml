@@ -159,7 +159,23 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# Danh sách URL được phép chuyển hướng sau khi xác thực. Khớp CHÍNH XÁC, nên phải có đủ
+# cả đường dẫn callback — thiếu nó thì Supabase từ chối `emailRedirectTo` và **lặng lẽ** trả
+# người dùng về `site_url`, khiến liên kết đăng nhập đổ vào trang chủ kèm `?code=…` mà không
+# ai đổi mã đó thành phiên. Đã xảy ra thật.
+#
+# Bản gốc ghi `https://127.0.0.1:3000` trong khi ứng dụng chạy `http://` — sai giao thức, nên
+# ngay cả `site_url` cũng không khớp.
+additional_redirect_urls = [
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3000/auth/callback",
+  "https://127.0.0.1:3000",
+  "https://127.0.0.1:3000/auth/callback",
+  "http://localhost:3000",
+  "http://localhost:3000/auth/callback",
+  "https://localhost:3000",
+  "https://localhost:3000/auth/callback",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
