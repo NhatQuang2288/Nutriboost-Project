@@ -56,6 +56,32 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
    thật sự mơ hồ. Vừa chính xác hơn vừa rẻ hơn.
 4. **Không thư viện icon.** Toàn bộ SVG tự vẽ.
 
+## Màn hình hiện có
+
+**Khách hàng**
+
+| Đường dẫn     | Nội dung                                 |
+| ------------- | ---------------------------------------- |
+| `/`           | Trang giới thiệu                         |
+| `/dang-nhap`  | Đăng nhập bằng magic link                |
+| `/onboarding` | 5 câu hỏi, ra mục tiêu năng lượng ngay   |
+| `/hom-nay`    | Vòng calo, bữa ăn, gợi ý của Bơ mỗi ngày |
+| `/ghi-nhan`   | Ghi bữa ăn                               |
+| `/ke-hoach`   | Thực đơn 7 ngày, dựng tất định           |
+| `/lich-tap`   | Lịch tập tuần kèm kcal đốt từng buổi     |
+| `/coach`      | Quản lý các đoạn hội thoại với Bơ        |
+| `/tien-do`    | Cân nặng và năng lượng theo thời gian    |
+| `/toi`        | Hồ sơ, mục tiêu, quyền xoá dữ liệu       |
+
+**Console PT** (sản phẩm bán cho PT/Coach — xem `docs/PRICING.md`)
+
+| Đường dẫn              | Nội dung                                              |
+| ---------------------- | ----------------------------------------------------- |
+| `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách |
+| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng                    |
+| `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý                |
+| `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập, nhắc nhở         |
+
 ## Kiểm chứng
 
 ```bash

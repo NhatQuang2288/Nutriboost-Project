@@ -185,6 +185,8 @@
   --width-content: 680px;
   --width-assistant-panel: 400px;
   --width-focus-column: 768px;
+  /* Cột rộng hơn cho bảng biểu của console PT. */
+  --width-console: 960px;
   --height-nav: 56px;
 }
 
