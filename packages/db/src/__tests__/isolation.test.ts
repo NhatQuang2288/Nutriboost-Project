@@ -157,6 +157,38 @@ describe('quyền gọi hàm — các hàm security definer nhận tham số tu�
       ),
     ).rejects.toThrow(/permission denied/i)
   })
+
+  it('khách không dò được tình trạng chỗ của PT', async () => {
+    // `remaining_client_slots(uuid)` nhận owner_id tuỳ ý, nên không siết thì nó trả lời được
+    // "PT này còn bao nhiêu chỗ" — và qua đó dò xem một uuid có phải PT hay không.
+    await expect(
+      asUser(db, USERS.client2, async () =>
+        db.query(`select public.remaining_client_slots($1)`, [USERS.pt]),
+      ),
+    ).rejects.toThrow(/permission denied/i)
+  })
+
+  it('khách không dò được quan hệ PT ↔ khách của người khác', async () => {
+    await expect(
+      asUser(db, USERS.client2, async () =>
+        db.query(`select public.ai_turn_allowance($1, $2)`, [USERS.pt, USERS.client1]),
+      ),
+    ).rejects.toThrow(/permission denied/i)
+  })
+
+  it('invite_code_status VẪN chạy được sau khi siết quyền', async () => {
+    /*
+     * Phép thử ngược lại của hai lần siết quyền vừa rồi. `invite_code_status` là
+     * `security definer` và gọi `remaining_client_slots` từ bên trong, nên nó phải **vẫn chạy**
+     * sau khi hàm đó bị thu hồi khỏi `authenticated`. Nếu không thì việc siết quyền đã phá
+     * tính năng mã mời, và đây là chỗ duy nhất phát hiện ra.
+     */
+    const rows = await asUser(db, USERS.pt, async () =>
+      db.query(`select code, usable, remaining_slots from public.invite_code_status()`),
+    )
+
+    expect(Array.isArray(rows.rows)).toBe(true)
+  })
 })
 
 describe('quyền gọi hàm — những hàm cố tình để mở', () => {

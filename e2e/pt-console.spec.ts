@@ -10,6 +10,16 @@ import { expect, test } from '@playwright/test'
 const DOCK = '#assistant-dock'
 
 test.describe('tổng quan', () => {
+  test('nói thẳng đang hiện dữ liệu mẫu khi tài khoản không phải PT', async ({ page }) => {
+    /*
+     * Bộ kiểm thử chạy ở chế độ dữ liệu mẫu. Điều phải khoá lại là giao diện KHÔNG giả vờ
+     * rằng năm khách hàng dưới đây là của người đang xem.
+     */
+    await page.goto('/pt')
+
+    await expect(page.getByText(/Đang hiện dữ liệu mẫu/)).toBeVisible()
+  })
+
   test('hiện gói hiện tại, số chỗ đã dùng và số còn nhận', async ({ page }) => {
     await page.goto('/pt')
 

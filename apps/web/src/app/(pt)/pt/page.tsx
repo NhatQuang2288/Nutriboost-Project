@@ -10,15 +10,29 @@ export const dynamic = 'force-dynamic'
 
 const GOAL_LABELS = { lose: 'Giảm cân', maintain: 'Giữ cân', gain: 'Tăng cân' } as const
 
-export default function PtOverviewPage() {
-  const overview = getPtOverview()
+export default async function PtOverviewPage() {
+  const overview = await getPtOverview()
   const { subscription, clients, approvals } = overview
 
   const attention = clients.filter((client) => client.needsAttention !== null)
-  const slotsUsedRatio = subscription.usedSlots / subscription.clientLimit
+  const slotsUsedRatio =
+    subscription === null || subscription.clientLimit === 0
+      ? 0
+      : subscription.usedSlots / subscription.clientLimit
 
   return (
     <div className="flex flex-col gap-5">
+      {overview.source === 'demo' ? (
+        /*
+         * Nói thẳng đây là dữ liệu mẫu. Không có dòng này thì một tài khoản không phải PT vẫn
+         * thấy "Coach Linh" kèm năm khách hàng như thể đó là console của họ.
+         */
+        <p className="border-info/30 bg-info-surface text-info-text text-caption rounded-lg border px-3 py-2">
+          Đang hiện dữ liệu mẫu. Tài khoản này chưa phải tài khoản PT nên danh sách khách hàng dưới
+          đây không phải của bạn.
+        </p>
+      ) : null}
+
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-h1">Xin chào {overview.ptName}</h1>
@@ -27,55 +41,83 @@ export default function PtOverviewPage() {
           </p>
         </div>
 
-        <span className="text-accent-text text-caption rounded-full bg-olive-100 px-3 py-1.5">
-          Gói {subscription.label} · {formatVnd(subscription.priceVnd)}/tháng
-        </span>
+        {subscription === null ? (
+          <span className="text-warning-text text-caption bg-warning-surface rounded-full px-3 py-1.5">
+            Chưa có gói đang hiệu lực
+          </span>
+        ) : (
+          <span className="text-accent-text text-caption rounded-full bg-olive-100 px-3 py-1.5">
+            Gói {subscription.label} · {formatVnd(subscription.priceVnd)}/tháng
+          </span>
+        )}
       </header>
 
-      {/* Hạn mức khách hàng là thứ phân hạng ba gói, nên nó phải nằm ở chỗ dễ thấy nhất. */}
-      <Card>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div>
-            <p className="text-caption text-ink-muted">Chỗ đã dùng</p>
-            <p className="text-display text-ink tabular-nums">
-              {subscription.usedSlots}
-              <span className="text-h3 text-ink-faint">/{subscription.clientLimit}</span>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-caption text-ink-muted">Còn nhận được</p>
-            <p className="text-h2 text-ink tabular-nums">{overview.slotsLeft} khách</p>
-          </div>
-        </div>
+      {/*
+        Hạn mức khách hàng là thứ phân hạng ba gói, nên nó phải nằm ở chỗ dễ thấy nhất.
 
-        <div
-          className="mt-3 h-2 overflow-hidden rounded-full bg-neutral-200"
-          role="progressbar"
-          aria-label="Chỗ khách hàng đã dùng"
-          aria-valuemin={0}
-          aria-valuemax={subscription.clientLimit}
-          aria-valuenow={subscription.usedSlots}
-        >
-          <div
-            className={`h-full rounded-full ${slotsUsedRatio >= 1 ? 'bg-warning' : 'bg-olive-500'}`}
-            style={{ width: `${Math.min(100, slotsUsedRatio * 100)}%` }}
-          />
-        </div>
-
-        <p className="text-caption text-ink-faint mt-2">
-          Mỗi khách được {subscription.aiTurnsPerClient} lượt trợ lý mỗi tháng · gia hạn{' '}
-          {subscription.renewsOn}
-        </p>
-
-        {overview.slotsLeft === 0 ? (
+        Chưa có gói là trạng thái có thật: `subscriptions` chỉ được ghi bởi khoá service role
+        sau khi cổng thanh toán xác nhận. Hiển thị "Gói Plus · 750.000đ/tháng" cho người chưa
+        mua là nói dối về thứ họ chưa có.
+      */}
+      {subscription === null ? (
+        <Card className="border-warning/30 bg-warning-surface">
+          <SectionTitle>Chưa có gói đang hiệu lực</SectionTitle>
+          <p className="text-caption text-warning-text">
+            Số khách tối đa là thứ phân hạng ba gói, và nó là điều kiện để mời khách. Chưa có gói
+            thì mã mời tạo ra vẫn hiện, nhưng khách nhập vào sẽ bị từ chối.
+          </p>
           <Link
             href="/pt/goi"
             className="bg-forest-600 text-ink-inverse text-label mt-3 flex min-h-11 items-center justify-center rounded-md px-5 font-semibold transition-colors duration-(--duration-fast)"
           >
-            Đã đầy chỗ — xem gói lớn hơn
+            Xem ba gói dịch vụ
           </Link>
-        ) : null}
-      </Card>
+        </Card>
+      ) : (
+        <Card>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <p className="text-caption text-ink-muted">Chỗ đã dùng</p>
+              <p className="text-display text-ink tabular-nums">
+                {subscription.usedSlots}
+                <span className="text-h3 text-ink-faint">/{subscription.clientLimit}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-caption text-ink-muted">Còn nhận được</p>
+              <p className="text-h2 text-ink tabular-nums">{overview.slotsLeft} khách</p>
+            </div>
+          </div>
+
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-neutral-200"
+            role="progressbar"
+            aria-label="Chỗ khách hàng đã dùng"
+            aria-valuemin={0}
+            aria-valuemax={subscription.clientLimit}
+            aria-valuenow={subscription.usedSlots}
+          >
+            <div
+              className={`h-full rounded-full ${slotsUsedRatio >= 1 ? 'bg-warning' : 'bg-olive-500'}`}
+              style={{ width: `${Math.min(100, slotsUsedRatio * 100)}%` }}
+            />
+          </div>
+
+          <p className="text-caption text-ink-faint mt-2">
+            Mỗi khách được {subscription.aiTurnsPerClient} lượt trợ lý mỗi tháng · gia hạn{' '}
+            {subscription.renewsOn}
+          </p>
+
+          {overview.slotsLeft === 0 ? (
+            <Link
+              href="/pt/goi"
+              className="bg-forest-600 text-ink-inverse text-label mt-3 flex min-h-11 items-center justify-center rounded-md px-5 font-semibold transition-colors duration-(--duration-fast)"
+            >
+              Đã đầy chỗ — xem gói lớn hơn
+            </Link>
+          ) : null}
+        </Card>
+      )}
 
       {attention.length > 0 ? (
         <section>

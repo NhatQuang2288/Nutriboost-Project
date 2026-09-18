@@ -84,34 +84,35 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 
 **Console PT** (sản phẩm bán cho PT/Coach — xem `docs/PRICING.md`)
 
-| Đường dẫn              | Nội dung                                              |
-| ---------------------- | ----------------------------------------------------- |
-| `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách |
-| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng                    |
-| `/pt/loi-moi`          | Tạo và thu hồi mã mời; **đọc dữ liệu thật**           |
-| `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý                |
-| `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập, nhắc nhở         |
+| Đường dẫn              | Nội dung                                                                 |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách — **dữ liệu thật** |
+| `/pt/loi-moi`          | Tạo và thu hồi mã mời — **dữ liệu thật**                                 |
+| `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập — **dữ liệu thật**                   |
+| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng (dữ liệu mẫu)                         |
+| `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý (bảng giá tĩnh)                   |
 
-> Hai bảng trên ghi rõ màn nào đọc dữ liệu thật. `/pt`, `/pt/duyet`, `/pt/goi` và
-> `/pt/khach/…` hiện vẫn dựng từ dữ liệu mẫu — xem mục "Còn thiếu" cuối `docs/roles.md`.
+> Mọi màn đọc dữ liệu đều có hai chế độ và nói rõ đang ở chế độ nào: chưa cấu hình Supabase
+> hoặc tài khoản không phải PT thì hiện một dòng "đang hiện dữ liệu mẫu". `/pt/duyet` chưa có
+> dữ liệu thật vì chưa có gì sinh ra thực đơn nháp — xem `docs/roles.md` §6.
 
 ## Kiểm chứng
 
 ```bash
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
-npm run db:check    # chạy 9 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run db:check    # chạy 10 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
 npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run check:live  # kiểm chứng đường dữ liệu thật qua PostgREST + RLS thật (cần Supabase)
-npm run test        # 425 test đơn vị, trong đó 52 test RLS chạy trên PostgreSQL thật
+npm run test        # 454 test đơn vị, trong đó 55 test RLS chạy trên PostgreSQL thật
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
-npm run e2e         # 77 test Playwright, desktop + mobile
+npm run e2e         # 78 test Playwright, desktop + mobile
 npm run icons:generate  # sinh lại icon PWA (chỉ cần khi đổi hình)
 ```
 
 `npm run db:check` là bước bắt buộc trước khi chạy `supabase db reset`: nó dựng một
-PostgreSQL thật trong bộ nhớ, chạy cả 9 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
+PostgreSQL thật trong bộ nhớ, chạy cả 10 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
 lỗi cú pháp PL/pgSQL và lỗi ràng buộc dữ liệu lộ ra ở CI thay vì ở máy từng người.
 
 `npm run db:check` **không** kiểm được RLS: `auth.uid()` trong đó luôn là `null`, nên mọi

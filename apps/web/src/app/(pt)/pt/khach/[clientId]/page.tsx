@@ -15,7 +15,7 @@ const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ n
 
 export default async function PtClientPage({ params }: { params: Promise<{ clientId: string }> }) {
   const { clientId } = await params
-  const detail = getPtClientDetail(clientId)
+  const detail = await getPtClientDetail(clientId)
 
   if (detail === null) notFound()
 

@@ -78,3 +78,34 @@ export function ageFromIsoDate(dateOfBirth: string, todayIso: string): number {
   }
   return Math.max(0, age)
 }
+
+/**
+ * Khoảng thời gian đã trôi qua, viết bằng tiếng Việt.
+ *
+ * Dùng cho nhãn "hoạt động lần cuối" trong console PT. Trả về `null` khi đầu vào là `null`,
+ * và nơi gọi tự quyết định câu chữ — vì "chưa từng hoạt động" khác hẳn "hoạt động cách đây
+ * rất lâu", và console cần phân biệt hai trường hợp đó.
+ *
+ * Quá 30 ngày thì trả về ngày cụ thể thay vì "43 ngày trước": ở khoảng cách đó, người đọc cần
+ * biết **ngày nào**, không phải số ngày.
+ */
+export function relativeTimeVi(iso: string | null, now: Date = new Date()): string | null {
+  if (iso === null) return null
+
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return null
+
+  // Chênh lệch âm xảy ra khi đồng hồ máy chủ và máy khách lệch nhau. "Sắp tới" là câu vô
+  // nghĩa với một mốc đã qua, nên gộp về "vừa xong".
+  const minutes = Math.floor((now.getTime() - then) / 60_000)
+  if (minutes < 1) return 'Vừa xong'
+  if (minutes < 60) return `${minutes} phút trước`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} giờ trước`
+
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} ngày trước`
+
+  return formatIsoDate(iso)
+}

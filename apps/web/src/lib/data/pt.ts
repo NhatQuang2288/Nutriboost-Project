@@ -5,13 +5,18 @@ import { EXERCISES, buildDataset } from '@nutriboost/seed'
 import { DEFAULT_TIMEZONE, localDateIn } from '@/lib/date'
 
 import { startOfWeekIso } from './plan'
+import { readLivePtClientDetail, readLivePtOverview } from './pt-live'
 
 /**
  * Lớp dữ liệu của console PT.
  *
- * HIỆN ĐỌC TỪ DỮ LIỆU MẪU — chủ ý, giống phần còn lại của Release 1. Khi nối Supabase,
- * các hàm ở đây chỉ đổi phần đọc dữ liệu; phần tính toán vẫn đi qua `@nutriboost/ai`
- * và `@nutriboost/nutrition`.
+ * Hai chế độ, ghi rõ trong kết quả qua trường `source`:
+ *   • `live` — đọc từ Supabase, dùng khi người đăng nhập có vai trò `pt`. Đường đọc thật nằm
+ *     ở `pt-live.ts`.
+ *   • `demo` — dữ liệu mẫu, dùng khi chưa cấu hình Supabase hoặc tài khoản không phải PT.
+ *     Bộ kiểm thử đầu-cuối chạy ở chế độ này.
+ *
+ * Phần tính toán trong cả hai đường đều đi qua `@nutriboost/ai` và `@nutriboost/nutrition`.
  *
  * Điểm đáng chú ý về nghiệp vụ: gói dịch vụ quyết định **số khách tối đa** và **số lượt AI
  * mỗi khách**. Cả hai đều hiển thị được cho PT, vì đó là thứ họ đang trả tiền.
@@ -70,8 +75,16 @@ export interface PendingApproval {
 }
 
 export interface PtOverview {
+  /** `demo` = dữ liệu mẫu. Giao diện phải nói rõ điều này. */
+  source: 'demo' | 'live'
   ptName: string
-  subscription: PtSubscription
+  /**
+   * `null` khi PT chưa có gói đang hiệu lực.
+   *
+   * Đây là trạng thái **có thật** và giao diện phải xử lý: một PT chưa mua gói thì không mời
+   * được khách nào. Hiển thị "Gói Plus · 750.000đ/tháng" cho họ là nói dối về thứ họ chưa mua.
+   */
+  subscription: PtSubscription | null
   clients: readonly PtClient[]
   approvals: readonly PendingApproval[]
   /** Số khách đang cần chú ý. */
@@ -82,6 +95,7 @@ export interface PtOverview {
 }
 
 export interface PtClientDetail {
+  source: 'demo' | 'live'
   client: PtClient
   plan: BuiltPlan
   workout: BuiltWorkoutPlan
@@ -193,7 +207,12 @@ const CLIENT_WEIGHTS: Readonly<Record<string, number>> = {
   dung: 80,
 }
 
-export function getPtOverview(now: Date = new Date()): PtOverview {
+export async function getPtOverview(now: Date = new Date()): Promise<PtOverview> {
+  const live = await readLivePtOverview(now)
+  return live ?? buildDemoOverview(now)
+}
+
+function buildDemoOverview(now: Date): PtOverview {
   const today = localDateIn(DEFAULT_TIMEZONE, now)
   const weekStart = startOfWeekIso(today)
   const config = TIER_CONFIG[CURRENT_TIER]
@@ -238,6 +257,7 @@ export function getPtOverview(now: Date = new Date()): PtOverview {
   )
 
   return {
+    source: 'demo',
     ptName: PT_NAME,
     subscription: {
       tier: CURRENT_TIER,
@@ -256,7 +276,17 @@ export function getPtOverview(now: Date = new Date()): PtOverview {
   }
 }
 
-export function getPtClientDetail(clientId: string, now: Date = new Date()): PtClientDetail | null {
+export async function getPtClientDetail(
+  clientId: string,
+  now: Date = new Date(),
+): Promise<PtClientDetail | null> {
+  const live = await readLivePtClientDetail(clientId, now)
+  if (live !== null) return live
+
+  return buildDemoClientDetail(clientId, now)
+}
+
+function buildDemoClientDetail(clientId: string, now: Date): PtClientDetail | null {
   const client = CLIENTS.find((item) => item.id === clientId)
   if (client === undefined) return null
 
@@ -286,7 +316,7 @@ export function getPtClientDetail(clientId: string, now: Date = new Date()): PtC
     exercises: EXERCISES,
   })
 
-  return { client, plan, workout, targetKcal: targets.targetKcal }
+  return { source: 'demo', client, plan, workout, targetKcal: targets.targetKcal }
 }
 
 /** Danh sách gói để hiển thị ở tab Gói dịch vụ. */

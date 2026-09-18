@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { ageAt, formatIsoDate, localDateIn, localTimeLabel, weekdayLabel } from './date'
+import {
+  ageAt,
+  ageFromIsoDate,
+  formatIsoDate,
+  localDateIn,
+  localTimeLabel,
+  relativeTimeVi,
+  weekdayLabel,
+} from './date'
 
 describe('formatIsoDate', () => {
   it('đổi sang nếp ngày của người Việt', () => {
@@ -52,5 +60,66 @@ describe('ageAt', () => {
 
   it('không trả về số âm khi năm sinh ở tương lai', () => {
     expect(ageAt(2030, new Date('2026-09-18T00:00:00Z'))).toBe(0)
+  })
+})
+
+describe('ageFromIsoDate', () => {
+  const today = '2026-09-18'
+
+  it('tính đúng khi đã qua sinh nhật trong năm nay', () => {
+    expect(ageFromIsoDate('1996-03-01', today)).toBe(30)
+  })
+
+  it('chưa trừ tuổi khi chưa tới sinh nhật', () => {
+    // Sinh ngày 20/12: ngày 18/09 vẫn chưa đủ tuổi. Chỉ lấy hiệu hai năm sẽ ra 30, sai.
+    expect(ageFromIsoDate('1996-12-20', today)).toBe(29)
+  })
+
+  it('đúng vào chính ngày sinh nhật', () => {
+    expect(ageFromIsoDate('1996-09-18', today)).toBe(30)
+  })
+
+  it('đúng một ngày trước sinh nhật', () => {
+    expect(ageFromIsoDate('1996-09-19', today)).toBe(29)
+  })
+
+  it('trả về 0 khi chuỗi không đọc được', () => {
+    expect(ageFromIsoDate('không phải ngày', today)).toBe(0)
+  })
+})
+
+describe('relativeTimeVi', () => {
+  const now = new Date('2026-09-18T12:00:00Z')
+
+  it('trả về null khi không có mốc thời gian', () => {
+    // Nơi gọi tự quyết định câu chữ: "chưa từng hoạt động" khác "hoạt động cách đây rất lâu".
+    expect(relativeTimeVi(null, now)).toBeNull()
+  })
+
+  it('dưới một phút là "vừa xong"', () => {
+    expect(relativeTimeVi('2026-09-18T11:59:30Z', now)).toBe('Vừa xong')
+  })
+
+  it('đếm bằng phút rồi bằng giờ', () => {
+    expect(relativeTimeVi('2026-09-18T11:30:00Z', now)).toBe('30 phút trước')
+    expect(relativeTimeVi('2026-09-18T09:00:00Z', now)).toBe('3 giờ trước')
+  })
+
+  it('đếm bằng ngày', () => {
+    expect(relativeTimeVi('2026-09-15T12:00:00Z', now)).toBe('3 ngày trước')
+  })
+
+  it('quá 30 ngày thì hiện ngày cụ thể', () => {
+    // Ở khoảng cách đó người đọc cần biết ngày nào, không phải số ngày.
+    expect(relativeTimeVi('2026-07-01T12:00:00Z', now)).toBe('01/07/2026')
+  })
+
+  it('mốc ở tương lai không thành "sắp tới"', () => {
+    // Đồng hồ máy chủ và máy khách lệch nhau là chuyện thường.
+    expect(relativeTimeVi('2026-09-18T12:05:00Z', now)).toBe('Vừa xong')
+  })
+
+  it('chuỗi không đọc được trả về null thay vì NaN', () => {
+    expect(relativeTimeVi('hôm qua', now)).toBeNull()
   })
 })

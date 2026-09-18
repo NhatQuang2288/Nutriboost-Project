@@ -10,8 +10,8 @@ import { ApprovalActions } from './ApprovalActions'
 export const metadata: Metadata = { title: 'Duyệt thực đơn' }
 export const dynamic = 'force-dynamic'
 
-export default function ApprovalQueuePage() {
-  const { approvals } = getPtOverview()
+export default async function ApprovalQueuePage() {
+  const { approvals } = await getPtOverview()
 
   return (
     <div className="flex flex-col gap-5">
