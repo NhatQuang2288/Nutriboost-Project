@@ -89,12 +89,15 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách — **dữ liệu thật** |
 | `/pt/loi-moi`          | Tạo và thu hồi mã mời — **dữ liệu thật**                                 |
 | `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập — **dữ liệu thật**                   |
-| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng (dữ liệu mẫu)                         |
+| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng — **dữ liệu thật**                    |
 | `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý (bảng giá tĩnh)                   |
 
-> Mọi màn đọc dữ liệu đều có hai chế độ và nói rõ đang ở chế độ nào: chưa cấu hình Supabase
-> hoặc tài khoản không phải PT thì hiện một dòng "đang hiện dữ liệu mẫu". `/pt/duyet` chưa có
-> dữ liệu thật vì chưa có gì sinh ra thực đơn nháp — xem `docs/roles.md` §6.
+> Mọi màn của console đều có hai chế độ và nói rõ đang ở chế độ nào: chưa cấu hình Supabase
+> hoặc tài khoản không phải PT thì hiện một dòng "đang hiện dữ liệu mẫu" thay vì giả vờ rằng
+> năm khách hàng dưới đây là của người đang xem.
+>
+> `/pt/duyet` **đọc dữ liệu thật** (`plans` có `status = 'draft'`), nhưng hiện luôn rỗng vì
+> chưa có gì ghi ra thực đơn nháp: `generate_plan` chưa nối vào CSDL. Xem `docs/roles.md` §6.
 
 ## Kiểm chứng
 
