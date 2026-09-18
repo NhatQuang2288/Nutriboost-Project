@@ -43,6 +43,9 @@ jobs:
       - name: Kiểm tra định dạng
         run: npm run format:check
 
+      - name: Kiểm tra migration và seed trên PostgreSQL thật
+        run: npm run db:check
+
       - name: Test đơn vị
         run: npm run test
 

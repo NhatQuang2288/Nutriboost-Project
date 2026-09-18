@@ -30,7 +30,13 @@ ràng buộc kinh tế của toàn bộ mô hình**, chứ không phải chi ti�
 ### 2.1 Chi phí một khách hàng mỗi tháng theo ba kịch bản
 
 Giả định: 1 USD ≈ 26.000đ. Model định tuyến như thiết kế (chat mặc định dùng
-`gemini-3.5-flash-lite`, sinh kế hoạch tuần dùng `gemini-3.8-flash`).
+`gemini-3.5-flash-lite`, sinh kế hoạch tuần dùng `gemini-3.6-flash`).
+
+> **Vì sao không phải `gemini-3.8-flash`.** Hai model cùng mức giá $0,75/$3,75 nên con
+> số dưới đây không đổi. Nhưng đo trên khoá thật cho thấy `gemini-3.8-flash` mất **hơn
+> 90 giây** cho một lượt sinh kế hoạch tuần — không dùng được cho một sản phẩm mobile.
+> `gemini-3.6-flash` cho cùng chất lượng trong khoảng 3 giây. `gemini-3.8-flash` vẫn
+> giữ trong bảng giá vì nó là model thật của Google và có thể quay lại dùng sau.
 
 | Kịch bản                                                   | Lượt AI / khách / tháng | Chi phí AI | Quy ra VND    |
 | ---------------------------------------------------------- | ----------------------- | ---------- | ------------- |

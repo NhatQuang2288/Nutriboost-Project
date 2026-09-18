@@ -40,7 +40,7 @@ export function readAiEnv(): AiEnv {
     apiKey: clean(process.env.GEMINI_API_KEY),
     models: {
       fast: clean(process.env.AI_MODEL_FAST) ?? 'gemini-3.5-flash-lite',
-      quality: clean(process.env.AI_MODEL_QUALITY) ?? 'gemini-3.8-flash',
+      quality: clean(process.env.AI_MODEL_QUALITY) ?? 'gemini-3.6-flash',
     },
     dailyBudgetUsd: readNumber(process.env.AI_DAILY_BUDGET_USD, DEFAULT_DAILY_BUDGET_USD),
     killSwitch: process.env.AI_KILL_SWITCH === 'true',

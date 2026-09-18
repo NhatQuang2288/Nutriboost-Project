@@ -265,7 +265,17 @@ export function createAiGateway(deps: AiGatewayDeps): AiGateway {
       }
 
       // 6. Tính chi phí và ghi nhật ký
-      const costUsd = computeCostUsd(model, result.usage, now())
+      //
+      // Model chưa khai báo giá KHÔNG được làm hỏng lượt gọi: người dùng vẫn cần câu trả
+      // lời. Ghi nhận chi phí bằng 0 kèm mã lỗi để việc thiếu bảng giá lộ ra ở nhật ký
+      // thay vì âm thầm làm sai con số tổng.
+      let costUsd = 0
+      let costError: string | null = null
+      try {
+        costUsd = computeCostUsd(model, result.usage, now())
+      } catch {
+        costError = 'unknown_model_price'
+      }
       const latencyMs = now().getTime() - startedAt
 
       const callId = await deps.store.logCall({
@@ -277,7 +287,7 @@ export function createAiGateway(deps: AiGatewayDeps): AiGateway {
         costUsd,
         latencyMs,
         status: 'ok',
-        errorCode: null,
+        errorCode: costError,
         cacheHit: false,
       })
 

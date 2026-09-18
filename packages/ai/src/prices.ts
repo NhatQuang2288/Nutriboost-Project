@@ -54,6 +54,29 @@ export const MODEL_PRICES: Readonly<Record<string, ModelPrice>> = {
     ],
   },
 
+  /**
+   * Model chất lượng dùng mặc định cho tác vụ cần suy nghĩ.
+   *
+   * Vì sao không dùng `gemini-3.8-flash`: đo thực tế cho thấy model đó mất **hơn 90 giây**
+   * cho một câu hỏi cực ngắn, không dùng được cho tương tác. `gemini-3.6-flash` cùng mức
+   * giá ($0,75 / $3,75) nhưng phản hồi trong khoảng 3 giây.
+   *
+   * Lưu ý: đây là model CÓ SUY LUẬN. Token suy luận được tính như token đầu ra và chiếm
+   * phần lớn chi phí — đo được 193 token suy luận cho câu "2+2 bằng mấy".
+   */
+  'gemini-3.6-flash': {
+    model: 'gemini-3.6-flash',
+    tiers: [
+      {
+        effectiveFrom: '2026-01-01T00:00:00Z',
+        inputPerMillion: 0.75,
+        outputPerMillion: 3.75,
+        cachedInputPerMillion: 0.075,
+        cacheStoragePerMillionHour: 0.5,
+      },
+    ],
+  },
+
   /** Model chạy khối lượng lớn: hiểu bữa ăn, insight, đặt tiêu đề hội thoại, chat mặc định. */
   'gemini-3.5-flash-lite': {
     model: 'gemini-3.5-flash-lite',

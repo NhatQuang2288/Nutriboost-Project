@@ -268,6 +268,25 @@ describe('createAiGateway — xử lý lỗi', () => {
     expect(store.recordedCalls()[0]).toMatchObject({ status: 'timeout', errorCode: 'timeout' })
   })
 
+  it('model thiếu bảng giá KHÔNG làm hỏng lượt gọi — chỉ ghi chi phí 0 kèm mã lỗi', async () => {
+    const { client } = makeClient()
+    const store = new InMemoryAiStore(() => AT)
+    const gateway = createAiGateway({
+      store,
+      client,
+      // Ép model chất lượng sang một tên chưa có trong bảng giá.
+      env: makeEnv({ models: { fast: 'gemini-3.5-flash-lite', quality: 'model-chua-khai-bao' } }),
+      now: () => AT,
+    })
+
+    const result = await gateway.generateStructured({ ...BASE_ARGS, escalate: true })
+
+    expect(result.status).toBe('ok')
+    expect(result.data).toEqual({ title: 'Tiêu đề hội thoại' })
+    expect(result.costUsd).toBe(0)
+    expect(store.recordedCalls()[0]?.errorCode).toBe('unknown_model_price')
+  })
+
   it('không tính chi phí cho lượt gọi thất bại', async () => {
     const { client } = makeFailingClient(new Error('hỏng'))
     const { gateway } = setup({ client })
