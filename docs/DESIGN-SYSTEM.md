@@ -261,6 +261,39 @@ Mọi thành phần đều phải có **trạng thái rỗng và trạng thái l
 - `aria-hidden="true"` khi đứng cạnh nhãn chữ; có `aria-label` khi đứng một mình.
 - ESLint `no-restricted-imports` và job `no-icon-libraries` trong CI chặn thư viện icon.
 
+### 9.1 Icon ứng dụng (PWA)
+
+Icon cài lên màn hình chính cũng là hình tự vẽ, không phải tệp thiết kế xuất ra:
+
+- Nền bo góc `forest-600` (`#324b2e`), chiếc lá `olive-100`, sống lá `olive-500`.
+- **Bốn cỡ**, sinh bằng `npm run icons:generate` (`scripts/generate-icons.mjs`):
+  `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`.
+- Bản `maskable` có nền tràn viền và hình nằm trong vùng an toàn 80% ở giữa — Android cắt
+  tròn thì không mất hình.
+- `apple-touch-icon` phải là PNG: **iOS bỏ qua SVG**. Đây là lý do không thể chỉ có `icon.svg`.
+- `icon.svg` ở `public/` là bản vector cùng hình, dùng cho tab trình duyệt.
+
+Đổi hình thì sửa `sample()` trong script rồi chạy lại. **Đừng sửa tay tệp PNG** — lần sinh
+sau sẽ ghi đè.
+
+---
+
+## 9b. Biểu đồ
+
+Biểu đồ cũng tự vẽ, không dùng thư viện (dù `recharts` có trong `package.json`):
+
+| Thành phần  | Dùng cho     | Vì sao dạng đó                                                                    |
+| ----------- | ------------ | --------------------------------------------------------------------------------- |
+| `LineChart` | Cân nặng     | Cột luôn bắt đầu từ 0, nên 3 kg trên nền 70 kg là chênh lệch 4% mà mắt không thấy |
+| `BarChart`  | Kcal nạp vào | Gốc 0 có nghĩa; kèm đường mục tiêu nét đứt để biết "nhiều hay ít"                 |
+
+- SVG dùng `preserveAspectRatio="none"` và `viewBox` 320 × 96, nên tự khớp mọi bề rộng.
+- **Không dùng `rx`** trên cột: kéo giãn phi đều biến bo góc tròn thành ellipse méo.
+- Nét phải có `vectorEffect="non-scaling-stroke"`, nếu không sẽ dày mỏng theo bề rộng màn hình.
+- Mọi biểu đồ kèm một **bảng dữ liệu ẩn** (`sr-only`). SVG là hình ảnh trần với trình đọc màn
+  hình; thiếu bảng thì người dùng screen reader không nhận được gì.
+- `describeSeries()` tạo câu tóm tắt bằng chữ, dùng cho `aria-label` và hiện dưới biểu đồ.
+
 ---
 
 ## 10. Linh vật và `BoIcon`

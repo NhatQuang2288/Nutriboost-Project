@@ -51,6 +51,7 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | `docs/DESIGN-SYSTEM.md` | Bảng màu trích từ logo, thang chữ, khoảng cách, số đo WCAG, linh vật  |
 | `docs/ASSISTANT-UX.md`  | Hợp đồng thi hành của lớp trợ lý 3 tầng                               |
 | `docs/PRICING.md`       | Rà soát 3 gói PT và phân tích chi phí AI trên doanh thu               |
+| `docs/INVITES.md`       | Mã mời: luồng đầy đủ, ba quyết định CSDL, cách nâng vai trò PT        |
 | `CLAUDE.md`             | Quy ước code và cạm bẫy môi trường                                    |
 
 ## Nguyên tắc kiến trúc
@@ -72,6 +73,7 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | `/`           | Trang giới thiệu                         |
 | `/dang-nhap`  | Đăng nhập bằng magic link                |
 | `/onboarding` | 5 câu hỏi, ra mục tiêu năng lượng ngay   |
+| `/tham-gia`   | Nhập mã mời của PT để được kết nối       |
 | `/hom-nay`    | Vòng calo, bữa ăn, gợi ý của Bơ mỗi ngày |
 | `/ghi-nhan`   | Ghi bữa ăn                               |
 | `/ke-hoach`   | Thực đơn 7 ngày, dựng tất định           |
@@ -86,25 +88,34 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | ---------------------- | ----------------------------------------------------- |
 | `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách |
 | `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng                    |
+| `/pt/loi-moi`          | Tạo và thu hồi mã mời; **đọc dữ liệu thật**           |
 | `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý                |
 | `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập, nhắc nhở         |
+
+> Hai bảng trên ghi rõ màn nào đọc dữ liệu thật. `/pt`, `/pt/duyet`, `/pt/goi` và
+> `/pt/khach/…` hiện vẫn dựng từ dữ liệu mẫu — xem mục "Còn thiếu" cuối `docs/roles.md`.
 
 ## Kiểm chứng
 
 ```bash
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
-npm run db:check    # chạy 5 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run db:check    # chạy 9 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
 npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
-npm run test        # 321 test đơn vị
+npm run test        # 425 test đơn vị, trong đó 52 test RLS chạy trên PostgreSQL thật
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
-npm run e2e         # 72 test Playwright, desktop + mobile
+npm run e2e         # 77 test Playwright, desktop + mobile
+npm run icons:generate  # sinh lại icon PWA (chỉ cần khi đổi hình)
 ```
 
 `npm run db:check` là bước bắt buộc trước khi chạy `supabase db reset`: nó dựng một
-PostgreSQL thật trong bộ nhớ, chạy cả 5 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
+PostgreSQL thật trong bộ nhớ, chạy cả 9 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
 lỗi cú pháp PL/pgSQL và lỗi ràng buộc dữ liệu lộ ra ở CI thay vì ở máy từng người.
+
+`npm run db:check` **không** kiểm được RLS: `auth.uid()` trong đó luôn là `null`, nên mọi
+policy đều "đúng" một cách vô nghĩa. Việc đó do `packages/db/src/__tests__/` làm, trên cùng
+PGlite nhưng có đổi được danh tính giữa các lời gọi — xem `CLAUDE.md`.
 
 `npm run env:check` chạy sau khi điền `.env.local`: nó xác nhận khoá hợp lệ, seed đã nạp,
 và **RLS đang chặn đúng** — service role đọc được 51 món trong khi người chưa đăng nhập

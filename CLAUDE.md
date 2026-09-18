@@ -35,18 +35,37 @@ Trợ lý tên **Bơ**. Sản phẩm lấy AI làm trung tâm và **tối thiể
 ## Lệnh thường dùng
 
 ```bash
-npm run dev            # chạy web ở http://localhost:3000
-npm run typecheck      # kiểm tra kiểu toàn workspace
+npm run dev              # chạy web ở http://localhost:3000
+npm run typecheck        # kiểm tra kiểu toàn workspace
 npm run lint
-npm run db:check       # chạy migration + seed trên PostgreSQL thật (không cần Docker)
-npm run env:link       # nối apps/web/.env.local → .env.local ở gốc (bắt buộc, chạy một lần)
-npm run env:check      # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
-npm run test           # vitest
-npm run e2e            # playwright (cần cài trình duyệt trước)
-npm run db:reset       # nạp lại schema + seed vào Supabase local
-npm run seed           # nạp dữ liệu món Việt
-npm run eval           # chạy bộ đánh giá AI
+npm run db:check         # chạy migration + seed trên PostgreSQL thật (không cần Docker)
+npm run env:link         # nối apps/web/.env.local → .env.local ở gốc (bắt buộc, chạy một lần)
+npm run env:check        # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
+npm run icons:generate   # sinh lại icon PWA trong apps/web/public/
+npm run test             # vitest
+npm run e2e              # playwright (cần cài trình duyệt trước)
+npm run db:reset         # nạp lại schema + seed vào Supabase local
+npm run seed             # nạp dữ liệu món Việt
+npm run eval             # chạy bộ đánh giá AI
 ```
+
+### Bộ test RLS chạy trên PostgreSQL thật
+
+`packages/db/src/__tests__/` dựng một PGlite (PostgreSQL biên dịch sang WASM), chạy toàn bộ
+migration rồi **nạp cả `supabase/seed.sql`**, và thay `auth.uid()` bằng một biến phiên để đổi
+được danh tính giữa các lời gọi.
+
+Vì sao cần: `scripts/check-migrations.mjs` chỉ chứng minh policy viết đúng cú pháp — `auth.uid()`
+trong đó luôn là `null`, mà `null` thì không khớp hàng nào, nên mọi policy đều "đúng" một cách
+vô nghĩa. Ba tệp trong `__tests__/` là chỗ duy nhất chứng minh policy **chặn đúng người**.
+
+```bash
+npx vitest run packages/db/src/__tests__/     # chỉ chạy bộ test RLS
+```
+
+Khi thêm bảng hoặc hàm mới, thêm test vào đây. Và hãy kiểm chứng test của bạn thật sự bắt được
+lỗi: bỏ thứ mình vừa viết ra rồi xem test có đỏ không. Một test RLS không bao giờ đỏ là một test
+vô dụng.
 
 ## Cạm bẫy môi trường (đã gặp thật)
 
@@ -112,6 +131,45 @@ Model phát ra phần `tool-*`, còn giao diện **chỉ vẽ từ `data-*`**. C
 `bridgeToolOutputsToDataParts` trong `packages/ai/src/chat.ts` làm việc đó. Thêm tool mới
 thì phải có tên trong `TOOL_TO_COMPONENT`, nếu không giao diện sẽ im lặng không hiện gì —
 không lỗi, không log. `packages/ai/src/__tests__/chat.test.ts` khoá bất biến này lại.
+
+### Hàm `security definer` phải được `revoke` tường minh
+
+PostgreSQL cấp `EXECUTE` cho **`PUBLIC`** trên mọi hàm mới theo mặc định. Với hàm
+`security definer`, điều đó nghĩa là bất kỳ ai cũng gọi được nó qua PostgREST, kể cả khi
+không có quyền nào trên những bảng mà nó đọc ghi — vì hàm chạy bằng quyền của chủ sở hữu.
+
+Đã có bốn hàm rơi đúng vào trường hợp này, trong đó hai cái gây hậu quả thật:
+
+- `active_subscription(uuid)` nhận `owner_id` tuỳ ý → đọc được điều khoản gói của mọi PT khác.
+- `claim_ai_quota(uuid, ai_purpose, integer)` nhận **cả hạn mức** từ người gọi → tự nâng trần
+  lượt AI của mình là được, tức là vô hiệu hoá đúng ràng buộc kinh tế trong `docs/PRICING.md`.
+
+Quy tắc: hàm `security definer` nhận tham số trỏ tới người dùng khác **phải** có
+`revoke all on function … from public, anon, authenticated`. Migration 006 làm việc đó cho
+bốn hàm đầu tiên.
+
+```sql
+revoke all on function public.ten_ham(uuid) from public, anon, authenticated;
+grant execute on function public.ten_ham(uuid) to service_role;   -- nếu tầng ứng dụng cần
+```
+
+**Cái bẫy ngược lại:** hàm trigger chạy theo quyền **người gọi** (như `touch_updated_at`)
+thì KHÔNG được thu hồi. Thu hồi sẽ làm mọi `insert`/`update` của người dùng đổ lỗi
+`permission denied for function`.
+
+### Hai chế độ dữ liệu phải nói ra, không được đoán
+
+Mọi thành phần đọc dữ liệu đều chạy được ở hai chế độ: **thật** (có Supabase + có phiên) và
+**dữ liệu mẫu** (chưa cấu hình). Lớp dữ liệu trả về trường `source: 'demo' | 'live'` và giao
+diện có trách nhiệm nói rõ đang ở chế độ nào.
+
+Lý do: trước đây không có trường đó, nên một người dùng **đã đăng nhập nhưng chưa thiết lập
+hồ sơ** vẫn thấy "Chào Minh" kèm 2.120 kcal như thể đó là hồ sơ của họ. Màn `/hom-nay` và
+`/tien-do` hiện một dòng nói thẳng khi ở chế độ mẫu, và `ensureProfileReady` đưa người dùng
+đã đăng nhập về `/onboarding` nếu hồ sơ chưa xong.
+
+Bộ kiểm thử đầu-cuối chạy ở chế độ dữ liệu mẫu (Playwright khai báo ba biến Supabase là chuỗi
+rỗng trong `webServer.env`). Đừng làm hỏng chế độ đó.
 
 ## Trước khi mở PR
 

@@ -89,3 +89,49 @@ zod schema dùng chung → **mock fixtures + MSW handler mock Gemini**.
 - **Không tự đổi hợp đồng types/zod** — đề xuất qua PR vào `packages/db` và cần TV1 duyệt.
 - **Không gọi SDK AI trực tiếp** ở bất kỳ đâu ngoài `packages/ai`. Có ESLint rule chặn.
 - **Không thêm dependency mới** mà không nêu lý do trong PR description.
+
+---
+
+## 6. Trạng thái hiện tại so với bảng phân công gốc
+
+> Cập nhật lần cuối khi nối xong tầng dữ liệu thật. Đây là chỗ để không ai phải đoán.
+
+### Đã xong
+
+| Vai trò | Hạng mục                                         | Ghi chú                                                                                  |
+| ------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| TV1     | Khung dự án, schema, migration, `CLAUDE.md`, CI  | 9 migration; CI 3 job xanh                                                               |
+| TV2     | Đăng nhập magic link                             | `/auth/callback`, `middleware.ts` làm mới phiên và bảo vệ route, `/dang-xuat`            |
+| TV2     | Quyền xoá dữ liệu                                | `DELETE /api/tai-khoan`, xác nhận hai bước, xoá `auth.users` để cascade dọn hết          |
+| TV2     | Mã mời                                           | Bảng + hàm + RLS + màn `/pt/loi-moi` + màn `/tham-gia`. Xem `docs/INVITES.md`            |
+| TV2     | Hạn mức API                                      | `claim_ai_quota` cưỡng chế trong CSDL, gọi qua `SupabaseAiStore`                         |
+| TV2     | Lưu trữ hội thoại                                | _Chưa_ — xem mục còn thiếu                                                               |
+| TV3     | BMI/BMR/TDEE, prompt, guardrail, eval            | 425 test đơn vị; eval 49/49 và 10/10                                                     |
+| TV3     | Cost tracking                                    | `SupabaseAiStore` ghi `ai_calls` cho từng lượt chat, kèm chi phí tính từ bảng giá        |
+| TV3     | Nhật ký bữa ăn bằng AI                           | `log_meal` ghi thật vào `meal_logs` + `meal_log_items`                                   |
+| TV3     | Lịch tập, luật nhắc nhở                          | Bộ dựng tất định + 34 test                                                               |
+| TV4     | Toàn bộ 8 màn khách hàng + console PT            | Giao diện đầy đủ, có trạng thái rỗng và lỗi                                              |
+| TV5     | Design system, lớp trợ lý 3 tầng, icon SVG tự vẽ | Xem `docs/DESIGN-SYSTEM.md`, `docs/ASSISTANT-UX.md`                                      |
+| TV5     | Biểu đồ                                          | `LineChart` + `BarChart` SVG tự vẽ, có bảng dữ liệu ẩn cho trình đọc màn hình            |
+| TV5     | PWA                                              | 4 cỡ icon sinh từ `scripts/generate-icons.mjs`, service worker chỉ cache tài nguyên tĩnh |
+| TV1     | Test RLS hai người dùng                          | `packages/db/src/__tests__/` trên PGlite, 52 test                                        |
+
+### Còn thiếu, và ai quyết định
+
+| #   | Việc                                 | Ai        | Vì sao chưa làm                                                                                                                                                                   |
+| --- | ------------------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Console PT đọc dữ liệu thật**      | TV4 + TV2 | `/pt`, `/pt/duyet`, `/pt/goi`, `/pt/khach/…` vẫn dựng từ `lib/data/pt.ts`. Chỉ `/pt/loi-moi` là thật. Nút duyệt thực đơn tự nói thẳng là chưa lưu được — không giả vờ thành công. |
+| 2   | **Lưu hội thoại vào `chat_threads`** | TV2       | Đa hội thoại hiện giữ trong `localStorage`. Đổi máy là mất. Bảng đã có sẵn trong CSDL.                                                                                            |
+| 3   | **Một PT mới lấy gói ở đâu**         | sản phẩm  | Chưa có trang quản trị và chưa có cổng thanh toán. `docs/INVITES.md` §3 nêu ba hướng kèm đánh đổi.                                                                                |
+| 4   | **300 món Việt**                     | TV3       | Hiện 51 món / 33 nguyên liệu. `packages/seed` đã có công cụ import và ràng buộc; phần thiếu là nội dung đã đối chiếu nguồn.                                                       |
+| 5   | **Trang quản trị**                   | TV1       | Chưa có. Đổi vai trò và tạo gói phải làm bằng SQL.                                                                                                                                |
+| 6   | **Nhắc nhở gửi thật**                | TV3       | Luật nhắc nhở có trong CSDL (`reminder_rules`) và bộ dựng tất định, nhưng chưa có đường gửi thông báo.                                                                            |
+| 7   | **Analytics**                        | TV5       | Bảng `analytics_events` có, chưa có code ghi.                                                                                                                                     |
+
+### Hai việc nên làm trước khi phát hành
+
+1. **Đối chiếu `packages/seed` với bản gốc** _Bảng thành phần dinh dưỡng thực phẩm Việt Nam_
+   và đặt `verified = true` cho từng dòng đã kiểm. Hiện toàn bộ là số liệu tham chiếu để phát
+   triển, ghi rõ trong comment đầu `packages/seed/src/data/ingredients.ts`.
+2. **Chuyển Gemini sang gói trả tiền.** Gói miễn phí cho phép Google dùng nội dung để cải
+   thiện sản phẩm — không chấp nhận được với dữ liệu sức khoẻ.
