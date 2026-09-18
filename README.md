@@ -43,6 +43,7 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | `docs/roles.md`         | Phân công 5 người đã điều chỉnh, ranh giới sở hữu, Definition of Done |
 | `docs/DESIGN-SYSTEM.md` | Bảng màu trích từ logo, thang chữ, khoảng cách, số đo WCAG, linh vật  |
 | `docs/ASSISTANT-UX.md`  | Hợp đồng thi hành của lớp trợ lý 3 tầng                               |
+| `docs/PRICING.md`       | Rà soát 3 gói PT và phân tích chi phí AI trên doanh thu               |
 | `CLAUDE.md`             | Quy ước code và cạm bẫy môi trường                                    |
 
 ## Nguyên tắc kiến trúc
@@ -54,6 +55,48 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 3. **Hiểu bữa ăn theo hai bước.** Tìm tất định bằng `pg_trgm` trước; chỉ gọi AI khi
    thật sự mơ hồ. Vừa chính xác hơn vừa rẻ hơn.
 4. **Không thư viện icon.** Toàn bộ SVG tự vẽ.
+
+## Kiểm chứng
+
+```bash
+npm run typecheck   # kiểu toàn workspace
+npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
+npm run test        # 208 test đơn vị
+npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
+npm run e2e         # 33 test Playwright, desktop + mobile
+```
+
+## Việc còn lại của nhóm
+
+### Bổ sung workflow CI
+
+`.github/workflows/ci.yml` **chưa được đẩy lên** vì token GitHub đang dùng thiếu scope
+`workflow`. File vẫn nằm trong thư mục làm việc, chỉ chưa được theo dõi.
+
+Cách 1 — cấp lại scope cho token rồi đẩy:
+
+```bash
+# Vào GitHub → Settings → Developer settings → Personal access tokens
+# bật scope `workflow`, rồi:
+git add .github/workflows/ci.yml
+git commit -m "ci: thêm workflow kiểm tra chất lượng và kiểm thử đầu-cuối"
+git push
+```
+
+Cách 2 — dùng SSH thay cho HTTPS:
+
+```bash
+git remote set-url origin git@github.com:NhatQuang2288/Nutriboost-Project.git
+git add .github/workflows/ci.yml && git commit -m "ci: thêm workflow CI" && git push
+```
+
+Cách 3 — tạo file trực tiếp trên giao diện web GitHub, dán nội dung từ máy.
+
+### Nhánh theo vai trò
+
+Remote đã có sẵn các nhánh `AI-&-Nghiệp-vụ-dinh-dưỡng`, `Auth-&-Dữ-liệu-nền`,
+`Giao-diện-PT`, `Giao-diện-khách-&-Design-System`. Tên nhánh có ký tự `&` gây khó cho
+một số công cụ CI, nên cân nhắc đổi sang dạng không dấu, ví dụ `feat/ai-nutrition`.
 
 ## Trạng thái
 
