@@ -75,8 +75,23 @@ describe('readAiEnv', () => {
   })
 
   it('nói rõ lý do khi chưa có khoá', () => {
-    withEnv({ GEMINI_API_KEY: '' }, () => {
+    /*
+     * Phải đặt CẢ HAI biến, không chỉ xoá khoá.
+     *
+     * `aiDisabledReason` xét công tắc dừng TRƯỚC khi xét khoá, mà CI đặt
+     * `AI_KILL_SWITCH=true` ở cấp job (để `next build` và bộ E2E chạy tất định). Chỉ xoá khoá
+     * thì test rơi vào nhánh công tắc và đỏ — đúng như đã xảy ra: xanh ở máy, đỏ ở CI.
+     */
+    withEnv({ GEMINI_API_KEY: '', AI_KILL_SWITCH: 'false' }, () => {
       expect(aiDisabledReason()).toMatch(/Chưa cấu hình khoá Gemini/)
+    })
+  })
+
+  it('công tắc dừng được xét TRƯỚC khoá thiếu', () => {
+    // Khoá lại thứ tự đó, vì nó là lý do test trên từng phụ thuộc môi trường: đặt công tắc
+    // mà không có khoá thì thông báo phải nói về bảo trì, không phải về khoá.
+    withEnv({ GEMINI_API_KEY: '', AI_KILL_SWITCH: 'true' }, () => {
+      expect(aiDisabledReason()).toMatch(/tạm nghỉ/)
     })
   })
 })

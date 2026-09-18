@@ -167,6 +167,28 @@ Kiểm tra giá trị mà container thật sự nhận:
 docker inspect supabase_auth_Nutriboost_Project --format '{{range .Config.Env}}{{println .}}{{end}}' | grep GOTRUE
 ```
 
+### Test đọc biến môi trường phải kiểm soát MỌI biến nó phụ thuộc
+
+`verify` trong CI đặt bốn biến ở cấp job: `AI_KILL_SWITCH=true`, `GEMINI_API_KEY=''`,
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ở máy thì những biến đó nằm
+trong `.env.local`, mà Vitest **không** nạp tệp đó.
+
+Nghĩa là một test có thể xanh ở máy và đỏ ở CI (hoặc ngược lại) chỉ vì môi trường khác nhau.
+Đã xảy ra thật: test "nói rõ lý do khi chưa có khoá" chỉ xoá `GEMINI_API_KEY`, trong khi
+`aiDisabledReason` xét công tắc dừng **trước** khoá — nên ở CI nó rơi vào nhánh bảo trì và đỏ.
+
+Cách chạy để bắt được loại lỗi này trước khi đẩy:
+
+```bash
+AI_KILL_SWITCH=true GEMINI_API_KEY='' \
+  NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-dummy-anon-key \
+  npm run test
+```
+
+Quy tắc: một test chạm `process.env` thì phải đặt **tất cả** biến mà đường mã nó kiểm tra đọc
+tới, không chỉ biến nó đang nhắm.
+
 ### Chạy lệnh npm từ ĐÚNG thư mục dự án
 
 Đường dẫn có dấu cách, nên phải bọc trong dấu nháy:
