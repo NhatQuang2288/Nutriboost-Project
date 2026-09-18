@@ -115,6 +115,35 @@ npm install --cache ./.npm-cache
 
 Cách khác: `sudo chown -R 501:20 ~/.npm` để dùng lại cache mặc định.
 
+### Supabase CLI không phải dependency — ba script đi qua `scripts/supabase.mjs`
+
+`db:start`, `db:reset` và `db:types` từng gọi thẳng `supabase`, nhưng CLI đó **không** nằm
+trong `dependencies` lẫn PATH. Cả ba đổ ngay lần chạy đầu với `sh: supabase: command not
+found`, dù tài liệu vẫn chỉ dẫn dùng chúng.
+
+Nay chúng đi qua `scripts/supabase.mjs`, chạy `npx --yes supabase@<phiên bản>`. Phiên bản
+ghim ở **một chỗ** trong tệp đó. Không thêm CLI vào `devDependencies` vì `postinstall` của nó
+tải tệp nhị phân vài chục MB — mọi người đóng góp đều phải trả giá, kể cả người chỉ sửa giao
+diện.
+
+`supabase db reset` cần **Docker Desktop đang chạy**. Kiểm tra nhanh:
+
+```bash
+docker info >/dev/null && echo "docker OK" || echo "Docker chưa chạy"
+```
+
+### Chạy lệnh npm từ ĐÚNG thư mục dự án
+
+Đường dẫn có dấu cách, nên phải bọc trong dấu nháy:
+
+```bash
+cd "/Users/lenguyennhatquang/Desktop/Nutriboost Project"
+```
+
+Chạy `npm run ...` từ thư mục nhà sẽ đổ với `ENOENT: Could not read package.json:
+/Users/<tên>/package.json` — thông báo nói về `package.json` chứ không nói về thư mục, nên
+đọc qua rất dễ tưởng là dự án hỏng.
+
 ### Không có `pnpm` hay `bun`
 
 Dự án dùng **npm workspaces**. Đừng thêm lockfile của trình quản lý khác.

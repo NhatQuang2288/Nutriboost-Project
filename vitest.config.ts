@@ -26,7 +26,13 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/**/src/**/*.test.ts', 'apps/web/src/**/*.test.{ts,tsx}'],
+    include: [
+      'packages/**/src/**/*.test.ts',
+      'apps/web/src/**/*.test.{ts,tsx}',
+      // Script trong `scripts/` cũng có phần logic thuần đáng kiểm thử — ví dụ lớp bọc
+      // Supabase CLI, nơi phiên bản được ghim.
+      'scripts/**/*.test.mjs',
+    ],
     exclude: ['**/node_modules/**', '**/.next/**', '**/dist/**', '**/e2e/**'],
     testTimeout: 30_000,
     hookTimeout: 30_000,
