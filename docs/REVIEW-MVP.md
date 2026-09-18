@@ -15,12 +15,14 @@ tại trong console PT.
 
 Hệ quả:
 
-| Hạng mục                                                     | Trước                        | Nay                                                                     |
-| ------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------- |
-| Console PT (quản lý khách, duyệt thực đơn, theo dõi tiến độ) | Release 2                    | **Release 1**                                                           |
-| Ứng dụng cho khách hàng cuối                                 | Sản phẩm                     | **Kênh phân phối**                                                      |
-| Hạn mức khách hàng và hạn mức lượt AI                        | Chưa có                      | **Cưỡng chế ở CSDL** — `supabase/migrations/20260918090300_billing.sql` |
-| TV4                                                          | Chỉ màn hình người dùng cuối | Thêm console PT                                                         |
+| Hạng mục                                                     | Trước                        | Nay                                                                                 |
+| ------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------- |
+| Console PT (quản lý khách, duyệt thực đơn, theo dõi tiến độ) | Release 2                    | **Release 1**                                                                       |
+| Ứng dụng cho khách hàng cuối                                 | Sản phẩm                     | **Kênh phân phối**                                                                  |
+| Hạn mức khách hàng và hạn mức lượt AI                        | Chưa có                      | **Cưỡng chế ở CSDL** — `supabase/migrations/20260918090300_billing.sql`             |
+| **Lịch tập** (600.000đ/tháng trong bảng giá trị)             | Không có                     | **Release 1** — dựng tất định từ danh mục bài tập, kcal đốt tính bằng công thức MET |
+| **Nhắc nhở khách hàng** (220.000đ/tháng)                     | Không có                     | **Release 1** — thời điểm là dữ liệu trong `reminder_rules`, lời nhắn do AI viết    |
+| TV4                                                          | Chỉ màn hình người dùng cuối | Thêm console PT và màn lịch tập                                                     |
 
 Phân tích định lượng nằm ở `docs/PRICING.md`, gồm cả kết luận rằng **trần lượt AI là ràng buộc
 quyết định biên lợi nhuận**: không có trần, gói Diamond mất tới 59 % doanh thu cho chi phí AI.

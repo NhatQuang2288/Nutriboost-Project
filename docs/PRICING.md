@@ -124,6 +124,56 @@ Chi tiết điều chỉnh nằm ở `docs/roles.md` và mục mới trong `docs
 
 ---
 
+## 5b. Lịch tập và nhắc nhở — hai tính năng đã có trong bảng giá trị
+
+Bảng "Giá trị mang lại" của trang giá định giá hai hạng mục mà bản kế hoạch đầu tiên chưa
+có: **quản lý lịch tập (600.000đ/tháng)** và **nhắc nhở tự động (220.000đ/tháng)**. Cả hai
+đã được đưa vào Release 1.
+
+### Vì sao hai tính năng này rẻ về mặt AI
+
+| Hạng mục           | Tần suất    | Chi phí AI mỗi khách mỗi tháng                               |
+| ------------------ | ----------- | ------------------------------------------------------------ |
+| Dựng lịch tập tuần | 1 lần/tuần  | **$0** — dựng hoàn toàn tất định từ danh mục bài tập         |
+| Viết lời nhắc      | ~4 tin/ngày | ≈ **$0,02** — mỗi tin ~300 token vào, 40 token ra ở model rẻ |
+
+Cộng lại chưa tới **0,1 %** chi phí AI của một khách. Nghĩa là giá trị 820.000đ/tháng mà
+trang giá quy cho hai hạng mục này gần như không kèm chi phí biến đổi — đây là phần đóng
+góp biên tốt nhất trong cả bảng giá trị.
+
+**Vì sao lịch tập để tất định:** kcal đốt của buổi tập phải cộng được vào ngân sách năng
+lượng trong ngày. Nếu để model tự nghĩ ra bài tập thì không có cách nào biết nó đốt bao
+nhiêu, và con số đó sẽ trôi khỏi mọi phép tính khác. MET là dữ liệu, kcal là công thức,
+model chỉ chọn bài và diễn giải.
+
+**Vì sao thời điểm nhắc là dữ liệu chứ không phải logic:** PT phải đổi được giờ nhắc của
+từng khách mà không cần deploy. Luật nằm trong bảng `reminder_rules`; hàm
+`decideReminder` chỉ trả lời "có gửi hay không, vì sao". Chống gửi trùng bằng một chỉ mục
+duy nhất ở tầng CSDL, không dựa vào việc bộ lập lịch có nhớ hay không.
+
+### Phân hạng đề xuất cho hai tính năng này
+
+|                                            | Plus | Premium | Diamond |
+| ------------------------------------------ | ---- | ------- | ------- |
+| Lịch tập tất định                          | ✓    | ✓       | ✓       |
+| Lịch tập do AI tinh chỉnh theo tiến độ     | —    | ✓       | ✓       |
+| Nhắc nhở cơ bản (ghi bữa, cân nặng)        | ✓    | ✓       | ✓       |
+| Nhắc nhở thông minh (đổi giờ theo hành vi) | —    | —       | ✓       |
+
+Lý do tách: bản tất định gần như không tốn chi phí nên cho cả ba gói; phần AI tinh chỉnh
+mới là thứ tốn token và tạo khác biệt — cũng là thứ hiện đang thiếu để phân hạng ngoài
+yếu tố "số khách hàng" (vấn đề #1 ở mục 3).
+
+### Cảnh báo về tần suất nhắc
+
+Bộ luật mặc định giới hạn **tối đa 4 lần nhắc một ngày**. Con số này không phải để tiết
+kiệm token mà để giữ chân: người dùng tắt thông báo sau vài ngày bị nhắc quá nhiều, và khi
+đã tắt thì không nhắc được gì nữa. Hàm `maxRemindersPerDay` kiểm đúng ngày bận nhất của
+tuần, không đếm tổng số luật — vì `weigh_in` chỉ chạy thứ Hai và `weekly_checkin` chỉ chạy
+Chủ nhật nên chúng không bao giờ trùng ngày.
+
+---
+
 ## 6. Ba việc cần chốt trước khi mở bán
 
 1. **Tỉ giá** dùng trong mọi phép tính chi phí: tài liệu này giả định 1 USD ≈ 26.000đ.

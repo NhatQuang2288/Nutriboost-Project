@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 
-import { BoIcon, FlameIcon, LeafIcon, SparkIcon } from '@/components/icons'
+import Link from 'next/link'
+
+import { BoIcon, ChevronRightIcon, FlameIcon, LeafIcon, SparkIcon } from '@/components/icons'
 import {
   Card,
   Disclaimer,
@@ -101,6 +103,24 @@ export default function TodayPage() {
           </div>
         </div>
       </Card>
+
+      <Link
+        href="/lich-tap"
+        className="border-line bg-surface flex items-center justify-between gap-3 rounded-lg border p-4 transition-colors duration-(--duration-fast) hover:border-olive-200"
+      >
+        <span className="flex items-center gap-3">
+          <span className="text-forest-600 flex size-9 shrink-0 items-center justify-center rounded-full bg-olive-100">
+            <FlameIcon size={18} />
+          </span>
+          <span>
+            <span className="text-body text-ink block font-semibold">Lịch tập tuần này</span>
+            <span className="text-caption text-ink-muted block">
+              Xem buổi tập hôm nay và kcal đốt
+            </span>
+          </span>
+        </span>
+        <ChevronRightIcon size={18} className="text-ink-faint shrink-0" />
+      </Link>
 
       <section>
         <SectionTitle

@@ -37,7 +37,15 @@ function sse(chunks: readonly unknown[]): string {
 }
 
 test.describe('§11.2 — không tự mở khi tải trang', () => {
-  for (const route of ['/hom-nay', '/ke-hoach', '/tien-do', '/toi', '/ghi-nhan', '/coach']) {
+  for (const route of [
+    '/hom-nay',
+    '/ke-hoach',
+    '/lich-tap',
+    '/tien-do',
+    '/toi',
+    '/ghi-nhan',
+    '/coach',
+  ]) {
     test(`tải ${route} thì panel thu gọn`, async ({ page }) => {
       await page.goto(route)
       await expect(page.locator(DOCK)).toHaveAttribute('data-mode', 'bar')

@@ -103,3 +103,15 @@ export function datasetStats(): DatasetStats {
       Math.max(0, TARGET_DISHES - dataset.dishes.length),
   }
 }
+
+export {
+  EXERCISES,
+  EXERCISE_BY_SLUG,
+  EXERCISE_SOURCE,
+  type ExerciseRecord,
+  type MuscleGroup,
+  type Equipment,
+  type ExerciseLevel,
+  type InjuryArea,
+  type Measure,
+} from './data/exercises'

@@ -112,6 +112,22 @@ export const threadTitleSchema = z.object({
 })
 
 /* ---------------------------------------------------------------------------
+ * Lời nhắn đẩy
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Đầu ra của model khi viết lời nhắc.
+ *
+ * Giới hạn 120 ký tự vì thông báo đẩy dài hơn sẽ bị hệ điều hành cắt — và cắt giữa câu
+ * thì tệ hơn là viết ngắn ngay từ đầu.
+ */
+export const reminderMessageSchema = z.object({
+  message: z.string().min(1).max(120),
+})
+
+export type ReminderMessage = z.infer<typeof reminderMessageSchema>
+
+/* ---------------------------------------------------------------------------
  * Generative UI — sổ đăng ký component
  *
  * ĐÂY LÀ HÀNG RÀO AN NINH.
