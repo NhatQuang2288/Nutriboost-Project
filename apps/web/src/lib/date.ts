@@ -35,3 +35,16 @@ export function weekdayLabel(date: Date, timeZone: string): string {
 export function ageAt(birthYear: number, now: Date = new Date()): number {
   return Math.max(0, now.getFullYear() - birthYear)
 }
+
+/**
+ * `YYYY-MM-DD` → `dd/mm/yyyy`, nếp viết ngày của người Việt.
+ *
+ * Cắt chuỗi thay vì `new Date(iso)`: `new Date('2026-09-18')` được hiểu là nửa đêm UTC, nên
+ * ở múi giờ +07 nó vẫn đúng, nhưng ở múi giờ âm nó lùi mất một ngày. Cắt chuỗi thì không
+ * phụ thuộc múi giờ của máy chạy.
+ */
+export function formatIsoDate(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-')
+  if (year === undefined || month === undefined || day === undefined) return iso
+  return `${day}/${month}/${year}`
+}

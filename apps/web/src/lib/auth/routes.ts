@@ -16,6 +16,10 @@ export const PROTECTED_PREFIXES = [
   '/coach',
   '/pt',
   '/onboarding',
+  // Nhập mã mời cần biết "ai đang đổi mã" — hàm `redeem_invite_code` lấy người dùng từ
+  // `auth.uid()`. Chưa đăng nhập thì middleware đưa qua `/dang-nhap` kèm cả `?ma=` trong
+  // `next`, nên mã không bị mất trên đường.
+  '/tham-gia',
 ] as const
 
 /** API bắt buộc phải đăng nhập — trả 401 JSON, không redirect. */

@@ -57,9 +57,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   /*
    * Hồ sơ đã hoàn tất chưa? Chưa thì đưa qua onboarding. Đây là chỗ duy nhất biết chắc
    * người dùng vừa đăng nhập lần đầu, nên chỉ tốn đúng một truy vấn cho mỗi lần đăng nhập.
+   *
+   * `tiep` mang theo đích đến ban đầu. Thiếu nó, một khách mở liên kết mời rồi bị đưa qua
+   * onboarding sẽ mất mã mời ở giữa đường và phải nhờ PT gửi lại.
    */
   const onboarded = await isOnboarded(supabase)
-  return NextResponse.redirect(`${origin}${onboarded ? next : '/onboarding'}`)
+  if (onboarded) {
+    return NextResponse.redirect(`${origin}${next}`)
+  }
+
+  return NextResponse.redirect(`${origin}/onboarding?tiep=${encodeURIComponent(next)}`)
 }
 
 /** Mặc định `false`: chưa đọc được hồ sơ thì đưa qua onboarding, không bỏ qua bước đó. */

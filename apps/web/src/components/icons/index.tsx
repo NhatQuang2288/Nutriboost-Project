@@ -361,6 +361,35 @@ export function MailIcon(props: IconProps) {
   )
 }
 
+export function CopyIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="9" y="9" width="11" height="11" rx="1.8" />
+      <path d="M15 6.5V5.8A1.8 1.8 0 0 0 13.2 4H5.8A1.8 1.8 0 0 0 4 5.8v7.4A1.8 1.8 0 0 0 5.8 15h.7" />
+    </Icon>
+  )
+}
+
+export function UserPlusIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="9.5" cy="8.5" r="3.5" />
+      <path d="M3.5 19.5a6 6 0 0 1 12 0" />
+      <path d="M18 7v6" />
+      <path d="M15 10h6" />
+    </Icon>
+  )
+}
+
+export function TicketIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 8.5A1.5 1.5 0 0 0 5 7h14a1.5 1.5 0 0 0 1.5 1.5v1a2 2 0 0 0 0 4v1A1.5 1.5 0 0 0 19 17H5a1.5 1.5 0 0 0-1.5-1.5v-1a2 2 0 0 0 0-4v-1Z" />
+      <path d="M12 9v1.5M12 13.5V15" />
+    </Icon>
+  )
+}
+
 export { BoIcon } from './BoIcon'
 export type { BoIconProps, BoIconState } from './BoIcon'
 export { BoMascot } from './BoMascot'

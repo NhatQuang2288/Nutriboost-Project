@@ -3,21 +3,25 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-import { BoIcon, CalendarIcon, CheckIcon, ChartIcon } from '@/components/icons'
+import { BoIcon, CalendarIcon, CheckIcon, ChartIcon, UserPlusIcon } from '@/components/icons'
 
 interface Tab {
-  href: '/pt' | '/pt/duyet' | '/pt/goi'
+  href: '/pt' | '/pt/duyet' | '/pt/loi-moi' | '/pt/goi'
   label: string
   Icon: typeof ChartIcon
 }
 
 /**
- * Ba tab, không phải bốn: danh sách khách hàng nằm ngay trong tab Tổng quan,
- * vì PT vào đây để xem "hôm nay cần làm gì" chứ không phải để duyệt một bảng danh sách.
+ * Bốn tab. Danh sách khách hàng nằm ngay trong tab Tổng quan, vì PT vào đây để xem "hôm nay
+ * cần làm gì" chứ không phải để duyệt một bảng danh sách.
+ *
+ * "Mời khách" đứng cạnh "Duyệt thực đơn" vì đó là hai việc PT làm hằng ngày: nhận khách mới
+ * và duyệt thực đơn cho khách cũ.
  */
 const TABS: readonly Tab[] = [
   { href: '/pt', label: 'Tổng quan', Icon: ChartIcon },
   { href: '/pt/duyet', label: 'Duyệt thực đơn', Icon: CheckIcon },
+  { href: '/pt/loi-moi', label: 'Mời khách', Icon: UserPlusIcon },
   { href: '/pt/goi', label: 'Gói dịch vụ', Icon: CalendarIcon },
 ]
 

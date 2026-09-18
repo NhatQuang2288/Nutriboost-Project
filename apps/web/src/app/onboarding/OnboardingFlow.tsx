@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 
 import {
   type ActivityLevel,
@@ -55,7 +56,7 @@ const GOAL_OPTIONS: readonly { value: Goal; label: string; hint: string }[] = [
   { value: 'gain', label: 'Tăng cân', hint: 'Tăng cân từ từ, lành mạnh' },
 ]
 
-export function OnboardingFlow() {
+export function OnboardingFlow({ next }: { next?: string }) {
   const [stepIndex, setStepIndex] = useState(0)
   const [answers, setAnswers] = useState<Answers>(INITIAL)
 
@@ -228,6 +229,7 @@ export function OnboardingFlow() {
               bmiLabel={`${result.bmi.bmi} · ${BMI_LABELS[result.bmi.category]}`}
               safetyLevel={result.safety.level}
               safetyReasons={result.safety.reasons}
+              next={next}
             />
           )
         ) : null}
@@ -459,6 +461,7 @@ function ResultStep({
   bmiLabel,
   safetyLevel,
   safetyReasons,
+  next,
 }: {
   targetKcal: number
   bmrKcal: number
@@ -469,6 +472,12 @@ function ResultStep({
   bmiLabel: string
   safetyLevel: 'ok' | 'caution' | 'refer'
   safetyReasons: readonly string[]
+  /**
+   * Nơi cần tới sau khi thiết lập xong. Có giá trị khi người dùng bị đưa qua onboarding từ
+   * một liên kết sâu — ví dụ liên kết mời khách `/tham-gia?ma=…`. Không giữ lại thì mã mời
+   * rơi mất ở giữa luồng và khách phải nhờ PT gửi lại.
+   */
+  next?: string
 }) {
   return (
     <section className="flex flex-1 flex-col items-center gap-5 text-center">
@@ -499,7 +508,13 @@ function ResultStep({
 
       <div className="w-full">
         <Link
-          href="/hom-nay"
+          /*
+           * Ép kiểu vì `next` là một đường dẫn đến từ URL, không phải hằng chuỗi. Next sinh
+           * kiểu `Route` từ danh sách route thật của ứng dụng, mà danh sách đó không biểu
+           * diễn được "một đường dẫn nội bộ bất kỳ". Giá trị đã đi qua `safeNextPath` ở
+           * `page.tsx` nên chắc chắn là đường dẫn nội bộ.
+           */
+          href={(next ?? '/hom-nay') as Route}
           className="bg-forest-600 text-ink-inverse text-label flex min-h-12 w-full items-center justify-center gap-2 rounded-md px-6 font-semibold transition-colors duration-(--duration-fast)"
         >
           <CheckIcon size={18} />

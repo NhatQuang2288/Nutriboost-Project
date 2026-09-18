@@ -46,7 +46,9 @@ async function createCode(
   options: CodeOptions = {},
 ): Promise<{ id: string; code: string }> {
   return asUser(db, owner, async () => {
-    const generated = await db.query<{ code: string }>(`select public.generate_invite_code() as code`)
+    const generated = await db.query<{ code: string }>(
+      `select public.generate_invite_code() as code`,
+    )
 
     return firstRow(
       await db.query<{ id: string; code: string }>(
@@ -70,13 +72,16 @@ async function redeem(
   userId: string,
   code: string,
 ): Promise<{ ok: boolean; reason?: string; pt_id?: string }> {
-  return asUser(db, userId, async () =>
-    firstRow(
-      await db.query<{ result: { ok: boolean; reason?: string; pt_id?: string } }>(
-        `select public.redeem_invite_code($1) as result`,
-        [code],
-      ),
-    ).result,
+  return asUser(
+    db,
+    userId,
+    async () =>
+      firstRow(
+        await db.query<{ result: { ok: boolean; reason?: string; pt_id?: string } }>(
+          `select public.redeem_invite_code($1) as result`,
+          [code],
+        ),
+      ).result,
   )
 }
 
@@ -140,8 +145,12 @@ describe('RLS trên invite_codes', () => {
   })
 
   it('PT không phát hành được mã nhân danh PT khác', async () => {
-    const generated = await asUser(db, USERS.pt, async () =>
-      firstRow(await db.query<{ code: string }>(`select public.generate_invite_code() as code`)).code,
+    const generated = await asUser(
+      db,
+      USERS.pt,
+      async () =>
+        firstRow(await db.query<{ code: string }>(`select public.generate_invite_code() as code`))
+          .code,
     )
 
     await expect(
@@ -155,8 +164,12 @@ describe('RLS trên invite_codes', () => {
   })
 
   it('tài khoản không phải PT không phát hành được mã', async () => {
-    const generated = await asUser(db, USERS.client1, async () =>
-      firstRow(await db.query<{ code: string }>(`select public.generate_invite_code() as code`)).code,
+    const generated = await asUser(
+      db,
+      USERS.client1,
+      async () =>
+        firstRow(await db.query<{ code: string }>(`select public.generate_invite_code() as code`))
+          .code,
     )
 
     await expect(
@@ -247,7 +260,10 @@ describe('redeem_invite_code', () => {
     const second = await createCode(USERS.pt)
 
     expect((await redeem(USERS.client3, first.code)).ok).toBe(true)
-    expect(await redeem(USERS.client3, second.code)).toEqual({ ok: false, reason: 'already_linked' })
+    expect(await redeem(USERS.client3, second.code)).toEqual({
+      ok: false,
+      reason: 'already_linked',
+    })
   })
 
   it('chạm hạn mức gói thì ném lỗi và KHÔNG tăng số lần đã dùng', async () => {
@@ -333,7 +349,7 @@ describe('invite_code_status', () => {
     const status = await asUser(db, USERS.pt, async () =>
       firstRow(
         await db.query<{ code: string; usable: boolean; reason: string; remaining_slots: number }>(
-          `select * from public.invite_code_status($1)`,
+          `select code, usable, reason, remaining_slots from public.invite_code_status($1)`,
           [id],
         ),
       ),
@@ -343,6 +359,45 @@ describe('invite_code_status', () => {
     expect(status.reason).toBe('ok')
     // Gói Plus 5 khách; các test khác đã dùng mất vài chỗ.
     expect(status.remaining_slots).toBeGreaterThanOrEqual(0)
+  })
+
+  it('gọi không tham số trả về toàn bộ mã của người gọi', async () => {
+    const first = await createCode(USERS.pt)
+    const second = await createCode(USERS.pt)
+    const other = await createCode(USERS.ptOther)
+
+    const codes = await asUser(db, USERS.pt, async () =>
+      db.query<{ code: string }>(`select code from public.invite_code_status()`),
+    )
+    const visible = codes.rows.map((row) => row.code)
+
+    // Đây là dạng mà giao diện PT dùng, nên nó cũng phải giữ đúng hàng rào quyền.
+    expect(visible).toContain(first.code)
+    expect(visible).toContain(second.code)
+    expect(visible).not.toContain(other.code)
+  })
+
+  it('PT chưa có gói thấy lý do riêng, không phải "gói đã đầy"', async () => {
+    // Hai tình huống này cần hai việc làm khác nhau, nên không được gộp làm một.
+    const ptWithoutPlan = '55555555-5555-5555-5555-555555555555'
+    await db.query(`insert into auth.users (id, email) values ($1, $2)`, [
+      ptWithoutPlan,
+      'pt-chua-mua@example.com',
+    ])
+    await db.query(`update public.profiles set role = 'pt' where id = $1`, [ptWithoutPlan])
+
+    const { id } = await createCode(ptWithoutPlan)
+
+    const status = await asUser(db, ptWithoutPlan, async () =>
+      firstRow(
+        await db.query<{ usable: boolean; reason: string }>(
+          `select usable, reason from public.invite_code_status($1)`,
+          [id],
+        ),
+      ),
+    )
+
+    expect(status).toEqual({ usable: false, reason: 'no_plan' })
   })
 
   it('người khác không xem được trạng thái mã', async () => {

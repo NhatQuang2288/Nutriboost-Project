@@ -45,6 +45,7 @@ describe('danh sách route bảo vệ', () => {
       '/coach',
       '/pt',
       '/onboarding',
+      '/tham-gia',
     ]) {
       expect(isProtectedPage(path), `${path} phải được bảo vệ`).toBe(true)
     }

@@ -169,9 +169,7 @@ describe('quyền gọi hàm — những hàm cố tình để mở', () => {
   })
 
   it('purge_user_data chỉ xoá dữ liệu của chính người gọi', async () => {
-    await asUser(db, USERS.client2, async () =>
-      db.query(`select public.purge_user_data()`),
-    )
+    await asUser(db, USERS.client2, async () => db.query(`select public.purge_user_data()`))
 
     const remaining = await db.query<{ user_id: string }>(
       `select user_id from public.meal_logs order by user_id`,

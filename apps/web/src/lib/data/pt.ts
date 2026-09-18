@@ -88,7 +88,11 @@ export interface PtClientDetail {
   targetKcal: number
 }
 
-const TIER_LABELS: Readonly<Record<PtTier, string>> = {
+/**
+ * Nhãn tiếng Việt của ba gói. Xuất ra ngoài để màn mã mời dùng chung — hai bảng nhãn cho
+ * cùng một khái niệm là cách chắc chắn nhất để chúng lệch nhau.
+ */
+export const TIER_LABELS: Readonly<Record<PtTier, string>> = {
   trial: 'Dùng thử',
   plus: 'Plus',
   premium: 'Premium',
