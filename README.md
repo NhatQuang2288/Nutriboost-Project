@@ -87,10 +87,15 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 ```bash
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
-npm run test        # 208 test đơn vị
+npm run db:check    # chạy 5 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run test        # 311 test đơn vị
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
-npm run e2e         # 33 test Playwright, desktop + mobile
+npm run e2e         # 72 test Playwright, desktop + mobile
 ```
+
+`npm run db:check` là bước bắt buộc trước khi chạy `supabase db reset`: nó dựng một
+PostgreSQL thật trong bộ nhớ, chạy cả 5 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
+lỗi cú pháp PL/pgSQL và lỗi ràng buộc dữ liệu lộ ra ở CI thay vì ở máy từng người.
 
 ## Việc còn lại của nhóm
 

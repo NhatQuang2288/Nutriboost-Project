@@ -38,6 +38,7 @@ Trợ lý tên **Bơ**. Sản phẩm lấy AI làm trung tâm và **tối thiể
 npm run dev            # chạy web ở http://localhost:3000
 npm run typecheck      # kiểm tra kiểu toàn workspace
 npm run lint
+npm run db:check       # chạy migration + seed trên PostgreSQL thật (không cần Docker)
 npm run test           # vitest
 npm run e2e            # playwright (cần cài trình duyệt trước)
 npm run db:reset       # nạp lại schema + seed vào Supabase local

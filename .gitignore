@@ -47,3 +47,6 @@ tmp/
 
 # Trình duyệt Playwright cài trong workspace (một số môi trường chặn cache hệ điều hành)
 .playwright-browsers/
+
+# Công cụ tạm cài trong workspace (không thuộc dự án)
+.tools/

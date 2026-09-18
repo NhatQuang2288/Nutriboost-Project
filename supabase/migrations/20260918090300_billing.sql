@@ -140,6 +140,7 @@ security definer
 set search_path = public
 as $$
 declare
+  v_sub public.subscriptions;
   v_limit integer;
   v_active integer;
 begin
@@ -153,7 +154,10 @@ begin
     return new;
   end if;
 
-  v_limit := public.active_subscription(new.pt_id).client_limit;
+  -- Gán hai bước thay vì `public.f(...).field`: PL/pgSQL không chấp nhận truy cập
+  -- trường trực tiếp trên kết quả gọi hàm có tiền tố schema (lỗi cú pháp 42601).
+  v_sub := public.active_subscription(new.pt_id);
+  v_limit := v_sub.client_limit;
 
   if v_limit is null then
     raise exception 'Tài khoản PT chưa có gói đang hiệu lực.'
@@ -203,10 +207,14 @@ security definer
 set search_path = public
 as $$
 declare
+  v_sub public.subscriptions;
   v_limit integer;
   v_active integer;
 begin
-  v_limit := public.active_subscription(p_owner).client_limit;
+  -- Cùng lý do như enforce_client_limit: không truy cập trường trực tiếp trên kết quả hàm.
+  v_sub := public.active_subscription(p_owner);
+  v_limit := v_sub.client_limit;
+
   if v_limit is null then
     return 0;
   end if;
