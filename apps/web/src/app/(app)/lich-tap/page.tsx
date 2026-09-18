@@ -3,6 +3,7 @@ import Link from 'next/link'
 
 import { BoIcon, ClockIcon, FlameIcon, InfoIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
+import { ensureProfileReady } from '@/lib/data/require-profile'
 import { getWeeklyWorkout } from '@/lib/data/workout'
 
 export const metadata: Metadata = { title: 'Lịch tập' }
@@ -10,8 +11,9 @@ export const dynamic = 'force-dynamic'
 
 const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
 
-export default function WorkoutPage() {
-  const { plan, weekLabel, todayDate } = getWeeklyWorkout()
+export default async function WorkoutPage() {
+  const { plan, weekLabel, todayDate, source } = await getWeeklyWorkout()
+  await ensureProfileReady(source)
 
   return (
     <div className="flex flex-col gap-5">

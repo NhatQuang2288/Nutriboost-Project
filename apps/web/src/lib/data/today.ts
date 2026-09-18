@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   type ActivityLevel,
   type BmiResult,
@@ -10,19 +11,27 @@ import {
   assessSafety,
   computeBmi,
   computeEnergyTargets,
-  scaleNutrients,
+  macroDriftKcal,
   sumNutrients,
 } from '@nutriboost/nutrition'
 
-import { DEFAULT_TIMEZONE, ageAt, localDateIn } from '@/lib/date'
+import { DEFAULT_TIMEZONE, ageFromIsoDate, localDateIn } from '@/lib/date'
+import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 
 /**
  * Lớp dữ liệu cho màn "Hôm nay".
  *
- * HIỆN TẠI ĐỌC TỪ DỮ LIỆU MẪU.
- * Đây là chủ ý trong Tuần 0 của lộ trình (docs/roles.md): TV4 và TV5 phải dựng được
- * toàn bộ giao diện trước khi Supabase sẵn sàng. Khi nối CSDL thật, chỉ thay phần
- * đọc dữ liệu ở cuối file; mọi con số vẫn đi qua `@nutriboost/nutrition`.
+ * HAI chế độ, và chế độ được ghi thẳng vào kết quả qua trường `source`:
+ *   • `live` — đọc từ Supabase, dùng khi có phiên và hồ sơ đã thiết lập xong.
+ *   • `demo` — dữ liệu mẫu, dùng khi chưa cấu hình Supabase, hoặc khi hồ sơ chưa hoàn tất.
+ *
+ * Trường `source` tồn tại để giao diện nói được sự thật. Trước đây không có nó, nên một
+ * người dùng đã đăng nhập vẫn thấy số liệu mẫu của "Minh" mà không có gì cho biết đó không
+ * phải dữ liệu của họ.
+ *
+ * Mọi con số đều đi qua `@nutriboost/nutrition` — hàm thuần. Không phép tính nào ở đây do
+ * model sinh ra, và mục tiêu năng lượng đọc từ `energy_targets` đã được tính phía máy chủ
+ * lúc thiết lập hồ sơ.
  */
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
@@ -62,6 +71,8 @@ export interface DailyInsight {
 
 export interface TodayView {
   localDate: string
+  /** `demo` = dữ liệu mẫu. Giao diện phải nói rõ điều này. */
+  source: 'demo' | 'live'
   profile: {
     fullName: string
     sex: Sex
@@ -81,6 +92,375 @@ export interface TodayView {
   streakDays: number
   insight: DailyInsight
   isEmpty: boolean
+}
+
+/* ---------------------------------------------------------------------------
+ * Đọc dữ liệu thật
+ * ------------------------------------------------------------------------- */
+
+export async function getTodayView(now: Date = new Date()): Promise<TodayView> {
+  const live = await readLiveView(now)
+  return live ?? buildDemoView(now)
+}
+
+/**
+ * Trả về `null` khi không đọc được dữ liệu thật, và nơi gọi rơi về dữ liệu mẫu.
+ *
+ * Bốn điều kiện phải cùng đúng: đã cấu hình Supabase, có phiên, hồ sơ sức khoẻ đã có, và có
+ * ít nhất một lần đo cân nặng. Thiếu cân nặng thì không tính được BMR — và bịa một con số
+ * ở đây sẽ làm mọi thứ phía sau sai theo.
+ */
+async function readLiveView(now: Date): Promise<TodayView | null> {
+  const user = await getSessionUser()
+  if (user === null) return null
+
+  const supabase = await createSupabaseServerClient()
+  if (supabase === null) return null
+
+  const timezone = await readTimezone(supabase, user.id)
+  const localDate = localDateIn(timezone, now)
+
+  const [health, metric, storedTargets, meals, kcalBurned, streakDays] = await Promise.all([
+    readHealthProfile(supabase, user.id),
+    readLatestWeight(supabase, user.id),
+    readStoredTargets(supabase, user.id, localDate),
+    readMeals(supabase, user.id, localDate, timezone),
+    readKcalBurned(supabase, user.id, localDate),
+    readStreak(supabase, user.id, localDate),
+  ])
+
+  if (health === null || metric === null) return null
+
+  const age = ageFromIsoDate(health.dateOfBirth, localDate)
+
+  // Mục tiêu đọc từ CSDL khi có: đó là con số đã cam kết với người dùng lúc thiết lập, và
+  // tính lại bằng công thức hiện hành có thể ra số khác nếu hằng số dinh dưỡng đổi.
+  const targets =
+    storedTargets ??
+    computeEnergyTargets({
+      weightKg: metric,
+      heightCm: health.heightCm,
+      age,
+      sex: health.sex,
+      activityLevel: health.activityLevel,
+      goal: health.goal,
+      rateKgPerWeek: health.rateKgPerWeek,
+    })
+
+  const bmi = computeBmi(metric, health.heightCm, 'asia')
+  const safety = assessSafety({
+    bmi: bmi.bmi,
+    age,
+    goal: health.goal,
+    medicalFlags: health.medicalFlags,
+  })
+
+  const consumed = sumNutrients(meals.map((meal) => meal.total))
+
+  return {
+    localDate,
+    source: 'live',
+    profile: {
+      fullName: health.fullName,
+      sex: health.sex,
+      age,
+      heightCm: health.heightCm,
+      weightKg: metric,
+      goal: health.goal,
+      activityLevel: health.activityLevel,
+    },
+    targets,
+    bmi,
+    safety,
+    meals,
+    consumed,
+    kcalBurned,
+    remainingKcal: targets.targetKcal + kcalBurned - consumed.kcal,
+    streakDays,
+    insight: buildInsight(consumed, targets),
+    isEmpty: meals.length === 0,
+  }
+}
+
+interface LiveHealthProfile {
+  fullName: string
+  sex: Sex
+  dateOfBirth: string
+  heightCm: number
+  activityLevel: ActivityLevel
+  goal: Goal
+  rateKgPerWeek: number
+  medicalFlags: MedicalFlag[]
+}
+
+async function readTimezone(supabase: SupabaseClient, userId: string): Promise<string> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('timezone, full_name')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const row = data as { timezone: string | null } | null
+  return row?.timezone ?? DEFAULT_TIMEZONE
+}
+
+async function readHealthProfile(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<LiveHealthProfile | null> {
+  const [{ data: profile }, { data: health }] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle(),
+    supabase
+      .from('health_profiles')
+      .select(
+        'sex, date_of_birth, height_cm, activity_level, goal, rate_kg_per_week, medical_flags',
+      )
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
+
+  if (health === null) return null
+
+  const healthRow = health as {
+    sex: Sex
+    date_of_birth: string
+    height_cm: number | string
+    activity_level: ActivityLevel
+    goal: Goal
+    rate_kg_per_week: number | string
+    medical_flags: MedicalFlag[]
+  }
+  const profileRow = profile as { full_name: string | null } | null
+
+  return {
+    // Chưa đặt tên thì gọi bằng "bạn" — không bịa một cái tên nào.
+    fullName: profileRow?.full_name ?? 'bạn',
+    sex: healthRow.sex,
+    dateOfBirth: String(healthRow.date_of_birth).slice(0, 10),
+    heightCm: Number(healthRow.height_cm),
+    activityLevel: healthRow.activity_level,
+    goal: healthRow.goal,
+    rateKgPerWeek: Number(healthRow.rate_kg_per_week),
+    medicalFlags: healthRow.medical_flags ?? [],
+  }
+}
+
+/** Cân nặng mới nhất. `numeric` trả về dạng chuỗi qua PostgREST nên phải đổi. */
+async function readLatestWeight(supabase: SupabaseClient, userId: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('body_metrics')
+    .select('weight_kg')
+    .eq('user_id', userId)
+    .order('measured_on', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (data === null) return null
+  const weight = Number((data as { weight_kg: number | string }).weight_kg)
+  return Number.isFinite(weight) && weight > 0 ? weight : null
+}
+
+async function readStoredTargets(
+  supabase: SupabaseClient,
+  userId: string,
+  localDate: string,
+): Promise<EnergyTargets | null> {
+  const { data } = await supabase
+    .from('energy_targets')
+    .select('bmr_kcal, tdee_kcal, target_kcal, protein_g, carb_g, fat_g, formula_version')
+    .eq('user_id', userId)
+    .lte('effective_from', localDate)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (data === null) return null
+
+  const row = data as {
+    bmr_kcal: number
+    tdee_kcal: number
+    target_kcal: number
+    protein_g: number
+    carb_g: number
+    fat_g: number
+    formula_version: string
+  }
+
+  return {
+    bmrKcal: row.bmr_kcal,
+    tdeeKcal: row.tdee_kcal,
+    targetKcal: row.target_kcal,
+    proteinG: row.protein_g,
+    carbG: row.carb_g,
+    fatG: row.fat_g,
+    formulaVersion: row.formula_version,
+    /*
+     * Độ lệch giữa mục tiêu kcal và năng lượng suy ra từ macro đã làm tròn. Không lưu trong
+     * CSDL vì nó suy ra được từ ba con số đã lưu — tính lại ở đây thì không có hai nguồn sự
+     * thật, và đổi cách làm tròn là mọi hồ sơ nhận kết quả mới ngay.
+     */
+    macroDriftKcal: macroDriftKcal(row.target_kcal, {
+      proteinG: row.protein_g,
+      carbG: row.carb_g,
+      fatG: row.fat_g,
+    }),
+    // `floorsApplied` chỉ dùng để giải thích cho người dùng, và nó đã được ghi kèm ở
+    // `energy_targets.inputs`. Đọc lại toàn bộ ở đây là thừa cho màn "Hôm nay".
+    floorsApplied: [],
+  }
+}
+
+interface DayMealRow {
+  id: string
+  mealType: MealType
+  eatenAt: string
+  items: {
+    id: string
+    displayName: string
+    grams: number | string
+    kcal: number | string
+    proteinG: number | string
+    carbG: number | string
+    fatG: number | string
+    fiberG: number | string
+    sugarG: number | string
+    sodiumMg: number | string
+    matchMethod: LoggedItem['matchMethod']
+  }[]
+}
+
+async function readMeals(
+  supabase: SupabaseClient,
+  userId: string,
+  localDate: string,
+  timezone: string,
+): Promise<LoggedMeal[]> {
+  // Một lời gọi trả về bữa ăn kèm món: màn này luôn cần cả hai, nên gộp ở CSDL thay vì N+1.
+  const { data } = await supabase.rpc('read_day_meals', {
+    p_user_id: userId,
+    p_local_date: localDate,
+  })
+
+  const rows = (data ?? []) as DayMealRow[]
+
+  return rows.map((meal) => {
+    const items: LoggedItem[] = meal.items.map((item) => ({
+      id: item.id,
+      nameVi: item.displayName,
+      grams: Number(item.grams),
+      matchMethod: item.matchMethod,
+      nutrients: {
+        kcal: Number(item.kcal),
+        proteinG: Number(item.proteinG),
+        carbG: Number(item.carbG),
+        fatG: Number(item.fatG),
+        fiberG: Number(item.fiberG),
+        sugarG: Number(item.sugarG),
+        sodiumMg: Number(item.sodiumMg),
+      },
+    }))
+
+    return {
+      id: meal.id,
+      mealType: meal.mealType,
+      timeLabel: formatTime(meal.eatenAt, timezone),
+      source: 'ai_chat',
+      items,
+      total: sumNutrients(items.map((item) => item.nutrients)),
+    }
+  })
+}
+
+async function readKcalBurned(
+  supabase: SupabaseClient,
+  userId: string,
+  localDate: string,
+): Promise<number> {
+  const { data } = await supabase
+    .from('activity_logs')
+    .select('kcal_burned')
+    .eq('user_id', userId)
+    .eq('local_date', localDate)
+
+  return ((data ?? []) as { kcal_burned: number }[]).reduce(
+    (sum, row) => sum + Number(row.kcal_burned),
+    0,
+  )
+}
+
+/**
+ * Chuỗi ngày ghi nhật ký liên tiếp.
+ *
+ * Đọc hàng `daily_summaries` gần nhất **tính đến hôm nay**, chứ không đọc đúng hàng của hôm
+ * nay: hàng của hôm nay chỉ tồn tại sau khi có món đầu tiên được ghi, nên đọc đúng ngày sẽ
+ * trả về 0 cho tới lúc người dùng ghi món — đúng lúc họ cần thấy chuỗi ngày của mình nhất.
+ */
+async function readStreak(
+  supabase: SupabaseClient,
+  userId: string,
+  localDate: string,
+): Promise<number> {
+  const { data } = await supabase
+    .from('daily_summaries')
+    .select('streak_days')
+    .eq('user_id', userId)
+    .lte('local_date', localDate)
+    .order('local_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (data === null) return 0
+  return (data as { streak_days: number }).streak_days
+}
+
+/** Giờ địa phương dạng `HH:mm`, dùng chung một cách hiển thị với dữ liệu mẫu. */
+function formatTime(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso))
+}
+
+/**
+ * Nhận xét trong ngày — tất định, không gọi AI.
+ *
+ * Cùng lý do với bộ dựng thực đơn: màn "Hôm nay" mở ra mỗi ngày nên nhận xét phải luôn có,
+ * kể cả khi hết hạn mức AI hay mất mạng. Bản do AI viết, khi có, sẽ thay thế phần này.
+ */
+function buildInsight(consumed: ScaledNutrients, targets: EnergyTargets): DailyInsight {
+  const proteinRatio = targets.proteinG > 0 ? consumed.proteinG / targets.proteinG : 1
+
+  if (consumed.kcal === 0) {
+    return {
+      headline: 'Hôm nay bạn chưa ghi bữa nào.',
+      action: 'Kể cho Bơ một bữa bạn vừa ăn, mình ghi lại giúp.',
+      severity: 'info',
+    }
+  }
+
+  if (proteinRatio < 0.6) {
+    return {
+      headline: 'Hôm nay bạn đang thiếu đạm so với mục tiêu.',
+      action: `Còn thiếu khoảng ${Math.max(0, Math.round(targets.proteinG - consumed.proteinG))} g đạm. Thêm một hộp sữa chua hoặc 100 g ức gà là gần đủ.`,
+      severity: 'info',
+    }
+  }
+
+  if (consumed.kcal > targets.targetKcal) {
+    return {
+      headline: 'Hôm nay bạn đã vượt mục tiêu năng lượng.',
+      action: `Vượt ${consumed.kcal - targets.targetKcal} kcal. Đi bộ 30 phút hoặc bữa tối nhẹ hơn là đủ để cân lại.`,
+      severity: 'warning',
+    }
+  }
+
+  return {
+    headline: 'Bạn đang đi đúng hướng.',
+    action: 'Giữ nhịp này tới hết ngày là đạt mục tiêu.',
+    severity: 'info',
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -114,11 +494,6 @@ const MOCK_PROFILE = {
   medicalFlags: [] as MedicalFlag[],
 }
 
-/**
- * Số liệu tham chiếu theo *Bảng thành phần dinh dưỡng thực phẩm Việt Nam*
- * (Bộ Y tế / Viện Dinh dưỡng). Đây là dữ liệu mẫu để dựng giao diện,
- * chưa phải bộ dữ liệu đã kiểm định.
- */
 const MOCK_MEALS: { mealType: MealType; timeLabel: string; items: MockFood[] }[] = [
   {
     mealType: 'breakfast',
@@ -177,13 +552,9 @@ const MOCK_MEALS: { mealType: MealType; timeLabel: string; items: MockFood[] }[]
 
 const MOCK_ACTIVITY = [{ code: 'walking', minutes: 35, met: 3.5 }]
 
-/* ---------------------------------------------------------------------------
- * Điểm đọc dữ liệu
- * ------------------------------------------------------------------------- */
-
-export function getTodayView(now: Date = new Date()): TodayView {
+export function buildDemoView(now: Date = new Date()): TodayView {
   const localDate = localDateIn(DEFAULT_TIMEZONE, now)
-  const age = ageAt(MOCK_PROFILE.birthYear, now)
+  const age = Math.max(0, now.getFullYear() - MOCK_PROFILE.birthYear)
 
   // Mọi con số đều đi qua lõi tất định — không có phép tính nào do AI sinh ra.
   const targets = computeEnergyTargets({
@@ -211,7 +582,15 @@ export function getTodayView(now: Date = new Date()): TodayView {
       nameVi: food.nameVi,
       grams: food.grams,
       matchMethod: food.matchMethod,
-      nutrients: scaleNutrients(food.per100g, food.grams),
+      nutrients: {
+        kcal: Math.round((food.per100g.kcal * food.grams) / 100),
+        proteinG: round1((food.per100g.proteinG * food.grams) / 100),
+        carbG: round1((food.per100g.carbG * food.grams) / 100),
+        fatG: round1((food.per100g.fatG * food.grams) / 100),
+        fiberG: round1(((food.per100g.fiberG ?? 0) * food.grams) / 100),
+        sugarG: 0,
+        sodiumMg: Math.round(((food.per100g.sodiumMg ?? 0) * food.grams) / 100),
+      },
     }))
     return {
       id: `meal-${index}`,
@@ -232,6 +611,7 @@ export function getTodayView(now: Date = new Date()): TodayView {
 
   return {
     localDate,
+    source: 'demo',
     profile: {
       fullName: MOCK_PROFILE.fullName,
       sex: MOCK_PROFILE.sex,
@@ -256,4 +636,8 @@ export function getTodayView(now: Date = new Date()): TodayView {
     },
     isEmpty: meals.length === 0,
   }
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10
 }

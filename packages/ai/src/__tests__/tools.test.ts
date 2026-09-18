@@ -22,6 +22,11 @@ const CATALOGUE: readonly MealCatalogueEntry[] = [
     proteinG: 7.2,
     carbG: 22.5,
     fatG: 1.9,
+    // Ba chỉ số này có trong danh mục thật; fixture cũng phải có để test được rằng công cụ
+    // chuyển tiếp chúng, thay vì để chúng rơi thành 0 một cách im lặng.
+    fiberG: 0.6,
+    sugarG: 1.1,
+    sodiumMg: 420,
   },
   {
     slug: 'com-tam-suon',
@@ -191,6 +196,61 @@ describe('log_meal — model không thể bịa con số', () => {
     expect(output.message).toMatch(/CHƯA được lưu/)
     // Không được gợi ý thử lại: thử lại cũng không được, nói vậy là nói dối.
     expect(output.message).toMatch(/đừng bảo họ thử lại/)
+  })
+
+  it('tầng ứng dụng ném lỗi thì đổi thành từ chối, không để lỗi thoát ra', async () => {
+    /*
+     * Đây là hành vi quan trọng nhất của công cụ này. Tầng ứng dụng ghi vào PostgreSQL và có
+     * thể ném lỗi (mất mạng, RLS từ chối, ràng buộc). Nếu lỗi đó thoát ra khỏi `execute`, AI
+     * SDK che nội dung trước khi nó tới model — model không biết vì sao và sẽ bịa ra lý do.
+     *
+     * Đã xảy ra thật: Bơ nói "lỗi hệ thống tạm thời, bạn thử lại sau" trong khi thử lại bao
+     * nhiêu lần cũng không được.
+     */
+    const tools = createAssistantTools(
+      makeContext({
+        logMeal: async () => {
+          throw new Error('permission denied for function log_meal_with_items')
+        },
+      }),
+    )
+
+    const output = (await run(tools.log_meal, {
+      mealType: 'dinner',
+      items: [{ foodId: 'pho-bo', grams: 400 }],
+    })) as ToolRefusal
+
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/CHƯA ghi được/)
+    // Chi tiết kỹ thuật đi kèm để model không phải đoán, và để người đọc log biết đường lần.
+    expect(output.message).toMatch(/permission denied/)
+    // Và phải nói rõ là chưa lưu, không để model hiểu thành đã lưu.
+    expect(output.message).toMatch(/CHƯA được lưu/)
+  })
+
+  it('chuyển tiếp chất xơ, đường và natri cho tầng ghi', async () => {
+    // Ba chỉ số này từng bị bỏ ở ranh giới công cụ, nên mọi bữa ăn qua trợ lý đều hiện chất
+    // xơ và natri bằng 0 — sai im lặng, vì danh mục có đủ ba cột.
+    const captured: LoggedMealRequest[] = []
+    const tools = createAssistantTools(
+      makeContext({
+        logMeal: async (request: LoggedMealRequest) => {
+          captured.push(request)
+          return { remainingKcal: 100 }
+        },
+      }),
+    )
+
+    await run(tools.log_meal, {
+      mealType: 'breakfast',
+      items: [{ foodId: 'pho-bo', grams: 500 }],
+    })
+
+    const item = captured[0]?.items[0]
+    // 500 g phở: 0,6 g chất xơ và 420 mg natri trên 100 g, nhân hệ số 5.
+    expect(item?.fiberG).toBe(3)
+    expect(item?.sugarG).toBe(5.5)
+    expect(item?.sodiumMg).toBe(2100)
   })
 
   it('chuyển yêu cầu ghi xuống lớp dưới với số liệu đã tính', async () => {

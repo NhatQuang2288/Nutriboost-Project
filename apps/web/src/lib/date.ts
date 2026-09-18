@@ -48,3 +48,33 @@ export function formatIsoDate(iso: string): string {
   if (year === undefined || month === undefined || day === undefined) return iso
   return `${day}/${month}/${year}`
 }
+
+/**
+ * Tuổi đầy đủ tính từ ngày sinh, theo hai chuỗi `YYYY-MM-DD`.
+ *
+ * So sánh ngày trong cùng một năm là chỗ dễ sai nhất: sinh ngày 20/12 thì ngày 18/09 vẫn
+ * chưa đủ tuổi, còn sinh ngày 01/01 thì đã đủ. Vì vậy phải so cả tháng lẫn ngày, không chỉ
+ * lấy hiệu hai năm.
+ */
+export function ageFromIsoDate(dateOfBirth: string, todayIso: string): number {
+  const [birthYear, birthMonth, birthDay] = dateOfBirth.slice(0, 10).split('-').map(Number)
+  const [nowYear, nowMonth, nowDay] = todayIso.split('-').map(Number)
+
+  if (
+    birthYear === undefined ||
+    birthMonth === undefined ||
+    birthDay === undefined ||
+    nowYear === undefined ||
+    nowMonth === undefined ||
+    nowDay === undefined ||
+    Number.isNaN(birthYear)
+  ) {
+    return 0
+  }
+
+  let age = nowYear - birthYear
+  if (nowMonth < birthMonth || (nowMonth === birthMonth && nowDay < birthDay)) {
+    age -= 1
+  }
+  return Math.max(0, age)
+}

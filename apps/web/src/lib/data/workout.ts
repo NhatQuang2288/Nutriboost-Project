@@ -17,12 +17,14 @@ export interface WeeklyWorkoutView {
   plan: BuiltWorkoutPlan
   weekLabel: string
   todayDate: string
+  /** `demo` = dữ liệu mẫu. Xem ghi chú trong `today.ts`. */
+  source: 'demo' | 'live'
 }
 
-export function getWeeklyWorkout(now: Date = new Date()): WeeklyWorkoutView {
+export async function getWeeklyWorkout(now: Date = new Date()): Promise<WeeklyWorkoutView> {
   const today = localDateIn(DEFAULT_TIMEZONE, now)
   const weekStart = startOfWeekIso(today)
-  const view = getTodayView(now)
+  const view = await getTodayView(now)
 
   const plan = buildWorkoutPlan({
     weekStart,
@@ -39,5 +41,5 @@ export function getWeeklyWorkout(now: Date = new Date()): WeeklyWorkoutView {
 
   const lastDate = plan.sessions[plan.sessions.length - 1]?.date ?? weekStart
 
-  return { plan, weekLabel: `${weekStart} → ${lastDate}`, todayDate: today }
+  return { plan, weekLabel: `${weekStart} → ${lastDate}`, todayDate: today, source: view.source }
 }

@@ -4,6 +4,7 @@ import { DeleteAccountCard } from '@/components/account/DeleteAccountCard'
 import { InfoIcon, LeafIcon, LogOutIcon, MailIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 import { ACTIVITY_LABELS } from '@nutriboost/nutrition'
+import { ensureProfileReady } from '@/lib/data/require-profile'
 import { getTodayView } from '@/lib/data/today'
 import { getSessionUser } from '@/lib/supabase/server'
 
@@ -17,7 +18,8 @@ const GOAL_LABELS = {
 } as const
 
 export default async function ProfilePage() {
-  const view = getTodayView()
+  const view = await getTodayView()
+  await ensureProfileReady(view.source)
   const { profile, targets } = view
   const user = await getSessionUser()
 

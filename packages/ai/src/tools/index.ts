@@ -52,6 +52,13 @@ export interface LoggedMealRequest {
     proteinG: number
     carbG: number
     fatG: number
+    /**
+     * Ba chỉ số dưới đây có trong danh mục và trong `foods`, nhưng trước đây không được
+     * chuyển tiếp khi ghi — nên mọi bữa ăn qua trợ lý đều hiện chất xơ và natri bằng 0.
+     */
+    fiberG?: number
+    sugarG?: number
+    sodiumMg?: number
   }[]
 }
 
@@ -251,6 +258,9 @@ export function createAssistantTools(context: ToolContext) {
             proteinG: round1(food.proteinG * factor),
             carbG: round1(food.carbG * factor),
             fatG: round1(food.fatG * factor),
+            fiberG: round1((food.fiberG ?? 0) * factor),
+            sugarG: round1((food.sugarG ?? 0) * factor),
+            sodiumMg: Math.round((food.sodiumMg ?? 0) * factor),
           }
         })
 
@@ -264,11 +274,26 @@ export function createAssistantTools(context: ToolContext) {
           )
         }
 
-        const result = await context.logMeal({
-          mealType,
-          rawInput: rawInput ?? null,
-          items: resolved,
-        })
+        /*
+         * Bọc trong `try` vì tầng ứng dụng có thể ném lỗi khi ghi (mất mạng, RLS từ chối,
+         * CSDL đầy). Không bọc thì lỗi đó bị AI SDK che và model tự bịa ra lý do — đúng lỗi
+         * đã xảy ra một lần: Bơ nói "lỗi hệ thống tạm thời, bạn thử lại sau" trong khi thử
+         * lại bao nhiêu lần cũng không được.
+         */
+        let result: LoggedMealResult
+        try {
+          result = await context.logMeal({
+            mealType,
+            rawInput: rawInput ?? null,
+            items: resolved,
+          })
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : String(error)
+          return toolRefusal(
+            `CHƯA ghi được: cơ sở dữ liệu từ chối khi lưu bữa ăn (${detail}). ` +
+              'Bữa ăn CHƯA được lưu. Hãy nói thật với người dùng là chưa lưu được.',
+          )
+        }
 
         return GENERATIVE_COMPONENTS.meal_logged_receipt.parse({
           mealType,

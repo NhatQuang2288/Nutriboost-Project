@@ -263,6 +263,23 @@ describe('log_meal_with_items', () => {
     expect(Number(firstRow(row).total_fat_g)).toBe(17)
   })
 
+  it('giữ được chất xơ, đường và natri của món', async () => {
+    // Ba chỉ số này từng bị bỏ khi ghi, nên mọi bữa ăn qua trợ lý đều hiện chất xơ và natri
+    // bằng 0 — sai một cách im lặng, vì `foods` có đủ ba cột.
+    const meal = await logMeal(USERS.client4, [
+      mealItem({ fiberG: 3.4, sugarG: 1.2, sodiumMg: 420 }),
+    ])
+
+    const item = await db.query<{ fiber_g: string; sugar_g: string; sodium_mg: string }>(
+      `select fiber_g, sugar_g, sodium_mg from public.meal_log_items where meal_log_id = $1`,
+      [firstRow(meal).id],
+    )
+
+    expect(Number(firstRow(item).fiber_g)).toBeCloseTo(3.4, 1)
+    expect(Number(firstRow(item).sugar_g)).toBeCloseTo(1.2, 1)
+    expect(Number(firstRow(item).sodium_mg)).toBeCloseTo(420, 0)
+  })
+
   it('ghi được món và giữ đúng phương pháp khớp', async () => {
     const meal = await logMeal(USERS.client1, [
       mealItem({ foodId, matchMethod: 'exact', matchScore: 1 }),

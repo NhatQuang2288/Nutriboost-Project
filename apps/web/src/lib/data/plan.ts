@@ -30,13 +30,15 @@ export interface WeeklyPlanView {
   plan: BuiltPlan
   targetKcal: number
   weekLabel: string
+  /** `demo` = dữ liệu mẫu. Xem ghi chú trong `today.ts`. */
+  source: 'demo' | 'live'
 }
 
-export function getWeeklyPlan(now: Date = new Date()): WeeklyPlanView {
+export async function getWeeklyPlan(now: Date = new Date()): Promise<WeeklyPlanView> {
   const today = localDateIn(DEFAULT_TIMEZONE, now)
   const weekStart = startOfWeekIso(today)
 
-  const view = getTodayView(now)
+  const view = await getTodayView(now)
   const catalogue = buildDataset().all
 
   const plan = buildPlan({
@@ -55,6 +57,7 @@ export function getWeeklyPlan(now: Date = new Date()): WeeklyPlanView {
   return {
     plan,
     targetKcal: view.targets.targetKcal,
+    source: view.source,
     weekLabel: `${plan.days[0]?.date ?? weekStart} → ${plan.days[plan.days.length - 1]?.date ?? weekStart}`,
   }
 }

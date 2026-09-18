@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useMemo, useState, useTransition } from 'react'
 import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
 
 import {
   type ActivityLevel,
@@ -17,6 +17,7 @@ import {
 
 import { BoIcon, BoMascot, CheckIcon, ChevronLeftIcon } from '@/components/icons'
 import { Card, Disclaimer, SafetyNotice } from '@/components/ui'
+import { completeOnboardingAction } from '@/lib/actions/onboarding'
 
 /**
  * Onboarding — 5 câu hỏi, mỗi câu một màn.
@@ -229,6 +230,7 @@ export function OnboardingFlow({ next }: { next?: string }) {
               bmiLabel={`${result.bmi.bmi} · ${BMI_LABELS[result.bmi.category]}`}
               safetyLevel={result.safety.level}
               safetyReasons={result.safety.reasons}
+              answers={answers}
               next={next}
             />
           )
@@ -461,6 +463,7 @@ function ResultStep({
   bmiLabel,
   safetyLevel,
   safetyReasons,
+  answers,
   next,
 }: {
   targetKcal: number
@@ -472,6 +475,8 @@ function ResultStep({
   bmiLabel: string
   safetyLevel: 'ok' | 'caution' | 'refer'
   safetyReasons: readonly string[]
+  /** Câu trả lời gốc, để gửi lên máy chủ khi lưu hồ sơ. */
+  answers: Answers
   /**
    * Nơi cần tới sau khi thiết lập xong. Có giá trị khi người dùng bị đưa qua onboarding từ
    * một liên kết sâu — ví dụ liên kết mời khách `/tham-gia?ma=…`. Không giữ lại thì mã mời
@@ -479,6 +484,43 @@ function ResultStep({
    */
   next?: string
 }) {
+  const router = useRouter()
+  const [consent, setConsent] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Lưu hồ sơ rồi mới đi tiếp.
+   *
+   * Trước đây nút này là một liên kết thẳng vào ứng dụng, và onboarding **không ghi gì cả** —
+   * câu trả lời chỉ nằm trong bộ nhớ trình duyệt. Hệ quả: `/auth/callback` thấy
+   * `profiles.onboarded_at` vẫn null nên lần đăng nhập sau lại đưa qua onboarding, mãi mãi.
+   *
+   * Đi tiếp chỉ khi máy chủ xác nhận đã lưu. Nếu lưu hỏng mà vẫn đi tiếp thì người dùng vào
+   * ứng dụng với hồ sơ mẫu và không biết vì sao mọi con số đều sai.
+   */
+  function submit(): void {
+    if (!consent || pending) return
+
+    const form = new FormData()
+    form.set('sex', answers.sex ?? '')
+    form.set('age', String(answers.age ?? ''))
+    form.set('heightCm', String(answers.heightCm ?? ''))
+    form.set('weightKg', String(answers.weightKg ?? ''))
+    form.set('activityLevel', answers.activityLevel ?? '')
+    form.set('goal', answers.goal ?? '')
+    form.set('consent', 'true')
+
+    startTransition(async () => {
+      const result = await completeOnboardingAction(form)
+      if (!result.ok) {
+        setError(result.message)
+        return
+      }
+      router.push((next ?? '/hom-nay') as Route)
+    })
+  }
+
   return (
     <section className="flex flex-1 flex-col items-center gap-5 text-center">
       <BoMascot size={132} />
@@ -506,21 +548,46 @@ function ResultStep({
 
       {safetyLevel === 'ok' ? null : <SafetyNotice>{safetyReasons.join(' ')}</SafetyNotice>}
 
-      <div className="w-full">
-        <Link
-          /*
-           * Ép kiểu vì `next` là một đường dẫn đến từ URL, không phải hằng chuỗi. Next sinh
-           * kiểu `Route` từ danh sách route thật của ứng dụng, mà danh sách đó không biểu
-           * diễn được "một đường dẫn nội bộ bất kỳ". Giá trị đã đi qua `safeNextPath` ở
-           * `page.tsx` nên chắc chắn là đường dẫn nội bộ.
-           */
-          href={(next ?? '/hom-nay') as Route}
-          className="bg-forest-600 text-ink-inverse text-label flex min-h-12 w-full items-center justify-center gap-2 rounded-md px-6 font-semibold transition-colors duration-(--duration-fast)"
+      <div className="flex w-full flex-col gap-3 text-left">
+        {/*
+         * Đồng ý xử lý dữ liệu sức khoẻ là bắt buộc, và phải là hành động chủ động: kho lưu
+         * `consents` là bằng chứng pháp lý cho việc xử lý dữ liệu nhạy cảm, nên nó không
+         * được sinh ra từ một nút "Tiếp tục" mà người dùng bấm cho việc khác.
+         */}
+        <label className="border-line bg-surface flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(event) => {
+              setConsent(event.target.checked)
+              if (error !== null) setError(null)
+            }}
+            className="accent-forest-600 mt-0.5 size-4 shrink-0"
+          />
+          <span className="text-caption text-ink-muted">
+            Tôi đồng ý cho NutriBoost xử lý dữ liệu sức khoẻ của tôi (chiều cao, cân nặng, mục tiêu)
+            để tạo gợi ý dinh dưỡng và lịch tập. Tôi có thể yêu cầu xoá toàn bộ dữ liệu bất cứ lúc
+            nào ở mục “Tôi”.
+          </span>
+        </label>
+
+        {error === null ? null : (
+          <p className="text-caption text-danger-text" role="alert">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          disabled={!consent || pending}
+          onClick={submit}
+          className="bg-forest-600 text-ink-inverse text-label flex min-h-12 w-full items-center justify-center gap-2 rounded-md px-6 font-semibold transition-colors duration-(--duration-fast) disabled:bg-neutral-300 disabled:text-neutral-500"
         >
           <CheckIcon size={18} />
-          Vào ứng dụng
-        </Link>
-        <p className="text-caption text-ink-faint mt-3">
+          {pending ? 'Đang lưu hồ sơ…' : 'Vào ứng dụng'}
+        </button>
+
+        <p className="text-caption text-ink-faint">
           Mình hiểu bạn muốn bắt đầu ngay — bạn có thể chỉnh lại hồ sơ ở mục “Tôi”.
         </p>
       </div>

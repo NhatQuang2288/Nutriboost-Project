@@ -154,6 +154,23 @@ comment on function public.complete_onboarding is
   'Ghi hồ sơ sức khoẻ, cân nặng, mục tiêu năng lượng và ba loại đồng ý trong một giao dịch. Người dùng lấy từ auth.uid().';
 
 -- ---------------------------------------------------------------------------
+-- Bổ sung ba chỉ số còn thiếu trên `meal_log_items`
+--
+-- Bảng này có kcal và ba đa lượng, nhưng `ScaledNutrients` của lõi dinh dưỡng còn mang theo
+-- chất xơ, đường và natri — và `foods` có đủ ba cột đó. Thiếu chúng ở đây nghĩa là mọi bữa
+-- ăn ghi qua trợ lý đều hiện chất xơ và natri bằng 0, im lặng.
+--
+-- Cùng lý do với kcal: đây là dữ liệu tính được từ danh mục, không phải thứ model nghĩ ra.
+-- ---------------------------------------------------------------------------
+alter table public.meal_log_items
+  add column fiber_g numeric(6, 1) not null default 0 check (fiber_g >= 0),
+  add column sugar_g numeric(6, 1) not null default 0 check (sugar_g >= 0),
+  add column sodium_mg numeric(7, 1) not null default 0 check (sodium_mg >= 0);
+
+comment on column public.meal_log_items.fiber_g is
+  'Chất xơ của phần đã ăn. Trước đây bị bỏ khi ghi, nên luôn hiện 0.';
+
+-- ---------------------------------------------------------------------------
 -- Ghi một bữa ăn kèm các món
 --
 -- Tổng kcal và macro được tính TỪ các món ngay trong hàm, không nhận từ người gọi. Nhận
@@ -209,7 +226,7 @@ begin
 
   insert into public.meal_log_items (
     meal_log_id, food_id, display_name, grams, kcal, protein_g, carb_g, fat_g,
-    match_method, match_score
+    fiber_g, sugar_g, sodium_mg, match_method, match_score
   )
   select
     v_meal_id,
@@ -230,6 +247,9 @@ begin
     coalesce((item ->> 'proteinG')::numeric, 0),
     coalesce((item ->> 'carbG')::numeric, 0),
     coalesce((item ->> 'fatG')::numeric, 0),
+    coalesce((item ->> 'fiberG')::numeric, 0),
+    coalesce((item ->> 'sugarG')::numeric, 0),
+    coalesce((item ->> 'sodiumMg')::numeric, 0),
     coalesce((item ->> 'matchMethod')::public.match_method, 'user'),
     (item ->> 'matchScore')::numeric
   from jsonb_array_elements(p_items) as item;
@@ -290,6 +310,9 @@ as $$
               'proteinG', i.protein_g,
               'carbG', i.carb_g,
               'fatG', i.fat_g,
+              'fiberG', i.fiber_g,
+              'sugarG', i.sugar_g,
+              'sodiumMg', i.sodium_mg,
               'matchMethod', i.match_method,
               'matchScore', i.match_score
             )

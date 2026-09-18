@@ -4,12 +4,14 @@ import { BoIcon, CheckIcon, InfoIcon, RepeatIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 import { MEAL_LABELS, type MealType } from '@/lib/data/today'
 import { getWeeklyPlan } from '@/lib/data/plan'
+import { ensureProfileReady } from '@/lib/data/require-profile'
 
 export const metadata: Metadata = { title: 'Kế hoạch' }
 export const dynamic = 'force-dynamic'
 
-export default function PlanPage() {
-  const { plan, targetKcal, weekLabel } = getWeeklyPlan()
+export default async function PlanPage() {
+  const { plan, targetKcal, weekLabel, source } = await getWeeklyPlan()
+  await ensureProfileReady(source)
 
   const isEmpty = plan.days.length === 0
 

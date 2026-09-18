@@ -14,10 +14,11 @@ import {
 import { assessSafety } from '@nutriboost/nutrition'
 
 import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
+import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { createSupabaseAiStore } from '@/lib/ai/store'
 import { getTodayView } from '@/lib/data/today'
-import { getSessionUser } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,7 +92,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const screen = screenFromReferer(request.headers.get('referer'))
-  const view = getTodayView()
+  const view = await getTodayView()
 
   const safety = assessSafety({
     bmi: view.bmi.bmi,
@@ -165,6 +166,30 @@ export async function POST(request: Request): Promise<Response> {
    */
   const user = await getSessionUser()
   const store = createSupabaseAiStore()
+  const sessionClient = await createSupabaseServerClient()
+
+  /*
+   * Hai công cụ chạm dữ liệu chỉ tồn tại khi biết người dùng là ai. Thiếu chúng thì `log_meal`
+   * trả về `toolRefusal` báo thẳng là chưa ghi được, thay vì giả vờ thành công — hành vi đã
+   * kiểm chứng trước đây, khi Bơ nói "đã ghi nhận" mà thực tế không có gì được lưu.
+   *
+   * Dùng client theo phiên người dùng, không phải khoá service role: bữa ăn phải đi qua RLS
+   * như mọi đường ghi khác của người dùng.
+   */
+  const healthTools =
+    user === null || sessionClient === null
+      ? {}
+      : {
+          logMeal: createMealLogger({
+            supabase: sessionClient,
+            userId: user.id,
+            localDate: view.localDate,
+            consumedKcalBefore: view.consumed.kcal,
+            kcalBurned: view.kcalBurned,
+            targetKcal: view.targets.targetKcal,
+          }),
+          readProgress: createProgressReader({ supabase: sessionClient, userId: user.id }),
+        }
 
   if (env.apiKey !== null && !env.killSwitch) {
     const allowance = await checkChatAllowance({
@@ -194,8 +219,7 @@ export async function POST(request: Request): Promise<Response> {
         targets: view.targets,
         safety,
         today: view.localDate,
-        // `logMeal` và `readProgress` chưa được nối vì chưa có Supabase. Khi thiếu,
-        // công cụ tương ứng báo rõ là chưa ghi được, chứ không giả vờ thành công.
+        ...healthTools,
       })
 
       return await buildChatStreamResponse({

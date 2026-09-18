@@ -83,9 +83,22 @@ test.describe('onboarding', () => {
     await expect(page.getByLabel('Bạn bao nhiêu tuổi?')).toBeVisible()
   })
 
+  test('chưa đồng ý xử lý dữ liệu thì chưa vào được ứng dụng', async ({ page }) => {
+    await completeOnboarding(page)
+
+    // Đồng ý phải là hành động chủ động: kho lưu `consents` là bằng chứng pháp lý cho việc
+    // xử lý dữ liệu sức khoẻ, nên nút đi tiếp không được bật sẵn.
+    const enter = page.getByRole('button', { name: 'Vào ứng dụng' })
+    await expect(enter).toBeDisabled()
+
+    await page.getByRole('checkbox').check()
+    await expect(enter).toBeEnabled()
+  })
+
   test('vào được ứng dụng sau khi hoàn tất', async ({ page }) => {
     await completeOnboarding(page)
-    await page.getByRole('link', { name: 'Vào ứng dụng' }).click()
+    await page.getByRole('checkbox').check()
+    await page.getByRole('button', { name: 'Vào ứng dụng' }).click()
 
     await expect(page).toHaveURL(/\/hom-nay$/)
     await expect(page.getByRole('heading', { name: /Chào/ })).toBeVisible()

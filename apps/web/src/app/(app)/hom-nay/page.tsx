@@ -11,6 +11,7 @@ import {
   SafetyNotice,
   SectionTitle,
 } from '@/components/ui'
+import { ensureProfileReady } from '@/lib/data/require-profile'
 import { MEAL_LABELS, MEAL_ORDER, getTodayView } from '@/lib/data/today'
 import { weekdayLabel } from '@/lib/date'
 
@@ -19,8 +20,9 @@ export const metadata: Metadata = { title: 'Hôm nay' }
 // Dashboard cá nhân hoá: không được dựng tĩnh ở thời điểm build, nếu không ngày sẽ bị cũ.
 export const dynamic = 'force-dynamic'
 
-export default function TodayPage() {
-  const view = getTodayView()
+export default async function TodayPage() {
+  const view = await getTodayView()
+  await ensureProfileReady(view.source)
   const { targets, consumed, bmi, safety, insight } = view
 
   const kcalGoal = targets.targetKcal
@@ -30,6 +32,17 @@ export default function TodayPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {view.source === 'demo' ? (
+        /*
+         * Nói thẳng đây là dữ liệu mẫu. Không có dòng này thì một lần chạy chưa cấu hình
+         * Supabase vẫn hiện "Chào Minh" kèm 2.120 kcal như thể đó là hồ sơ của người đang xem.
+         */
+        <p className="border-info/30 bg-info-surface text-info-text text-caption rounded-lg border px-3 py-2">
+          Đang hiện dữ liệu mẫu. Hồ sơ của bạn chưa được thiết lập nên các con số dưới đây không
+          phải của bạn.
+        </p>
+      ) : null}
+
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-caption text-ink-muted capitalize">
