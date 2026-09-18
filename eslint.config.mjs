@@ -54,6 +54,21 @@ export default tseslint.config(
     },
   },
 
+  /*
+   * Service worker.
+   *
+   * Chạy trong ngữ cảnh riêng: không có `window`, không có `document`, nhưng có `self`,
+   * `caches` và `clients`. Là tệp `.js` trong `public/` nên không thuộc nhóm TS ở dưới, và
+   * nếu không khai báo thì mọi dòng đều bị báo `no-undef` — trong khi `caches` là API hợp lệ,
+   * chỉ là không nằm trong bộ global mặc định.
+   */
+  {
+    files: ['apps/web/public/sw.js'],
+    languageOptions: {
+      globals: { ...globals.serviceworker },
+    },
+  },
+
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

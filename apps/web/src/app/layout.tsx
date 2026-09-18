@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { Be_Vietnam_Pro, Nunito } from 'next/font/google'
 
+import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar'
+
 import './globals.css'
 
 /**
@@ -40,6 +42,16 @@ export const metadata: Metadata = {
     title: 'NutriBoost',
     statusBarStyle: 'default',
   },
+  // iOS chỉ nhận `apple-touch-icon` dạng PNG — SVG bị bỏ qua. Tệp này do
+  // `npm run icons:generate` sinh ra.
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   formatDetection: { telephone: false },
 }
 
@@ -60,7 +72,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={`${nunito.variable} ${beVietnamPro.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorkerRegistrar />
+      </body>
     </html>
   )
 }

@@ -1,12 +1,31 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 
+import { BarChart } from '@/components/charts/BarChart'
+import { ChartFrame, describeSeries } from '@/components/charts/chart-parts'
+import { LineChart } from '@/components/charts/LineChart'
 import { ChartIcon, ScaleIcon } from '@/components/icons'
-import { Card, Disclaimer, EmptyState, SectionTitle, Skeleton } from '@/components/ui'
+import { Card, Disclaimer, EmptyState } from '@/components/ui'
+import { getProgressView } from '@/lib/data/progress'
+import { ensureProfileReady } from '@/lib/data/require-profile'
 
 export const metadata: Metadata = { title: 'Tiến độ' }
 export const dynamic = 'force-dynamic'
 
-export default function ProgressPage() {
+/** Cần ít nhất hai lần đo mới nói được xu hướng; một điểm chỉ là một con số. */
+const MIN_POINTS = 2
+
+const WEIGHT_UNIT = 'kg'
+const KCAL_UNIT = 'kcal'
+
+export default async function ProgressPage() {
+  const view = await getProgressView()
+  await ensureProfileReady(view.source)
+
+  // Cân nặng cần ít nhất hai lần đo, kcal chỉ cần một ngày có ghi.
+  const hasWeight = view.weights.length >= MIN_POINTS
+  const hasKcal = view.kcal.length >= MIN_POINTS
+
   return (
     <div className="flex flex-col gap-5">
       <header>
@@ -14,46 +33,96 @@ export default function ProgressPage() {
         <p className="text-caption text-ink-muted">Cân nặng và năng lượng theo thời gian.</p>
       </header>
 
-      <EmptyState
-        icon={<ChartIcon size={32} />}
-        title="Chưa đủ dữ liệu để vẽ biểu đồ"
-        description="Cần ít nhất 3 ngày ghi nhật ký. Ghi đều mỗi ngày để thấy xu hướng thật thay vì dao động của một ngày."
-      />
+      {!hasWeight && !hasKcal ? (
+        <EmptyState
+          icon={<ChartIcon size={32} />}
+          title="Chưa đủ dữ liệu để vẽ biểu đồ"
+          description={
+            view.source === 'demo'
+              ? 'Bạn đang ở chế độ dữ liệu mẫu nên chưa có số liệu nào của bạn để vẽ.'
+              : 'Cần ít nhất hai ngày ghi nhật ký. Ghi đều mỗi ngày để thấy xu hướng thật thay vì dao động của một ngày.'
+          }
+          action={
+            <Link
+              href="/ghi-nhan"
+              className="bg-forest-600 text-ink-inverse text-label flex min-h-11 items-center justify-center rounded-md px-5 font-semibold"
+            >
+              Ghi bữa ăn
+            </Link>
+          }
+        />
+      ) : null}
 
       <Card>
-        <SectionTitle
+        <ChartFrame
+          title="Cân nặng"
+          summary={
+            hasWeight
+              ? describeSeries(view.weights, WEIGHT_UNIT)
+              : 'Chưa đủ hai lần đo cân nặng để vẽ xu hướng.'
+          }
           action={
             <span className="text-caption text-ink-faint flex items-center gap-1">
-              <ScaleIcon size={14} /> 7 ngày
+              <ScaleIcon size={14} /> {view.weights.length} lần đo
             </span>
           }
         >
-          Cân nặng
-        </SectionTitle>
-        {/* Trạng thái đang tải phải có hình dạng tương đương nội dung thật. */}
-        <div className="flex items-end gap-2" aria-hidden="true">
-          <Skeleton className="h-16 flex-1" />
-          <Skeleton className="h-24 flex-1" />
-          <Skeleton className="h-12 flex-1" />
-          <Skeleton className="h-20 flex-1" />
-          <Skeleton className="h-28 flex-1" />
-        </div>
-        <p className="sr-only">Đang tải dữ liệu cân nặng.</p>
+          {hasWeight ? (
+            <LineChart
+              points={view.weights}
+              unit={WEIGHT_UNIT}
+              ariaLabel="Cân nặng theo thời gian"
+            />
+          ) : (
+            <SkeletonChart />
+          )}
+        </ChartFrame>
       </Card>
 
       <Card>
-        <SectionTitle>Năng lượng nạp vào</SectionTitle>
-        <div className="flex items-end gap-2" aria-hidden="true">
-          <Skeleton className="h-20 flex-1" />
-          <Skeleton className="h-28 flex-1" />
-          <Skeleton className="h-24 flex-1" />
-          <Skeleton className="h-32 flex-1" />
-          <Skeleton className="h-16 flex-1" />
-        </div>
-        <p className="sr-only">Đang tải dữ liệu năng lượng.</p>
+        <ChartFrame
+          title="Năng lượng nạp vào"
+          summary={
+            hasKcal
+              ? describeSeries(view.kcal, KCAL_UNIT)
+              : 'Chưa đủ hai ngày có ghi nhật ký để vẽ xu hướng.'
+          }
+        >
+          {hasKcal ? (
+            <BarChart
+              points={view.kcal}
+              unit={KCAL_UNIT}
+              target={view.targetKcal}
+              ariaLabel="Năng lượng nạp vào theo ngày"
+            />
+          ) : (
+            <SkeletonChart />
+          )}
+        </ChartFrame>
       </Card>
 
       <Disclaimer />
+    </div>
+  )
+}
+
+/**
+ * Trạng thái chưa có dữ liệu của một biểu đồ.
+ *
+ * Giữ nguyên hình dạng của biểu đồ thật để bố cục không nhảy khi dữ liệu về — cùng nguyên tắc
+ * với `Skeleton` trong design system.
+ */
+function SkeletonChart() {
+  const heights = [40, 64, 32, 56, 72]
+  return (
+    <div className="flex h-24 items-end gap-2" aria-hidden="true">
+      {heights.map((height, index) => (
+        <div
+          key={index}
+          className="bg-surface-sunken border-line-subtle flex-1 rounded-sm border border-dashed"
+          style={{ height: `${height}%` }}
+        />
+      ))}
     </div>
   )
 }
