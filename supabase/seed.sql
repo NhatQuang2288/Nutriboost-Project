@@ -1,0 +1,227 @@
+-- ============================================================================
+-- NutriBoost — dữ liệu món Việt
+--
+-- FILE NÀY ĐƯỢC SINH TỰ ĐỘNG. ĐỪNG SỬA TAY.
+-- Nguồn: packages/seed/src/data/ingredients.ts và packages/seed/src/data/dishes.ts
+-- Sinh lại: npm run seed -- --emit-sql
+--
+-- Chỉ số của món được tính từ thành phần bằng recompute_dish_nutrients() ở cuối file,
+-- nên sửa một nguyên liệu sẽ tự động cập nhật mọi món dùng nguyên liệu đó.
+-- ============================================================================
+
+-- 1. Thực phẩm: nguyên liệu và món
+insert into public.foods (slug, name_vi, kind, category, serving_name, serving_grams, kcal_per_100g, protein_g, carb_g, fat_g, fiber_g, sugar_g, sodium_mg, source_ref)
+values
+  ('gao-te', 'Gạo tẻ', 'ingredient', 'Ngũ cốc', null, null, 344, 7.9, 76.2, 1, 1, 0, 14, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('com-trang', 'Cơm trắng', 'ingredient', 'Ngũ cốc', 'bát', 200, 130, 2.7, 28.2, 0.3, 0.4, 0, 5, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('pho-tuoi', 'Bánh phở tươi', 'ingredient', 'Ngũ cốc', null, null, 143, 3.2, 31.5, 0.2, 0, 0, 12, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('banh-mi', 'Bánh mì', 'ingredient', 'Ngũ cốc', 'ổ', 100, 265, 8.6, 52.6, 1.5, 0, 0, 480, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('mi-an-lien', 'Mì ăn liền', 'ingredient', 'Ngũ cốc', 'gói', 75, 448, 9, 63, 17, 0, 0, 1100, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('khoai-tay', 'Khoai tây', 'ingredient', 'Củ', null, null, 92, 2, 20, 0.1, 1.4, 0, 6, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('khoai-lang', 'Khoai lang', 'ingredient', 'Củ', null, null, 119, 1.1, 27.9, 0.2, 1.3, 0, 11, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('thit-bo-nac', 'Thịt bò nạc', 'ingredient', 'Thịt', null, null, 118, 21, 0, 3.8, 0, 0, 60, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('thit-heo-nac', 'Thịt heo nạc', 'ingredient', 'Thịt', null, null, 139, 19, 0, 6.5, 0, 0, 55, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('thit-ga-ta', 'Thịt gà ta', 'ingredient', 'Thịt', null, null, 199, 20.3, 0, 13.1, 0, 0, 70, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('trung-ga', 'Trứng gà', 'ingredient', 'Trứng', 'quả', 50, 166, 13, 1, 11.6, 0, 0, 130, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('ca-basa', 'Cá basa', 'ingredient', 'Thủy sản', null, null, 87, 16, 0, 2.5, 0, 0, 60, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('ca-thu', 'Cá thu', 'ingredient', 'Thủy sản', null, null, 145, 19, 0, 7.5, 0, 0, 80, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('tom-tuoi', 'Tôm tươi', 'ingredient', 'Thủy sản', null, null, 90, 18, 1, 1.5, 0, 0, 150, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('dau-hu', 'Đậu hũ', 'ingredient', 'Đậu và hạt', null, null, 95, 9, 3, 5.5, 0, 0, 10, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('dau-phong', 'Đậu phộng', 'ingredient', 'Đậu và hạt', null, null, 573, 25.8, 16, 44.5, 5.5, 0, 8, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('sua-tuoi-khong-duong', 'Sữa tươi không đường', 'ingredient', 'Sữa', 'ly', 200, 61, 3.2, 4.8, 3.3, 0, 0, 45, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('sua-chua-khong-duong', 'Sữa chua không đường', 'ingredient', 'Sữa', 'hộp', 100, 61, 4.1, 5.4, 2.6, 0, 0, 45, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('sua-dac', 'Sữa đặc có đường', 'ingredient', 'Sữa', null, null, 321, 8, 54.4, 8.5, 0, 54.4, 110, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('rau-muong', 'Rau muống', 'ingredient', 'Rau', null, null, 25, 2.7, 3, 0.3, 1.8, 0, 40, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('cai-ngot', 'Cải ngọt', 'ingredient', 'Rau', null, null, 17, 1.7, 2.4, 0.2, 1.2, 0, 30, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('ca-chua', 'Cà chua', 'ingredient', 'Quả', null, null, 20, 0.6, 4.2, 0.2, 1, 0, 10, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('dua-leo', 'Dưa leo', 'ingredient', 'Quả', null, null, 16, 0.8, 2.9, 0.1, 0.7, 0, 5, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('ca-rot', 'Cà rốt', 'ingredient', 'Củ', null, null, 39, 1, 8.8, 0.2, 2.5, 4.7, 70, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('hanh-la', 'Hành lá', 'ingredient', 'Gia vị', null, null, 22, 1.3, 4.2, 0.2, 1.4, 0, 15, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('toi', 'Tỏi', 'ingredient', 'Gia vị', null, null, 127, 5.5, 28.1, 0.2, 1.8, 0, 15, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('chuoi-tieu', 'Chuối tiêu', 'ingredient', 'Quả', 'quả', 100, 97, 1.5, 22.4, 0.3, 2.6, 15, 1, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('tao-tay', 'Táo tây', 'ingredient', 'Quả', 'quả', 150, 52, 0.3, 13.8, 0.2, 2.4, 10.4, 1, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('dau-an', 'Dầu ăn', 'ingredient', 'Chất béo', 'thìa', 10, 899, 0, 0, 99.9, 0, 0, 0, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('duong-trang', 'Đường trắng', 'ingredient', 'Gia vị', 'thìa', 5, 400, 0, 99.9, 0, 0, 99.9, 1, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('nuoc-mam', 'Nước mắm', 'ingredient', 'Gia vị', 'thìa', 5, 35, 5, 3.6, 0, 0, 0, 7851, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('muoi-an', 'Muối ăn', 'ingredient', 'Gia vị', null, null, 0, 0, 0, 0, 0, 0, 39000, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('ca-phe-den', 'Cà phê đen pha', 'ingredient', 'Đồ uống', 'ly', 200, 2, 0.2, 0.3, 0, 0, 0, 3, 'Bảng thành phần dinh dưỡng thực phẩm Việt Nam 2007 (tham chiếu, cần đối chiếu)'),
+  ('pho-bo', 'Phở bò', 'dish', 'Món nước', 'tô', 353, 137.1, 7.2, 22.5, 1.9, 0.1, 0, 134, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('pho-ga', 'Phở gà', 'dish', 'Món nước', 'tô', 360, 150.5, 7.4, 22.1, 3.4, 0.1, 0, 136, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('bun-bo-hue', 'Bún bò Huế', 'dish', 'Món nước', 'tô', 332, 139.1, 8, 21.1, 2.4, 0, 0, 214, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('com-tam-suon', 'Cơm tấm sườn', 'dish', 'Cơm', 'phần', 413, 131.8, 7.3, 17.4, 3.3, 0.3, 0, 171, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('com-ga', 'Cơm gà', 'dish', 'Cơm', 'phần', 380, 158.4, 8.3, 18.6, 5.4, 0.3, 0, 149, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('com-trung', 'Cơm trứng', 'dish', 'Cơm', 'phần', 269, 150.9, 5, 21.2, 4.7, 0.3, 0, 149, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('banh-mi-thit', 'Bánh mì thịt', 'dish', 'Món khô', 'ổ', 188, 201.8, 10.7, 28.4, 4.5, 0.1, 0, 274, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('goi-cuon', 'Gỏi cuốn', 'dish', 'Món khô', 'cuốn', 170, 102.1, 9.4, 12.1, 1.6, 0.4, 0, 59, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('canh-rau-muong', 'Canh rau muống', 'dish', 'Canh', 'bát', 187, 45, 5.2, 2.7, 1.5, 1.4, 0, 266, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('rau-muong-xao-toi', 'Rau muống xào tỏi', 'dish', 'Món xào', 'đĩa', 164, 71.4, 2.7, 3.8, 5.2, 1.7, 0, 37, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('dau-hu-chien', 'Đậu hũ chiên', 'dish', 'Món chiên', 'phần', 160, 145.3, 8.4, 2.8, 11.4, 0, 0, 9, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('trung-chien', 'Trứng chiên', 'dish', 'Món chiên', 'phần', 108, 220.3, 12, 0.9, 18.1, 0, 0, 120, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('ca-thu-chien', 'Cá thu chiên', 'dish', 'Món chiên', 'phần', 130, 203, 17.5, 0, 14.6, 0, 0, 74, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('khoai-tay-chien', 'Khoai tây chiên', 'dish', 'Món chiên', 'phần', 165, 165.4, 1.8, 18.2, 9.2, 1.3, 0, 5, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('khoai-lang-luoc', 'Khoai lang luộc', 'dish', 'Món luộc', 'củ', 150, 119, 1.1, 27.9, 0.2, 1.3, 0, 11, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('sua-chua-chuoi', 'Sữa chua chuối', 'dish', 'Bữa phụ', 'hộp', 160, 74.5, 3.1, 11.8, 1.7, 1, 0, 29, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('ca-phe-sua-da', 'Cà phê sữa đá', 'dish', 'Đồ uống', 'ly', 175, 47.6, 1.3, 8, 1.2, 0, 0, 18, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts'),
+  ('sinh-to-chuoi-sua', 'Sinh tố chuối sữa', 'dish', 'Đồ uống', 'ly', 270, 77, 2.4, 12.6, 2, 1.2, 0, 25, 'Tính từ thành phần — xem packages/seed/src/data/ingredients.ts')
+on conflict (slug) do update set
+    name_vi = excluded.name_vi,
+    kind = excluded.kind,
+    category = excluded.category,
+    serving_name = excluded.serving_name,
+    serving_grams = excluded.serving_grams,
+    kcal_per_100g = excluded.kcal_per_100g,
+    protein_g = excluded.protein_g,
+    carb_g = excluded.carb_g,
+    fat_g = excluded.fat_g,
+    fiber_g = excluded.fiber_g,
+    sugar_g = excluded.sugar_g,
+    sodium_mg = excluded.sodium_mg,
+    source_ref = excluded.source_ref
+;
+
+-- 2. Bí danh tên món (biến thể địa phương, cách gọi khác)
+with alias_seed (slug, alias) as (
+  values
+  ('com-trang', 'cơm'),
+  ('com-trang', 'com'),
+  ('thit-bo-nac', 'bò'),
+  ('thit-bo-nac', 'bo'),
+  ('thit-heo-nac', 'thịt lợn nạc'),
+  ('thit-heo-nac', 'heo nạc'),
+  ('thit-ga-ta', 'gà'),
+  ('thit-ga-ta', 'ga'),
+  ('trung-ga', 'trứng'),
+  ('trung-ga', 'trung ga'),
+  ('tom-tuoi', 'tôm'),
+  ('tom-tuoi', 'tom'),
+  ('dau-hu', 'đậu phụ'),
+  ('dau-hu', 'tau hu'),
+  ('dau-phong', 'lạc'),
+  ('dau-phong', 'dau phong rang'),
+  ('sua-chua-khong-duong', 'yaourt'),
+  ('sua-chua-khong-duong', 'sua chua'),
+  ('dua-leo', 'dưa chuột'),
+  ('hanh-la', 'hành'),
+  ('hanh-la', 'hanh la'),
+  ('chuoi-tieu', 'chuối'),
+  ('chuoi-tieu', 'chuoi'),
+  ('tao-tay', 'táo'),
+  ('tao-tay', 'tao'),
+  ('duong-trang', 'đường'),
+  ('duong-trang', 'duong'),
+  ('ca-phe-den', 'cà phê'),
+  ('ca-phe-den', 'ca phe'),
+  ('ca-phe-den', 'cf'),
+  ('pho-bo', 'pho'),
+  ('pho-bo', 'phở'),
+  ('pho-bo', 'pho bo tai'),
+  ('pho-ga', 'pho ga'),
+  ('bun-bo-hue', 'bun bo'),
+  ('bun-bo-hue', 'bún bò'),
+  ('com-tam-suon', 'com tam'),
+  ('com-tam-suon', 'cơm tấm'),
+  ('com-ga', 'com ga'),
+  ('com-trung', 'com trung'),
+  ('com-trung', 'cơm rang trứng'),
+  ('banh-mi-thit', 'banh mi'),
+  ('banh-mi-thit', 'bánh mì'),
+  ('goi-cuon', 'goi cuon'),
+  ('goi-cuon', 'gỏi cuốn'),
+  ('goi-cuon', 'summer roll'),
+  ('canh-rau-muong', 'canh rau muong'),
+  ('canh-rau-muong', 'canh rau'),
+  ('rau-muong-xao-toi', 'rau muong xao toi'),
+  ('rau-muong-xao-toi', 'rau xao toi'),
+  ('dau-hu-chien', 'dau hu chien'),
+  ('dau-hu-chien', 'đậu phụ rán'),
+  ('trung-chien', 'trung chien'),
+  ('trung-chien', 'trứng rán'),
+  ('ca-thu-chien', 'ca thu chien'),
+  ('khoai-tay-chien', 'khoai tay chien'),
+  ('khoai-tay-chien', 'french fries'),
+  ('khoai-lang-luoc', 'khoai lang luoc'),
+  ('sua-chua-chuoi', 'sua chua chuoi'),
+  ('sua-chua-chuoi', 'yogurt chuối'),
+  ('ca-phe-sua-da', 'ca phe sua da'),
+  ('ca-phe-sua-da', 'cà phê sữa'),
+  ('sinh-to-chuoi-sua', 'sinh to chuoi'),
+  ('sinh-to-chuoi-sua', 'sinh tố chuối')
+)
+insert into public.food_aliases (food_id, alias)
+select f.id, s.alias
+from alias_seed s
+join public.foods f on f.slug = s.slug
+on conflict (food_id, alias) do nothing;
+
+-- 3. Thành phần của món
+with component_seed (dish_slug, ingredient_slug, grams) as (
+  values
+  ('pho-bo', 'pho-tuoi', 250),
+  ('pho-bo', 'thit-bo-nac', 80),
+  ('pho-bo', 'hanh-la', 15),
+  ('pho-bo', 'nuoc-mam', 5),
+  ('pho-bo', 'dau-an', 3),
+  ('pho-ga', 'pho-tuoi', 250),
+  ('pho-ga', 'thit-ga-ta', 90),
+  ('pho-ga', 'hanh-la', 15),
+  ('pho-ga', 'nuoc-mam', 5),
+  ('bun-bo-hue', 'pho-tuoi', 220),
+  ('bun-bo-hue', 'thit-bo-nac', 90),
+  ('bun-bo-hue', 'hanh-la', 10),
+  ('bun-bo-hue', 'nuoc-mam', 8),
+  ('bun-bo-hue', 'dau-an', 4),
+  ('com-tam-suon', 'com-trang', 250),
+  ('com-tam-suon', 'thit-heo-nac', 120),
+  ('com-tam-suon', 'dua-leo', 30),
+  ('com-tam-suon', 'dau-an', 5),
+  ('com-tam-suon', 'nuoc-mam', 8),
+  ('com-ga', 'com-trang', 250),
+  ('com-ga', 'thit-ga-ta', 120),
+  ('com-ga', 'dau-an', 4),
+  ('com-ga', 'nuoc-mam', 6),
+  ('com-trung', 'com-trang', 200),
+  ('com-trung', 'trung-ga', 60),
+  ('com-trung', 'dau-an', 5),
+  ('com-trung', 'nuoc-mam', 4),
+  ('banh-mi-thit', 'banh-mi', 100),
+  ('banh-mi-thit', 'thit-heo-nac', 60),
+  ('banh-mi-thit', 'dua-leo', 25),
+  ('banh-mi-thit', 'dau-an', 3),
+  ('goi-cuon', 'pho-tuoi', 60),
+  ('goi-cuon', 'tom-tuoi', 40),
+  ('goi-cuon', 'rau-muong', 40),
+  ('goi-cuon', 'thit-heo-nac', 30),
+  ('canh-rau-muong', 'rau-muong', 150),
+  ('canh-rau-muong', 'tom-tuoi', 30),
+  ('canh-rau-muong', 'nuoc-mam', 5),
+  ('canh-rau-muong', 'dau-an', 2),
+  ('rau-muong-xao-toi', 'rau-muong', 150),
+  ('rau-muong-xao-toi', 'toi', 6),
+  ('rau-muong-xao-toi', 'dau-an', 8),
+  ('dau-hu-chien', 'dau-hu', 150),
+  ('dau-hu-chien', 'dau-an', 10),
+  ('trung-chien', 'trung-ga', 100),
+  ('trung-chien', 'dau-an', 8),
+  ('ca-thu-chien', 'ca-thu', 120),
+  ('ca-thu-chien', 'dau-an', 10),
+  ('khoai-tay-chien', 'khoai-tay', 150),
+  ('khoai-tay-chien', 'dau-an', 15),
+  ('khoai-lang-luoc', 'khoai-lang', 150),
+  ('sua-chua-chuoi', 'sua-chua-khong-duong', 100),
+  ('sua-chua-chuoi', 'chuoi-tieu', 60),
+  ('ca-phe-sua-da', 'ca-phe-den', 150),
+  ('ca-phe-sua-da', 'sua-dac', 25),
+  ('sinh-to-chuoi-sua', 'chuoi-tieu', 120),
+  ('sinh-to-chuoi-sua', 'sua-tuoi-khong-duong', 150)
+)
+insert into public.dish_components (dish_id, ingredient_id, grams)
+select d.id, i.id, s.grams
+from component_seed s
+join public.foods d on d.slug = s.dish_slug
+join public.foods i on i.slug = s.ingredient_slug
+on conflict (dish_id, ingredient_id) do update set grams = excluded.grams;
+
+-- 4. Tính lại chỉ số của món từ thành phần vừa nạp.
+--    Bước này khiến CSDL trở thành nguồn chân lý: dù file trên có sai sót,
+--    con số cuối cùng vẫn nhất quán với thành phần.
+select public.recompute_dish_nutrients(id) from public.foods where kind = 'dish';

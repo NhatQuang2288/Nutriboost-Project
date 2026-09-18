@@ -1,0 +1,26 @@
+# Ranh giới sở hữu — cưỡng chế bằng CODEOWNERS, không phải bằng quy ước miệng.
+# Lý do và bối cảnh: docs/roles.md
+
+# TV1 sở hữu hợp đồng dữ liệu và hạ tầng.
+/supabase/                @tv1-lead
+/packages/db/             @tv1-lead @tv2-auth
+/packages/ai/             @tv3-ai @tv1-lead
+/.github/                 @tv1-lead
+/eslint.config.mjs        @tv1-lead
+/tsconfig.base.json       @tv1-lead
+/CLAUDE.md                @tv1-lead
+/docs/                    @tv1-lead
+
+# TV3 sở hữu tính đúng của dữ liệu dinh dưỡng.
+/packages/nutrition/      @tv3-ai
+/packages/seed/           @tv2-auth @tv3-ai
+
+# TV5 sở hữu design system và toàn bộ lớp trợ lý.
+/apps/web/src/components/ui/         @tv5-design
+/apps/web/src/components/icons/      @tv5-design
+/apps/web/src/components/assistant/  @tv5-design
+/apps/web/src/app/globals.css        @tv5-design
+
+# TV4 sở hữu các màn hình người dùng và component generative UI.
+/apps/web/src/app/(app)/             @tv4-fe
+/apps/web/src/components/generative/ @tv4-fe

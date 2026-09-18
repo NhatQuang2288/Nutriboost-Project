@@ -1,0 +1,171 @@
+/*
+ * Lớp trợ lý ba tầng — hình học và chuyển động.
+ *
+ * Hợp đồng nằm ở docs/ASSISTANT-UX.md. Các con số dưới đây có test E2E tương ứng:
+ *   • panel 400px
+ *   • animate width 320ms
+ *   • cột toàn màn hình 768px
+ *
+ * LUẬT QUAN TRỌNG NHẤT: panel KHÔNG BAO GIỜ unmount và KHÔNG BAO GIỜ dùng
+ * `display: none`. Thu gọn bằng `width: 0` + `inert` + `aria-hidden`.
+ * Trả `null` hoặc unmount sẽ làm mất trạng thái hội thoại.
+ */
+
+.dock {
+  --dock-width: 0px;
+
+  flex: 0 0 auto;
+  width: var(--dock-width);
+  overflow: hidden;
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  background-color: var(--color-surface);
+  border-left: 1px solid var(--color-line-subtle);
+
+  /* Chỉ animate width, theo đúng đặc tả. */
+  transition: width var(--duration-slow) var(--ease-standard);
+  will-change: width;
+}
+
+/*
+ * Thu gọn: bỏ hẳn viền, không chỉ làm trong suốt.
+ * `border-left: 1px solid transparent` vẫn chiếm 1px bề rộng, khiến panel không
+ * thật sự rộng 0 và làm lệch bố cục cột nội dung.
+ */
+.dock[data-mode='bar'] {
+  border-left-width: 0;
+}
+
+.dock[data-mode='sidebar'] {
+  --dock-width: var(--width-assistant-panel);
+}
+
+/*
+ * Toàn màn hình: cùng một nút DOM, chỉ đổi cách định vị.
+ * Không animate `width` tới 100vw vì gây giật; dùng `position: fixed` + fade.
+ */
+.dock[data-mode='fullscreen'] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  z-index: 50;
+  border-left-color: transparent;
+  animation: dock-fade var(--duration-base) var(--ease-standard);
+}
+
+/*
+ * Bề rộng cố định cho phần ruột: nhờ vậy chữ bên trong không reflow trong lúc
+ * animate width của khung ngoài.
+ */
+.inner {
+  display: flex;
+  flex-direction: column;
+  width: var(--width-assistant-panel);
+  height: 100%;
+}
+
+.dock[data-mode='fullscreen'] .inner {
+  width: 100%;
+  max-width: var(--width-focus-column);
+  margin-inline: auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * Dưới 1024px: panel trở thành lớp phủ thay vì đẩy nội dung
+ * ------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .dock[data-mode='sidebar'] {
+    position: fixed;
+    inset-block: 0;
+    right: 0;
+    z-index: 40;
+    width: var(--width-assistant-panel);
+    box-shadow: var(--shadow-xl);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Dưới 768px: tấm trượt từ đáy
+ *
+ * 400px không tồn tại trên màn 390px, nên tầng 2 chuyển thành bottom sheet.
+ * Đây là điểm khác biệt có chủ ý so với đặc tả gốc — xem docs/ASSISTANT-UX.md §7.
+ *
+ * LƯU Ý VỀ ĐỘ ĐẶC HIỆU: khối `max-width: 1023px` ở trên đặt `inset-block: 0` và
+ * `width: 400px` cho `.dock[data-mode='sidebar']` (độ đặc hiệu 0,2,0). Vì vậy khối
+ * này phải nhắm đúng các selector đó, nếu chỉ nhắm `.dock` (0,1,0) thì tấm trượt sẽ
+ * bị neo vào ĐỈNH và rộng 400px — lỗi có thật, bắt được bằng test đầu-cối.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .dock,
+  .dock[data-mode='sidebar'],
+  .dock[data-mode='fullscreen'] {
+    position: fixed;
+    /* top auto, còn lại 0 — neo chặt vào đáy khung nhìn. */
+    inset: auto 0 0 0;
+    width: 100%;
+    height: 92dvh;
+    z-index: 40;
+    border-left: none;
+    border-top: 1px solid var(--color-line-subtle);
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: var(--shadow-xl);
+
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-base) var(--ease-emphasized),
+      visibility 0s linear var(--duration-base);
+  }
+
+  .dock[data-mode='sidebar'],
+  .dock[data-mode='fullscreen'] {
+    transform: translateY(0);
+    visibility: visible;
+    transition:
+      transform var(--duration-base) var(--ease-emphasized),
+      visibility 0s;
+  }
+
+  .dock[data-mode='fullscreen'] {
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .inner {
+    width: 100%;
+  }
+}
+
+/* Tay nắm của tấm trượt — chỉ hiện trên mobile */
+.dragHandle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .dragHandle {
+    display: flex;
+    justify-content: center;
+    padding-block: 8px 4px;
+  }
+}
+
+@keyframes dock-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock {
+    transition: none;
+  }
+  .dock[data-mode='fullscreen'] {
+    animation: none;
+  }
+}

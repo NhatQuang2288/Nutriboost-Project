@@ -1,0 +1,357 @@
+/**
+ * NutriBoost — token design system.
+ *
+ * Bảng màu được trích trực tiếp từ file logo (xem docs/DESIGN-SYSTEM.md §1).
+ * Không viết mã màu thẳng trong JSX — mọi màu đi qua token ở đây.
+ *
+ * Cú pháp `@theme` là cách cấu hình của Tailwind 4: các tiện ích như `bg-forest-600`,
+ * `text-olive-700`, `rounded-lg`, `shadow-md` sinh ra trực tiếp từ token dưới đây.
+ */
+
+@import 'tailwindcss';
+
+/* Tailwind 4 mặc định dùng `prefers-color-scheme` cho biến thể `dark:`. */
+
+@theme {
+  /* ---------------------------------------------------------------------
+   * Xanh rừng — mực và hành động chính
+   * ------------------------------------------------------------------- */
+  --color-forest-50: #f1f5ef;
+  --color-forest-100: #e0e9dc;
+  --color-forest-200: #c3d5bd;
+  --color-forest-300: #9db796;
+  --color-forest-400: #71906b;
+  --color-forest-500: #4e6948;
+  --color-forest-600: #324b2e;
+  --color-forest-700: #283c25;
+  --color-forest-800: #1e2d1c;
+  --color-forest-900: #151f13;
+
+  /* ---------------------------------------------------------------------
+   * Xanh ô-liu — năng lượng, tiến độ, thành công
+   * ------------------------------------------------------------------- */
+  --color-olive-50: #f7faf0;
+  --color-olive-100: #e4f0d1;
+  --color-olive-200: #d4e1b8;
+  --color-olive-300: #bbc699;
+  --color-olive-400: #a1b079;
+  --color-olive-500: #839b4a;
+  --color-olive-600: #6e8440;
+  --color-olive-700: #586a33;
+  --color-olive-800: #425027;
+  --color-olive-900: #2c361a;
+
+  /* ---------------------------------------------------------------------
+   * Trung tính ấm
+   *
+   * neutral-500 CHỈ dùng cho icon và viền (4,14:1). Chữ phụ nhỏ nhất là neutral-600.
+   * ------------------------------------------------------------------- */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #fafaf7;
+  --color-neutral-100: #f5f5f0;
+  --color-neutral-200: #e8e8e1;
+  --color-neutral-300: #d6d6cc;
+  --color-neutral-400: #a8a89e;
+  --color-neutral-500: #7a7a70;
+  --color-neutral-600: #57574e;
+  --color-neutral-700: #3d3d36;
+  --color-neutral-800: #26261f;
+  --color-neutral-900: #14140f;
+
+  /* ---------------------------------------------------------------------
+   * Ngữ nghĩa
+   * ------------------------------------------------------------------- */
+  --color-success: #839b4a;
+  --color-success-surface: #e4f0d1;
+  --color-success-text: #586a33;
+
+  --color-warning: #c98a2e;
+  --color-warning-surface: #fbf0dc;
+  --color-warning-text: #8a5f1c;
+
+  --color-danger: #b04a32;
+  --color-danger-surface: #fbe7e2;
+  --color-danger-text: #8a3521;
+
+  --color-info: #3a6b62;
+  --color-info-surface: #e3efec;
+  --color-info-text: #2a514a;
+
+  /* ---------------------------------------------------------------------
+   * Token ngữ nghĩa theo vai trò — đổi giá trị ở dark mode, không đổi tên
+   * ------------------------------------------------------------------- */
+  --color-bg: #fafaf7;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5f5f0;
+  --color-surface-overlay: #ffffff;
+
+  --color-ink: #324b2e;
+  --color-ink-muted: #57574e;
+  --color-ink-faint: #7a7a70;
+  --color-ink-inverse: #ffffff;
+
+  --color-line: rgb(50 75 46 / 0.14);
+  --color-line-subtle: rgb(50 75 46 / 0.08);
+  --color-line-strong: rgb(50 75 46 / 0.24);
+
+  --color-accent: #839b4a;
+  --color-accent-visual: #839b4a;
+  --color-accent-text: #586a33;
+  --color-accent-surface: #e4f0d1;
+
+  /* ---------------------------------------------------------------------
+   * Chữ
+   * ------------------------------------------------------------------- */
+  --font-display: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-be-vietnam-pro), system-ui, sans-serif;
+
+  --text-display-lg: 32px;
+  --text-display-lg--line-height: 38px;
+  --text-display-lg--font-weight: 800;
+  --text-display-lg--font-family: var(--font-display);
+
+  --text-display: 28px;
+  --text-display--line-height: 34px;
+  --text-display--font-weight: 800;
+  --text-display--font-family: var(--font-display);
+
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-h1--font-weight: 700;
+  --text-h1--font-family: var(--font-display);
+
+  --text-h2: 20px;
+  --text-h2--line-height: 26px;
+  --text-h2--font-weight: 700;
+  --text-h2--font-family: var(--font-display);
+
+  --text-h3: 17px;
+  --text-h3--line-height: 23px;
+  --text-h3--font-weight: 600;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 25px;
+
+  --text-body: 15px;
+  --text-body--line-height: 24px;
+
+  --text-label: 14px;
+  --text-label--line-height: 20px;
+  --text-label--font-weight: 500;
+
+  --text-caption: 12.5px;
+  --text-caption--line-height: 18px;
+  --text-caption--font-weight: 500;
+
+  --text-micro: 11px;
+  --text-micro--line-height: 15px;
+  --text-micro--font-weight: 600;
+  --text-micro--letter-spacing: 0.06em;
+
+  /* ---------------------------------------------------------------------
+   * Bo góc — bo rộng là đặc trưng thương hiệu
+   * ------------------------------------------------------------------- */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
+
+  /* ---------------------------------------------------------------------
+   * Đổ bóng — nhuộm xanh rừng, khớp bóng mềm trong logo
+   * ------------------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgb(50 75 46 / 0.06), 0 1px 3px rgb(50 75 46 / 0.04);
+  --shadow-md: 0 4px 12px rgb(50 75 46 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(50 75 46 / 0.1);
+  --shadow-xl: 0 24px 64px rgb(50 75 46 / 0.14);
+
+  /* ---------------------------------------------------------------------
+   * Chuyển động
+   *
+   * 320ms là hợp đồng với docs/ASSISTANT-UX.md — trượt panel trợ lý.
+   * ------------------------------------------------------------------- */
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* ---------------------------------------------------------------------
+   * Bố cục — khớp đặc tả trợ lý
+   * ------------------------------------------------------------------- */
+  --width-content: 680px;
+  --width-assistant-panel: 400px;
+  --width-focus-column: 768px;
+  --height-nav: 56px;
+}
+
+/* =========================================================================
+ * Dark mode — chỉ đổi token ngữ nghĩa, không đổi tên
+ * ======================================================================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #151f13;
+    --color-surface: #1e2d1c;
+    --color-surface-sunken: #283c25;
+    --color-surface-overlay: #1e2d1c;
+
+    --color-ink: #f5f5f0;
+    --color-ink-muted: #d6d6cc;
+    --color-ink-faint: #a8a89e;
+    --color-ink-inverse: #151f13;
+
+    --color-line: rgb(245 245 240 / 0.14);
+    --color-line-subtle: rgb(245 245 240 / 0.08);
+    --color-line-strong: rgb(245 245 240 / 0.24);
+
+    --color-accent: #a1b079;
+    --color-accent-visual: #a1b079;
+    --color-accent-text: #d4e1b8;
+    --color-accent-surface: #2c361a;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 12px rgb(0 0 0 / 0.36);
+    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.42);
+    --shadow-xl: 0 24px 64px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* =========================================================================
+ * Lớp nền
+ * ======================================================================= */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    /* Chữ Việt có dấu cần thêm chiều cao dòng và khoảng chữ mở hơn một chút. */
+    letter-spacing: 0.002em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Chữ Việt xếp dấu chồng lên nguyên âm; tránh cắt dấu khi co dòng. */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
+  }
+
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+    font-weight: var(--text-h1--font-weight);
+    font-family: var(--text-h1--font-family);
+    margin: 0;
+  }
+
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    font-weight: var(--text-h2--font-weight);
+    font-family: var(--text-h2--font-family);
+    margin: 0;
+  }
+
+  h3 {
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    font-weight: var(--text-h3--font-weight);
+    margin: 0;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /*
+   * Vòng focus: dùng ô-liu. Tương phản 3,11:1 trên nền sáng — đạt ngưỡng 3:1
+   * cho thành phần giao diện không phải chữ.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background-color: var(--color-olive-200);
+    color: var(--color-forest-700);
+  }
+
+  /* Thanh cuộn mảnh, hợp tông */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-neutral-300) transparent;
+  }
+}
+
+/* =========================================================================
+ * Tiện ích dùng chung
+ * ======================================================================= */
+@utility content-column {
+  width: 100%;
+  max-width: var(--width-content);
+  margin-inline: auto;
+}
+
+/* Vùng chạm tối thiểu 44×44 px — yêu cầu ở docs/DESIGN-SYSTEM.md §5.1 */
+@utility touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mép an toàn cho thiết bị có tai thỏ và thanh home */
+@utility safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* =========================================================================
+ * Tôn trọng người dùng tắt hiệu ứng chuyển động
+ * ======================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
