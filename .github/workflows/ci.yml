@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Kiểm tra chất lượng
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # Giá trị giả — chỉ để `next build` chạy được trong CI.
+      # Việc đọc biến môi trường trong code phải là lười (lazy), không ném lỗi lúc build.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+      GEMINI_API_KEY: ''
+      AI_KILL_SWITCH: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cài phụ thuộc
+        run: npm ci
+
+      - name: Kiểm tra kiểu
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Kiểm tra định dạng
+        run: npm run format:check
+
+      - name: Test đơn vị
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: Kiểm thử đầu-cuối
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # Chạy E2E với công tắc dừng AI: đường phản hồi giả cho kết quả tất định nên
+      # test không phụ thuộc dịch vụ ngoài, không cần khoá và không tốn tiền.
+      AI_KILL_SWITCH: 'true'
+      GEMINI_API_KEY: ''
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cài phụ thuộc
+        run: npm ci
+
+      - name: Cài trình duyệt
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Chạy kiểm thử đầu-cuối
+        run: npm run e2e
+
+      - name: Lưu báo cáo khi thất bại
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  no-icon-libraries:
+    name: Chặn thư viện icon
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Không package.json nào được khai báo thư viện icon
+        run: node scripts/check-no-icon-libs.mjs
