@@ -94,41 +94,41 @@ zod schema dùng chung → **mock fixtures + MSW handler mock Gemini**.
 
 ## 6. Trạng thái hiện tại so với bảng phân công gốc
 
-> Cập nhật lần cuối sau khi nối xong tầng dữ liệu thật và mở rộng danh mục món. Đây là chỗ để
-> không ai phải đoán.
+> Cập nhật lần cuối sau khi khép vòng duyệt thực đơn. Đây là chỗ để không ai phải đoán.
 
 ### Đã xong
 
-| Vai trò   | Hạng mục                                         | Ghi chú                                                                                  |
-| --------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| TV1       | Khung dự án, schema, migration, `CLAUDE.md`, CI  | 10 migration; CI 3 job xanh                                                              |
-| TV1       | Test RLS hai người dùng                          | `packages/db/src/__tests__/` trên PGlite — 55 test, có kiểm chứng ngược                  |
-| TV2       | Đăng nhập magic link                             | `/auth/callback`, `middleware.ts` làm mới phiên và bảo vệ route, `/dang-xuat`            |
-| TV2       | Quyền xoá dữ liệu                                | `DELETE /api/tai-khoan`, xác nhận hai bước, xoá `auth.users` để cascade dọn hết          |
-| TV2       | Mã mời                                           | Bảng + hàm + RLS + màn `/pt/loi-moi` + màn `/tham-gia`. Xem `docs/INVITES.md`            |
-| TV2       | Hạn mức API                                      | `claim_ai_quota` cưỡng chế trong CSDL, gọi qua `SupabaseAiStore`                         |
-| TV2 + TV4 | **Console PT đọc dữ liệu thật**                  | Cả năm màn: `/pt`, `/pt/khach/[clientId]`, `/pt/loi-moi`, `/pt/duyet`, `/pt/goi`         |
-| TV3       | BMI/BMR/TDEE, prompt, guardrail, eval            | 461 test đơn vị; eval 50/50 và 9/9                                                       |
-| TV3       | Cost tracking                                    | `SupabaseAiStore` ghi `ai_calls` cho từng lượt chat, kèm chi phí tính từ bảng giá        |
-| TV3       | Nhật ký bữa ăn bằng AI                           | `log_meal` ghi thật vào `meal_logs` + `meal_log_items`                                   |
-| TV3       | Lịch tập, luật nhắc nhở                          | Bộ dựng tất định + 34 test; console đọc luật nhắc thật từ `reminder_rules`               |
-| TV4       | Toàn bộ 8 màn khách hàng + console PT            | Giao diện đầy đủ, có trạng thái rỗng và lỗi                                              |
-| TV5       | Design system, lớp trợ lý 3 tầng, icon SVG tự vẽ | Xem `docs/DESIGN-SYSTEM.md`, `docs/ASSISTANT-UX.md`                                      |
-| TV5       | Biểu đồ                                          | `LineChart` + `BarChart` SVG tự vẽ, có bảng dữ liệu ẩn cho trình đọc màn hình            |
-| TV5       | PWA                                              | 4 cỡ icon sinh từ `scripts/generate-icons.mjs`, service worker chỉ cache tài nguyên tĩnh |
+| Vai trò   | Hạng mục                                         | Ghi chú                                                                                   |
+| --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| TV1       | Khung dự án, schema, migration, `CLAUDE.md`, CI  | 11 migration; CI 3 job xanh                                                               |
+| TV1       | Test RLS hai người dùng                          | `packages/db/src/__tests__/` trên PGlite — 71 test, có kiểm chứng ngược                   |
+| TV2       | Đăng nhập magic link                             | `/auth/callback`, `middleware.ts`, `/dang-xuat`; đã chạy thật trong trình duyệt           |
+| TV2       | Quyền xoá dữ liệu                                | `DELETE /api/tai-khoan`, xác nhận hai bước, cascade dọn hết                               |
+| TV2       | Mã mời                                           | Bảng + hàm + RLS + màn `/pt/loi-moi` + màn `/tham-gia`. Xem `docs/INVITES.md`             |
+| TV2       | Hạn mức API                                      | `claim_ai_quota` cưỡng chế trong CSDL, gọi qua `SupabaseAiStore`                          |
+| TV3       | BMI/BMR/TDEE, prompt, guardrail, eval            | 488 test đơn vị; eval 50/50 và 9/9                                                        |
+| TV3       | Cost tracking                                    | `SupabaseAiStore` ghi `ai_calls` cho từng lượt chat, kèm chi phí                          |
+| TV3       | Nhật ký bữa ăn bằng AI                           | `log_meal` ghi thật vào `meal_logs` + `meal_log_items`                                    |
+| TV3       | Lịch tập, luật nhắc nhở                          | Bộ dựng tất định + 34 test; console đọc luật nhắc thật                                    |
+| TV3       | **Kế hoạch lưu trữ**                             | `save_plan` / `decide_plan` / `read_plan`; khách thấy bản PT đã duyệt ở `/ke-hoach`       |
+| TV4       | Toàn bộ 8 màn khách hàng + 5 màn console PT      | Giao diện đầy đủ, có trạng thái rỗng và lỗi                                               |
+| TV4 + TV2 | **Vòng duyệt thực đơn**                          | PT dựng → hàng đợi → duyệt/chỉnh lại → khách thấy. Chạy thật trong trình duyệt 15/15 bước |
+| TV5       | Design system, lớp trợ lý 3 tầng, icon SVG tự vẽ | Xem `docs/DESIGN-SYSTEM.md`, `docs/ASSISTANT-UX.md`                                       |
+| TV5       | Biểu đồ                                          | `LineChart` + `BarChart` SVG tự vẽ, có bảng dữ liệu ẩn                                    |
+| TV5       | PWA                                              | 4 cỡ icon sinh từ script, service worker chỉ cache tài nguyên tĩnh                        |
 
 ### Còn thiếu, và ai quyết định
 
-| #   | Việc                                  | Ai       | Vì sao chưa làm                                                                                                                                                                                                                                                                                                                                             |
-| --- | ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **`generate_plan` chưa ghi vào CSDL** | TV3      | Đây là thứ chặn hàng đợi duyệt thực đơn. `/pt/duyet` **đã** đọc dữ liệu thật (`plans` có `status = 'draft'`), nên nó trống một cách trung thực — nhưng chưa có gì tạo ra hàng `draft`, vì bộ dựng thực đơn mới chạy ở tầng ứng dụng và trả về đối tượng trong bộ nhớ. Nối nó vào `plans` + `plan_items` mở khoá luôn thực đơn lưu trữ cho khách.            |
-| 2   | **Nguyên liệu chưa đối chiếu nguồn**  | TV3      | 33 nguyên liệu, và mọi dòng đều ghi rõ là số liệu tham chiếu để phát triển. Cần đối chiếu _Bảng thành phần dinh dưỡng thực phẩm Việt Nam_ (Bộ Y tế, 2007) rồi đặt `verified = true`. Món ăn thì đã đi trước: chúng định nghĩa bằng **thành phần × gram**, nên chỉ số trên 100 g do CSDL tính ra — thêm món không cần bịa số liệu, thêm nguyên liệu thì cần. |
-| 3   | **Trạng thái "tạm dừng" của khách**   | TV1      | `pt_clients.status` chỉ có `pending \| active \| ended`, nên console thật **không** sinh ra được `'paused'`. Muốn có thì phải thêm giá trị vào kiểu enum. `deriveClientStatus` ghi rõ điều này trong comment.                                                                                                                                               |
-| 4   | **Lưu hội thoại vào `chat_threads`**  | TV2      | Đa hội thoại hiện giữ trong `localStorage`. Đổi máy là mất. Bảng đã có sẵn trong CSDL.                                                                                                                                                                                                                                                                      |
-| 5   | **Một PT mới lấy gói ở đâu**          | sản phẩm | Chưa có trang quản trị và chưa có cổng thanh toán. `docs/INVITES.md` §3 nêu ba hướng kèm đánh đổi. Console nay hiện thẳng "Chưa có gói đang hiệu lực" thay vì bịa ra gói Plus.                                                                                                                                                                              |
-| 6   | **Trang quản trị**                    | TV1      | Chưa có. Đổi vai trò và tạo gói phải làm bằng SQL.                                                                                                                                                                                                                                                                                                          |
-| 7   | **Nhắc nhở gửi thật**                 | TV3      | Console đọc được luật nhắc thật, nhưng chưa có đường **gửi**: chưa có tiến trình nền, chưa có đăng ký push.                                                                                                                                                                                                                                                 |
-| 8   | **Analytics**                         | TV5      | Bảng `analytics_events` có, chưa có code ghi.                                                                                                                                                                                                                                                                                                               |
+| #   | Việc                                 | Ai       | Vì sao chưa làm                                                                                                                                                                                                                                     |
+| --- | ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Một PT mới lấy gói ở đâu**         | sản phẩm | Chưa có trang quản trị và chưa có cổng thanh toán. Ở máy phát triển thì `npm run make:pt` lo việc này. `docs/INVITES.md` §3 nêu ba hướng kèm đánh đổi.                                                                                              |
+| 2   | **Trạng thái "tạm dừng" của khách**  | TV1      | `pt_clients.status` chỉ có `pending \| active \| ended`, nên console thật **không** sinh ra được `'paused'`. Muốn có thì phải thêm giá trị vào kiểu enum.                                                                                           |
+| 3   | **Lưu hội thoại vào `chat_threads`** | TV2      | Đa hội thoại hiện giữ trong `localStorage`. Đổi máy là mất. Bảng đã có sẵn trong CSDL.                                                                                                                                                              |
+| 4   | **Nguyên liệu chưa đối chiếu nguồn** | TV3      | 33 nguyên liệu, mọi dòng ghi rõ là số liệu tham chiếu để phát triển. Cần đối chiếu _Bảng thành phần dinh dưỡng thực phẩm Việt Nam_ rồi đặt `verified = true`. Món ăn thì đã đi trước: định nghĩa bằng thành phần × gram nên chỉ số do CSDL tính ra. |
+| 5   | **Trang quản trị**                   | TV1      | Chưa có. Đổi vai trò và tạo gói phải làm bằng script hoặc SQL.                                                                                                                                                                                      |
+| 6   | **Nhắc nhở gửi thật**                | TV3      | Console đọc được luật nhắc thật, nhưng chưa có đường **gửi**: chưa có tiến trình nền, chưa có đăng ký push.                                                                                                                                         |
+| 7   | **Analytics**                        | TV5      | Bảng `analytics_events` có, chưa có code ghi.                                                                                                                                                                                                       |
+| 8   | **Loại trừ món theo dị ứng**         | TV3      | `health_profiles.dietary_prefs` là chữ tự do ("không ăn hải sản") nên chưa đối chiếu được với `foods.slug`. Cả bộ dựng thực đơn lẫn kế hoạch đều đang truyền `excludedSlugs: []`, và điều đó được ghi rõ ngay tại chỗ gọi.                          |
 
 ### Danh mục món Việt
 
@@ -139,14 +139,18 @@ zod schema dùng chung → **mock fixtures + MSW handler mock Gemini**.
 | Tổng bản ghi       | 91       | 300                            |
 | Thành phần của món | 245      | —                              |
 
-Món ăn đã đi được phần lớn đường (18 → 58) mà **không cần một con số dinh dưỡng bịa nào**, vì
-chỉ số của món được tính từ thành phần. Chặng còn lại nằm ở nguyên liệu, và nó chờ bản gốc của
-bảng thành phần dinh dưỡng — xem mục còn thiếu số 2.
+Chặng còn lại nằm ở **nguyên liệu**, và nó chờ bản gốc của bảng thành phần dinh dưỡng — xem
+mục còn thiếu số 4.
 
-### Hai việc nên làm trước khi phát hành
+### Bốn tầng kiểm chứng
 
-1. **Đối chiếu `packages/seed` với bản gốc** và đặt `verified = true` cho từng dòng đã kiểm.
-   Hiện toàn bộ là số liệu tham chiếu để phát triển, ghi rõ trong comment đầu
-   `packages/seed/src/data/ingredients.ts`.
-2. **Chuyển Gemini sang gói trả tiền.** Gói miễn phí cho phép Google dùng nội dung để cải thiện
-   sản phẩm — không chấp nhận được với dữ liệu sức khoẻ.
+| Tầng             | Lệnh                    | Cần gì                   |
+| ---------------- | ----------------------- | ------------------------ |
+| Migration        | `npm run db:check`      | không cần gì             |
+| RLS + hàm CSDL   | `npm run test`          | không cần gì             |
+| Tích hợp qua API | `npm run check:live`    | Supabase đang chạy       |
+| Giao diện thật   | `npm run check:live:ui` | Supabase + `npm run dev` |
+
+Hai tầng dưới cùng bắt được những lỗi mà hai tầng trên không thấy: `check:live` phát hiện
+PostgREST chuyển tham số mảng khác trình điều khiển thô, còn `check:live:ui` phát hiện
+`GOTRUE_URI_ALLOW_LIST` từ chối `/auth/callback` và màn kết quả onboarding lệch với CSDL.

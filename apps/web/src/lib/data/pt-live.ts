@@ -100,36 +100,34 @@ export async function readLivePtOverview(now: Date): Promise<PtOverview | null> 
     }
   })
 
-  const approvals: PendingApproval[] = drafts.map((draft) => {
-    const health = healths.get(draft.userId)
-    const client = clients.find((item) => item.id === draft.userId)
-    const draftWeights = weights.get(draft.userId) ?? []
-    const weightKg = draftWeights[draftWeights.length - 1]?.weightKg ?? 70
+  const approvals: PendingApproval[] = await Promise.all(
+    drafts.map(async (draft) => {
+      const client = clients.find((item) => item.id === draft.userId)
+      const targets = await readClientTargets(supabase, draft.userId, today)
+      const targetKcal = targets.targetKcal
 
-    const targets = goalsFor(health?.goal ?? 'maintain', weightKg)
-    const targetKcal = targets.targetKcal
+      /*
+       * Kế hoạch dựng lại từ mục tiêu của khách, không đọc từ `plan_items`.
+       *
+       * Lý do: `BuiltPlan` mang cả ghi chú về những chỗ không đạt mục tiêu, và những ghi chú
+       * đó đến từ bộ dựng. `itemCount` và `averageKcal` thì lấy từ CSDL khi có — vì nếu PT đã
+       * chỉnh sửa một món, con số phải phản ánh bản đã sửa.
+       */
+      const plan = buildPlan({ weekStart: draft.weekStart, targets, catalogue, excludedSlugs: [] })
 
-    /*
-     * Kế hoạch dựng lại từ mục tiêu của khách, không đọc từ `plan_items`.
-     *
-     * Lý do: `BuiltPlan` mang cả ghi chú về những chỗ không đạt mục tiêu, và những ghi chú
-     * đó đến từ bộ dựng. `itemCount` và `averageKcal` thì lấy từ CSDL khi có — vì nếu PT đã
-     * chỉnh sửa một món, con số phải phản ánh bản đã sửa.
-     */
-    const plan = buildPlan({ weekStart: draft.weekStart, targets, catalogue, excludedSlugs: [] })
-
-    return {
-      id: draft.id,
-      clientId: draft.userId,
-      clientName: client?.name ?? 'Khách',
-      weekStart: draft.weekStart,
-      itemCount: draft.itemCount > 0 ? draft.itemCount : plan.days.length * 3,
-      averageKcal: draft.averageKcal > 0 ? draft.averageKcal : plan.averageKcal,
-      targetKcal,
-      deviation: targetKcal > 0 ? Math.abs(plan.averageKcal - targetKcal) / targetKcal : 0,
-      notes: plan.notes,
-    }
-  })
+      return {
+        id: draft.id,
+        clientId: draft.userId,
+        clientName: client?.name ?? 'Khách',
+        weekStart: draft.weekStart,
+        itemCount: draft.itemCount > 0 ? draft.itemCount : plan.days.length * 3,
+        averageKcal: draft.averageKcal > 0 ? draft.averageKcal : plan.averageKcal,
+        targetKcal,
+        deviation: targetKcal > 0 ? Math.abs(plan.averageKcal - targetKcal) / targetKcal : 0,
+        notes: plan.notes,
+      }
+    }),
+  )
 
   const usedSlots = clients.length
   const clientLimit = subscription?.clientLimit ?? null
@@ -241,7 +239,7 @@ export async function readLivePtClientDetail(
     needsAttention: explainClientAttention(status, summary?.loggedDays ?? 0),
   }
 
-  const targets = goalsFor(client.goal, weightKg)
+  const targets = await readClientTargets(supabase, clientId, today)
   const catalogue = buildDataset().all
 
   const plan = buildPlan({ weekStart, targets, catalogue, excludedSlugs: [] })
@@ -541,6 +539,53 @@ async function readDraftPlans(
         entry === undefined || entry.days.size === 0 ? 0 : Math.round(entry.kcal / entry.days.size),
     }
   })
+}
+
+/**
+ * Mục tiêu năng lượng của một khách, để dựng thực đơn và hiển thị.
+ *
+ * Đọc `energy_targets` trước: đó là con số đã cam kết với khách lúc họ thiết lập hồ sơ, và
+ * `complete_onboarding` đã tính nó bằng `@nutriboost/nutrition` phía máy chủ. Chỉ khi khách
+ * chưa có hàng nào mới ước lượng theo mục tiêu và cân nặng — và khi đó con số là tạm, không
+ * phải thứ đã hứa với ai.
+ *
+ * `energy_targets` giữ lịch sử theo `effective_from`, nên phải lấy hàng mới nhất đã có hiệu lực,
+ * không phải hàng mới nhất nói chung: mục tiêu đặt cho tương lai chưa được dùng.
+ */
+export async function readClientTargets(
+  supabase: SupabaseClient,
+  userId: string,
+  today: string,
+): Promise<{ targetKcal: number; proteinG: number; carbG: number; fatG: number }> {
+  const { data } = await supabase
+    .from('energy_targets')
+    .select('target_kcal, protein_g, carb_g, fat_g')
+    .eq('user_id', userId)
+    .lte('effective_from', today)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (data !== null) {
+    const row = data as {
+      target_kcal: number
+      protein_g: number
+      carb_g: number
+      fat_g: number
+    }
+    return {
+      targetKcal: row.target_kcal,
+      proteinG: row.protein_g,
+      carbG: row.carb_g,
+      fatG: row.fat_g,
+    }
+  }
+
+  const healths = await readHealthProfiles(supabase, [userId])
+  const weights = await readWeights(supabase, [userId], today)
+  const weightKg = (weights.get(userId) ?? []).slice(-1)[0]?.weightKg ?? 70
+
+  return goalsFor(healths.get(userId)?.goal ?? 'maintain', weightKg)
 }
 
 /**

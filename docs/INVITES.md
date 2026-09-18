@@ -66,6 +66,19 @@ cả ba đều là quyết định kinh doanh chứ không phải kỹ thuật:
 
 ### Công thức chạy ở máy phát triển
 
+Có sẵn công cụ, không phải gõ SQL:
+
+```bash
+npm run make:pt                          # liệt kê tài khoản hiện có
+npm run make:pt -- ban@example.com        # nâng thành PT, gói Plus (5 khách)
+npm run make:pt -- ban@example.com diamond 20
+```
+
+Tài khoản phải tồn tại trước — nó được tạo ở lần đăng nhập đầu tiên. Gói cũ (nếu có) bị huỷ
+trước khi gói mới được thêm, vì `active_subscription` lấy hàng có `current_period_end` xa nhất.
+
+Nếu muốn làm tay thì đây là SQL tương đương:
+
 ```sql
 -- 1. Người dùng đăng nhập ít nhất một lần để có hàng trong `profiles`.
 -- 2. Nâng vai trò:

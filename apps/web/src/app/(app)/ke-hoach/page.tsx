@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Kế hoạch' }
 export const dynamic = 'force-dynamic'
 
 export default async function PlanPage() {
-  const { plan, targetKcal, weekLabel, source } = await getWeeklyPlan()
+  const { plan, targetKcal, weekLabel, source, stored, awaitingReview } = await getWeeklyPlan()
   await ensureProfileReady(source)
 
   const isEmpty = plan.days.length === 0
@@ -20,9 +20,27 @@ export default async function PlanPage() {
       <header>
         <h1 className="text-h1">Kế hoạch tuần</h1>
         <p className="text-caption text-ink-muted">
-          Thực đơn 7 ngày dựng từ mục tiêu {targetKcal.toLocaleString('vi-VN')} kcal của bạn.
+          {stored
+            ? `Thực đơn PT đã duyệt cho bạn, theo mục tiêu ${targetKcal.toLocaleString('vi-VN')} kcal.`
+            : `Thực đơn 7 ngày dựng từ mục tiêu ${targetKcal.toLocaleString('vi-VN')} kcal của bạn.`}
         </p>
       </header>
+
+      {/*
+        Nói rõ thực đơn này từ đâu ra. Hai nguồn cho ra hai mức tin cậy khác nhau: bản PT đã
+        duyệt là bản có người chịu trách nhiệm, còn bản dựng tất định chỉ là gợi ý của máy.
+        Không nói gì thì người dùng không phân biệt được, và sẽ tưởng bản máy dựng cũng đã
+        được ai đó xem qua.
+      */}
+      {stored ? (
+        <p className="border-success/30 bg-success-surface text-success-text text-caption rounded-lg border px-3 py-2">
+          PT của bạn đã duyệt thực đơn này.
+        </p>
+      ) : awaitingReview ? (
+        <p className="border-info/30 bg-info-surface text-info-text text-caption rounded-lg border px-3 py-2">
+          PT đang xem một thực đơn khác cho tuần này. Trong lúc chờ, đây là bản gợi ý tự động.
+        </p>
+      ) : null}
 
       {isEmpty ? (
         <Card className="border-warning/30 bg-warning-surface">

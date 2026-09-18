@@ -78,18 +78,31 @@ test.describe('hàng đợi duyệt thực đơn', () => {
     await expect(page.getByText(/Trung bình mỗi ngày/).first()).toBeVisible()
   })
 
-  test('nút duyệt nói thẳng là chưa lưu được, không giả vờ thành công', async ({ page }) => {
+  /*
+   * Hai nút này nay gọi Server Action thật. Bộ kiểm thử chạy ở chế độ dữ liệu mẫu nên không
+   * có phiên đăng nhập, và điều phải khoá lại là: nút **không giả vờ đã lưu** — nó nói thẳng
+   * là chưa duyệt được. Hành vi thật (duyệt xong thì `plans.status` thành `active`) được
+   * kiểm ở `npm run check:live`, nơi có Supabase thật.
+   */
+  test('nút duyệt không giả vờ thành công khi chưa đăng nhập', async ({ page }) => {
     await page.goto('/pt/duyet')
 
     await page.getByRole('button', { name: 'Duyệt thực đơn' }).first().click()
-    await expect(page.getByRole('status')).toContainText('Chưa nối cơ sở dữ liệu')
+    await expect(page.getByRole('status')).toContainText('Cần đăng nhập')
   })
 
-  test('nút yêu cầu chỉnh lại cũng báo rõ trạng thái', async ({ page }) => {
+  test('yêu cầu chỉnh lại bắt buộc phải nói chỉnh chỗ nào', async ({ page }) => {
     await page.goto('/pt/duyet')
 
     await page.getByRole('button', { name: 'Yêu cầu chỉnh lại' }).first().click()
-    await expect(page.getByRole('status')).toContainText('Chưa nối cơ sở dữ liệu')
+
+    // Ô nhận xét hiện ra, và nút gửi chưa bấm được cho tới khi có nội dung: một yêu cầu chỉnh
+    // lại không nói chỉnh chỗ nào thì không giúp được ai.
+    const send = page.getByRole('button', { name: 'Gửi yêu cầu chỉnh lại' })
+    await expect(send).toBeDisabled()
+
+    await page.getByLabel('Nhận xét cho khách').fill('Bữa sáng nhiều tinh bột quá')
+    await expect(send).toBeEnabled()
   })
 
   test('giải thích vì sao có bước duyệt', async ({ page }) => {

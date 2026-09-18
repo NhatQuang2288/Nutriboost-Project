@@ -42,6 +42,8 @@ npm run db:check         # chạy migration + seed trên PostgreSQL thật (khô
 npm run env:link         # nối apps/web/.env.local → .env.local ở gốc (bắt buộc, chạy một lần)
 npm run env:check        # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run check:live       # kiểm chứng đường dữ liệu THẬT qua PostgREST + RLS thật
+npm run check:live:ui    # walkthrough thật trong trình duyệt (cần Supabase + npm run dev)
+npm run make:pt          # nâng một tài khoản thành PT kèm gói — dựng cảnh thử console PT
 npm run icons:generate   # sinh lại icon PWA trong apps/web/public/
 npm run test             # vitest
 npm run e2e              # playwright (cần cài trình duyệt trước)
@@ -71,13 +73,14 @@ Khi thêm bảng hoặc hàm mới, thêm test vào đây. Và hãy kiểm chứ
 lỗi: bỏ thứ mình vừa viết ra rồi xem test có đỏ không. Một test RLS không bao giờ đỏ là một test
 vô dụng.
 
-### Ba tầng kiểm chứng, và mỗi tầng bắt được một loại lỗi khác nhau
+### Bốn tầng kiểm chứng, và mỗi tầng bắt được một loại lỗi khác nhau
 
-| Tầng      | Lệnh                 | Bắt được gì                                                 | KHÔNG bắt được gì                                |
-| --------- | -------------------- | ----------------------------------------------------------- | ------------------------------------------------ |
-| Migration | `npm run db:check`   | Cú pháp PL/pgSQL, ràng buộc, số dòng seed                   | RLS (vì `auth.uid()` luôn `null`)                |
-| RLS       | `npm run test`       | Policy chặn đúng người, hàm ghi nguyên tử                   | PostgREST, và `grant`/`revoke` trên vai trò thật |
-| Tích hợp  | `npm run check:live` | PostgREST chuyển tham số mảng, JWT thật, quyền gọi hàm thật | Chỉ chạy được khi Supabase đang bật              |
+| Tầng      | Lệnh                    | Bắt được gì                                                        | KHÔNG bắt được gì                                |
+| --------- | ----------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
+| Migration | `npm run db:check`      | Cú pháp PL/pgSQL, ràng buộc, số dòng seed                          | RLS (vì `auth.uid()` luôn `null`)                |
+| RLS       | `npm run test`          | Policy chặn đúng người, hàm ghi nguyên tử                          | PostgREST, và `grant`/`revoke` trên vai trò thật |
+| Tích hợp  | `npm run check:live`    | PostgREST chuyển tham số mảng, JWT thật, quyền gọi hàm thật        | Chỉ chạy được khi Supabase đang bật              |
+| Giao diện | `npm run check:live:ui` | Luồng đăng nhập thật, quy tắc chuyển hướng, dữ liệu hiện khớp CSDL | Cần dev server đang chạy                         |
 
 `check:live` tồn tại vì **PostgREST không chuyển tham số giống trình điều khiển thô**. Một hàm
 nhận `text[]` có thể chạy tốt trên PGlite mà hỏng qua PostgREST — `complete_onboarding` nhận hai
@@ -85,7 +88,17 @@ tham số mảng, nên nó là chỗ dễ vỡ nhất. Script tự tạo một n
 lặp sức khoẻ và sáu kiểm tra bảo mật, rồi xoá người dùng đó.
 
 ```bash
-npx supabase start && npm run db:reset && npm run check:live
+npm run db:start && npm run db:reset && npm run check:live
+```
+
+`check:live:ui` là tầng **thứ tư**, và nó không thay thế được bằng gì khác: nó mở liên kết
+đăng nhập trong Chromium. Hai lỗi thật chỉ lộ ra ở đây — `GOTRUE_URI_ALLOW_LIST` từ chối
+`/auth/callback` (Supabase lặng lẽ trả người dùng về trang chủ), và màn kết quả onboarding
+tính một con số còn Server Action lưu một con số khác.
+
+```bash
+npm run dev            # terminal khác
+npm run check:live:ui
 ```
 
 ## Cạm bẫy môi trường (đã gặp thật)

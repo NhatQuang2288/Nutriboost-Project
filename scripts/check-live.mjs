@@ -256,6 +256,88 @@ async function main() {
     })
 
     /*
+     * VÒNG DUYỆT THỰC ĐƠN. `save_plan` nhận `p_items jsonb` là một mảng đối tượng — dạng tham
+     * số mà PostgREST chuyển khác hẳn trình điều khiển thô, nên nó phải được kiểm ở đây chứ
+     * không chỉ trên PGlite.
+     */
+    let planId = null
+
+    await step('save_plan — mảng jsonb đi qua PostgREST', async () => {
+      const { data, error } = await anon.rpc('save_plan', {
+        p_user_id: userId,
+        p_week_start: '2026-09-14',
+        p_items: [
+          {
+            planDate: '2026-09-14',
+            mealType: 'breakfast',
+            displayName: 'Phở bò',
+            grams: 400,
+            kcal: 548,
+            proteinG: 28.8,
+            carbG: 90,
+            fatG: 7.6,
+          },
+          {
+            planDate: '2026-09-14',
+            mealType: 'lunch',
+            displayName: 'Cơm tấm sườn',
+            grams: 400,
+            kcal: 528,
+            proteinG: 21.6,
+            carbG: 64.8,
+            fatG: 18.4,
+          },
+        ],
+        p_status: 'draft',
+      })
+      if (error !== null) throw new Error(error.message)
+      assert(typeof data === 'string', 'không nhận được id thực đơn')
+      planId = data
+      return data
+    })
+
+    await step('read_plan — đọc lại kèm món, gộp theo ngày', async () => {
+      const { data, error } = await anon.rpc('read_plan', {
+        p_user_id: userId,
+        p_week_start: '2026-09-14',
+      })
+      if (error !== null) throw new Error(error.message)
+      assert(data !== null, 'không có thực đơn')
+      assert(data.status === 'draft', `trạng thái phải là draft, đang ${data.status}`)
+      assert(data.items?.length === 2, `phải có 2 món, đang ${data.items?.length}`)
+      return `${data.items.length} món, trạng thái ${data.status}`
+    })
+
+    await step('decide_plan — duyệt', async () => {
+      const { data, error } = await anon.rpc('decide_plan', {
+        p_plan_id: planId,
+        p_decision: 'approve',
+        p_note: null,
+      })
+      if (error !== null) throw new Error(error.message)
+      assert(data?.ok === true && data.status === 'active', `nhận được ${JSON.stringify(data)}`)
+      return 'active'
+    })
+
+    await step('decide_plan — yêu cầu chỉnh lại lưu được nhận xét', async () => {
+      const { data, error } = await anon.rpc('decide_plan', {
+        p_plan_id: planId,
+        p_decision: 'revise',
+        p_note: 'Bữa sáng nhiều tinh bột quá',
+      })
+      if (error !== null) throw new Error(error.message)
+      assert(data?.status === 'draft', `phải quay về draft, đang ${data?.status}`)
+
+      const { data: plan } = await anon
+        .from('plans')
+        .select('review_note')
+        .eq('id', planId)
+        .maybeSingle()
+      assert(plan?.review_note === 'Bữa sáng nhiều tinh bột quá', 'nhận xét không được lưu')
+      return 'draft + nhận xét'
+    })
+
+    /*
      * SÁU KIỂM TRA BẢO MẬT. Migration 006 siết quyền bốn hàm `security definer`; ở đây
      * kiểm chứng trên môi trường thật, vì một `grant` sai chỉ lộ ra khi có vai trò
      * `authenticated` thật.
@@ -298,6 +380,17 @@ async function main() {
     await step('[bảo mật] người dùng KHÔNG tự thêm mình vào pt_clients', async () => {
       const { error } = await anon.from('pt_clients').insert({ pt_id: userId, client_id: userId })
       assert(error !== null, 'INSERT ĐƯỢC — bỏ qua được cả hạn mức gói lẫn mã mời')
+      return 'bị từ chối'
+    })
+
+    await step('[bảo mật] người dùng KHÔNG dựng được thực đơn cho người khác', async () => {
+      const { error } = await anon.rpc('save_plan', {
+        p_user_id: '00000000-0000-0000-0000-000000000000',
+        p_week_start: '2026-09-14',
+        p_items: [{ planDate: '2026-09-14', mealType: 'breakfast', displayName: 'X', grams: 1 }],
+        p_status: 'draft',
+      })
+      assert(error !== null, 'DỰNG ĐƯỢC cho người khác — mở đường ghi hộ')
       return 'bị từ chối'
     })
 

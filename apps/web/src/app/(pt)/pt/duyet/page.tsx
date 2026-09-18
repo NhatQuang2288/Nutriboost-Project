@@ -93,7 +93,7 @@ export default async function ApprovalQueuePage() {
                   DỰNG BẰNG CÔNG THỨC TRONG MÃ NGUỒN, KHÔNG PHẢI AI ĐOÁN
                 </div>
 
-                <ApprovalActions clientName={approval.clientName} />
+                <ApprovalActions planId={approval.id} clientName={approval.clientName} />
               </Card>
             )
           })}

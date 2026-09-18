@@ -7,6 +7,8 @@ import { REMINDER_LABELS, QUIET_HOURS_END, QUIET_HOURS_START } from '@nutriboost
 import { BoIcon, CalendarIcon, ChevronLeftIcon, FlameIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 import { MEAL_LABELS, type MealType } from '@/lib/data/today'
+import { GeneratePlanButton } from './GeneratePlanButton'
+
 import {
   CLIENT_STATUS_LABELS,
   formatReminderDays,
@@ -59,6 +61,12 @@ export default async function PtClientPage({ params }: { params: Promise<{ clien
           tone={client.weightDeltaKg > 0 ? 'warning' : 'normal'}
         />
       </div>
+
+      {/*
+        Dựng thực đơn là việc PT làm hằng tuần, nên nó đứng ngay trên bảng thực đơn chứ không
+        nằm trong menu. Chỉ hiện khi người xem là PT — khách tự dựng được ở màn Kế hoạch.
+      */}
+      <GeneratePlanButton clientId={client.id} clientName={client.name} />
 
       <Card>
         <SectionTitle

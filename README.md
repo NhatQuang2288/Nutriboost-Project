@@ -89,33 +89,36 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 | `/pt`                  | Tổng quan: chỗ ngồi, khách cần chú ý, danh sách khách — **dữ liệu thật** |
 | `/pt/loi-moi`          | Tạo và thu hồi mã mời — **dữ liệu thật**                                 |
 | `/pt/khach/[clientId]` | Hồ sơ một khách: thực đơn, lịch tập — **dữ liệu thật**                   |
-| `/pt/duyet`            | Hàng đợi duyệt thực đơn do Bơ dựng — **dữ liệu thật**                    |
+| `/pt/duyet`            | Hàng đợi duyệt thực đơn — duyệt hoặc yêu cầu chỉnh lại, **dữ liệu thật** |
 | `/pt/goi`              | Ba gói dịch vụ kèm hạn mức lượt trợ lý (bảng giá tĩnh)                   |
 
 > Mọi màn của console đều có hai chế độ và nói rõ đang ở chế độ nào: chưa cấu hình Supabase
 > hoặc tài khoản không phải PT thì hiện một dòng "đang hiện dữ liệu mẫu" thay vì giả vờ rằng
 > năm khách hàng dưới đây là của người đang xem.
 >
-> `/pt/duyet` **đọc dữ liệu thật** (`plans` có `status = 'draft'`), nhưng hiện luôn rỗng vì
-> chưa có gì ghi ra thực đơn nháp: `generate_plan` chưa nối vào CSDL. Xem `docs/roles.md` §6.
+> Vòng duyệt đã khép kín: PT bấm **Dựng thực đơn tuần này** ở hồ sơ khách, bản nháp vào hàng
+> đợi, PT duyệt thì khách thấy ở `/ke-hoach`. Bộ dựng là tất định nên cùng hồ sơ cho cùng thực
+> đơn; đổi cân nặng rồi dựng lại thì ra bản khác.
 
 ## Kiểm chứng
 
 ```bash
 npm run typecheck   # kiểu toàn workspace
 npm run lint        # có luật cấm thư viện icon và cấm gọi thẳng SDK AI
-npm run db:check    # chạy 10 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
+npm run db:check    # chạy 11 migration + seed trên PostgreSQL thật (PGlite, không cần Docker)
 npm run env:link    # nối apps/web/.env.local → .env.local ở gốc (chạy một lần)
 npm run env:check   # kiểm tra .env.local và kết nối Supabase (cần Supabase đang chạy)
 npm run check:live  # kiểm chứng đường dữ liệu thật qua PostgREST + RLS thật (cần Supabase)
-npm run test        # 461 test đơn vị, trong đó 55 test RLS chạy trên PostgreSQL thật
+npm run check:live:ui   # walkthrough thật trong trình duyệt: đăng nhập, onboarding, vòng PT
+npm run make:pt -- ban@example.com   # nâng một tài khoản thành PT kèm gói (dựng cảnh thử)
+npm run test        # 488 test đơn vị, trong đó 71 test RLS chạy trên PostgreSQL thật
 npm run eval        # độ chính xác hiểu bữa ăn (hiện 100 % khớp món, 100 % không khớp bừa)
 npm run e2e         # 78 test Playwright, desktop + mobile
 npm run icons:generate  # sinh lại icon PWA (chỉ cần khi đổi hình)
 ```
 
 `npm run db:check` là bước bắt buộc trước khi chạy `supabase db reset`: nó dựng một
-PostgreSQL thật trong bộ nhớ, chạy cả 10 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
+PostgreSQL thật trong bộ nhớ, chạy cả 11 migration rồi nạp seed và kiểm số dòng. Nhờ vậy
 lỗi cú pháp PL/pgSQL và lỗi ràng buộc dữ liệu lộ ra ở CI thay vì ở máy từng người.
 
 `npm run db:check` **không** kiểm được RLS: `auth.uid()` trong đó luôn là `null`, nên mọi

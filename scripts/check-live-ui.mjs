@@ -117,6 +117,7 @@ async function main() {
   const context = await browser.newContext()
   const page = await context.newPage()
   let userId = null
+  let clientId = null
   /** Con số hiện trên màn kết quả onboarding, để đối chiếu với con số trong CSDL. */
   let shownTargetKcal = null
 
@@ -240,12 +241,131 @@ async function main() {
       await page.getByText('70 kg').first().waitFor({ timeout: 10_000 })
       return 'chiều cao và cân nặng khớp'
     })
+
+    /* ---------------------------------------------------------------------
+     * Vòng PT: nâng vai trò → khách thật → dựng thực đơn → duyệt
+     *
+     * Đây là phần sản phẩm được bán, và là thứ chưa từng chạy qua giao diện.
+     * ------------------------------------------------------------------- */
+
+    if (userId === null) throw new Error('chưa có người dùng để nâng thành PT')
+
+    // Khách thứ hai, tạo thẳng bằng service role để không phải chạy lại cả luồng magic link.
+    await step('nâng tài khoản thành PT và cấp gói', async () => {
+      const { error: roleError } = await service
+        .from('profiles')
+        .update({ role: 'pt' })
+        .eq('id', userId)
+      assert(roleError === null, roleError?.message)
+
+      const today = new Date().toISOString().slice(0, 10)
+      const { error } = await service.from('subscriptions').insert({
+        owner_id: userId,
+        tier: 'plus',
+        status: 'active',
+        price_vnd: 750_000,
+        client_limit: 5,
+        ai_turns_per_client: 600,
+        current_period_start: today,
+        current_period_end: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10),
+      })
+      assert(error === null, error?.message)
+      return 'PT gói Plus, 5 khách'
+    })
+
+    await step('console PT liệt kê khách thật (chưa có ai)', async () => {
+      await page.goto(`${BASE_URL}/pt`)
+      await page.getByRole('heading', { name: /Xin chào/ }).waitFor({ timeout: 10_000 })
+      const demoNotice = await page.getByText('Đang hiện dữ liệu mẫu').count()
+      assert(demoNotice === 0, 'vẫn hiện dải dữ liệu mẫu')
+      await page.getByText('Gói Plus', { exact: false }).first().waitFor({ timeout: 5_000 })
+      return 'gói thật, không có dải dữ liệu mẫu'
+    })
+
+    await step('liên kết một khách và thấy khách đó trong console', async () => {
+      const { data: created, error: createError } = await service.auth.admin.createUser({
+        email: `khach-${Date.now()}@example.com`,
+        password: `Khach-${Date.now()}-aA1!`,
+        email_confirm: true,
+      })
+      assert(createError === null, createError?.message)
+      clientId = created.user?.id ?? null
+      assert(clientId !== null, 'không tạo được khách')
+
+      // Hồ sơ sức khoẻ tối thiểu, để `readClientTargets` có gì mà đọc.
+      await service.from('profiles').update({ full_name: 'Khách Kiểm Chứng' }).eq('id', clientId)
+      const { error: healthError } = await service.from('health_profiles').insert({
+        user_id: clientId,
+        sex: 'female',
+        date_of_birth: '1996-09-18',
+        height_cm: 160,
+        activity_level: 'light',
+        goal: 'lose',
+        rate_kg_per_week: 0.35,
+      })
+      assert(healthError === null, healthError?.message)
+      await service.from('body_metrics').insert({
+        user_id: clientId,
+        measured_on: new Date().toISOString().slice(0, 10),
+        weight_kg: 58,
+      })
+
+      const { error: linkError } = await service
+        .from('pt_clients')
+        .insert({ pt_id: userId, client_id: clientId, status: 'active' })
+      assert(linkError === null, linkError?.message)
+
+      await page.goto(`${BASE_URL}/pt`)
+      await page.getByText('Khách Kiểm Chứng').first().waitFor({ timeout: 10_000 })
+      return 'khách hiện trong danh sách'
+    })
+
+    await step('PT dựng thực đơn cho khách qua giao diện', async () => {
+      assert(clientId !== null, 'chưa có khách')
+      await page.goto(`${BASE_URL}/pt/khach/${clientId}`)
+      await page.getByRole('button', { name: /Dựng thực đơn tuần này/ }).click()
+      await page.getByText(/Đã dựng thực đơn nháp/).waitFor({ timeout: 20_000 })
+      return 'đã dựng bản nháp'
+    })
+
+    await step('thực đơn nháp hiện trong hàng đợi duyệt', async () => {
+      await page.goto(`${BASE_URL}/pt/duyet`)
+      await page.getByText('Khách Kiểm Chứng').first().waitFor({ timeout: 10_000 })
+      return 'có trong hàng đợi'
+    })
+
+    await step('PT duyệt thực đơn qua giao diện', async () => {
+      await page.getByRole('button', { name: 'Duyệt thực đơn' }).first().click()
+      await page.getByText(/Đã duyệt\. Khách thấy thực đơn này/).waitFor({ timeout: 20_000 })
+      return 'đã duyệt'
+    })
+
+    await step('thực đơn trong CSDL đã thành active', async () => {
+      assert(clientId !== null, 'chưa có khách')
+      const { data: plans, error } = await service
+        .from('plans')
+        .select('id, status, accepted_at')
+        .eq('user_id', clientId)
+      assert(error === null, error?.message)
+      const plan = (plans ?? [])[0]
+      assert(plan !== undefined, 'không có thực đơn nào')
+      assert(plan.status === 'active', `trạng thái phải là active, đang ${plan.status}`)
+      assert(plan.accepted_at !== null, 'thiếu mốc duyệt')
+
+      const { count } = await service
+        .from('plan_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('plan_id', plan.id)
+      assert((count ?? 0) > 0, 'thực đơn không có món nào')
+      return `active, ${count} món`
+    })
   } finally {
     await browser.close()
+    if (clientId !== null) await service.auth.admin.deleteUser(clientId)
     if (userId !== null) {
       await service.auth.admin.deleteUser(userId)
       console.log('─'.repeat(64))
-      console.log('Đã xoá người dùng tạm.')
+      console.log('Đã xoá người dùng tạm và khách tạm.')
     }
   }
 
