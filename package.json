@@ -26,6 +26,8 @@
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium",
     "db:start": "node scripts/supabase.mjs start",
+    "db:stop": "node scripts/supabase.mjs stop",
+    "db:status": "node scripts/supabase.mjs status",
     "db:reset": "node scripts/supabase.mjs db reset",
     "db:check": "node scripts/check-migrations.mjs",
     "env:link": "node scripts/link-env.mjs",

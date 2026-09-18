@@ -45,7 +45,10 @@ npm run check:live       # kiểm chứng đường dữ liệu THẬT qua Postg
 npm run icons:generate   # sinh lại icon PWA trong apps/web/public/
 npm run test             # vitest
 npm run e2e              # playwright (cần cài trình duyệt trước)
-npm run db:reset         # nạp lại schema + seed vào Supabase local
+npm run db:start         # khởi động Supabase local (cần Docker Desktop)
+npm run db:stop          # dừng Supabase local — BẮT BUỘC sau khi sửa supabase/config.toml
+npm run db:status        # cổng dịch vụ, khoá, và hộp thư bắt mail
+npm run db:reset         # nạp lại schema + seed vào Supabase local (XOÁ dữ liệu local)
 npm run seed             # nạp dữ liệu món Việt
 npm run eval             # chạy bộ đánh giá AI
 ```
@@ -130,6 +133,25 @@ diện.
 
 ```bash
 docker info >/dev/null && echo "docker OK" || echo "Docker chưa chạy"
+```
+
+### Sửa `supabase/config.toml` thì phải `db:stop` rồi `db:start`
+
+Cấu hình Supabase được nhúng vào **biến môi trường của container** lúc tạo. `config.toml`
+chỉ là nguồn; CLI đọc nó rồi truyền giá trị vào container khi `start`. Nên sửa tệp mà không
+khởi động lại thì **không có gì đổi cả**, và triệu chứng sẽ là "sửa rồi mà vẫn hỏng".
+
+Đã trả giá cho việc này: `GOTRUE_URI_ALLOW_LIST` giữ giá trị cũ suốt, khiến liên kết đăng
+nhập bị trả về `site_url` thay vì `/auth/callback`.
+
+```bash
+npm run db:stop && npm run db:start
+```
+
+Kiểm tra giá trị mà container thật sự nhận:
+
+```bash
+docker inspect supabase_auth_Nutriboost_Project --format '{{range .Config.Env}}{{println .}}{{end}}' | grep GOTRUE
 ```
 
 ### Chạy lệnh npm từ ĐÚNG thư mục dự án
