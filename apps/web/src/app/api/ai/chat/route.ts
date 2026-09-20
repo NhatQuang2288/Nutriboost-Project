@@ -33,6 +33,9 @@ export const dynamic = 'force-dynamic'
 interface IncomingPart {
   type: string
   text?: string
+  /** Chỉ có ở phần `file`: ảnh người dùng gửi kèm. `mediaType` có thể là `image/jpeg` hoặc `image`. */
+  mediaType?: string
+  url?: string
 }
 
 interface IncomingMessage {
@@ -44,6 +47,23 @@ interface IncomingMessage {
 interface ChatRequestBody {
   messages?: IncomingMessage[]
   screen?: string
+}
+
+/**
+ * Tin nhắn người dùng có kèm ảnh không.
+ *
+ * Ảnh nằm ở phần `file` của tin nhắn — AI SDK đổi `files` của `sendMessage` thành phần đó.
+ * `mediaType` có thể là `image/jpeg` hoặc chỉ `image`, nên phải so theo tiền tố chứ không so
+ * bằng.
+ */
+function hasImagePart(messages: readonly IncomingMessage[]): boolean {
+  return messages.some(
+    (message) =>
+      message.role === 'user' &&
+      (message.parts ?? []).some(
+        (part) => part.type === 'file' && (part.mediaType ?? '').startsWith('image'),
+      ),
+  )
 }
 
 function lastUserText(messages: readonly IncomingMessage[]): string {
@@ -86,8 +106,10 @@ export async function POST(request: Request): Promise<Response> {
 
   const messages = Array.isArray(body.messages) ? body.messages : []
   const userText = lastUserText(messages)
+  const hasImage = hasImagePart(messages)
 
-  if (userText.length === 0) {
+  // Ảnh gửi kèm cũng là nội dung: chụp xong gửi luôn, người dùng không phải gõ gì.
+  if (userText.length === 0 && !hasImage) {
     return NextResponse.json({ error: 'Thiếu nội dung tin nhắn.' }, { status: 400 })
   }
 
@@ -153,6 +175,23 @@ export async function POST(request: Request): Promise<Response> {
       : []
 
   const env = readAiEnv()
+
+  /*
+   * Ảnh chỉ đọc được bằng model đa phương thức. Chưa cấu hình khoá AI thì phải NÓI THẲNG.
+   *
+   * Nếu để rơi xuống nhánh ước lượng bằng chữ, câu trả lời sẽ nói về câu mô tả kèm theo chứ
+   * không nhắc gì tới tấm ảnh — người dùng hiểu sai rằng ảnh đã được đọc, rồi thắc mắc vì sao
+   * Bơ "nhìn" sai món. Đây đúng loại lỗi `CLAUDE.md` cảnh báo: công cụ không làm được việc thì
+   * phải nói thật, không được để model tự bịa lý do.
+   */
+  if (hasImage && (env.apiKey === null || env.killSwitch)) {
+    return buildMockChatStreamResponse({
+      text:
+        'Mình chưa đọc được ảnh, vì phần đọc ảnh cần khoá AI mà bản này chưa cấu hình. ' +
+        'Bạn kể bằng một câu cũng được: “trưa nay mình ăn cơm tấm sườn”.',
+      suggestions: ['Hôm nay mình còn bao nhiêu calo?', 'Gợi ý bữa tối nhẹ'],
+    })
+  }
 
   /*
    * Danh tính người dùng và kho lưu trữ chi phí.

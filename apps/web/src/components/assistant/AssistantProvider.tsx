@@ -56,6 +56,8 @@ interface AssistantContextValue {
   newThread: () => void
   switchThread: (id: string) => void
   send: (text: string) => void
+  /** Gửi một ảnh (đã thu nhỏ ở trình duyệt) kèm câu mô tả tuỳ chọn. */
+  sendPhoto: (photo: { dataUrl: string; mediaType: string; note?: string }) => void
   stop: () => void
   isStreaming: boolean
   errorMessage: string | null
@@ -126,6 +128,49 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       }))
 
       void sendMessage({ text: trimmed })
+    },
+    [sendMessage],
+  )
+
+  /**
+   * Gửi ảnh bữa ăn cho trợ lý.
+   *
+   * Ảnh đi dưới dạng data URL trong `files` của `sendMessage`: AI SDK đổi nó thành phần `file`
+   * của tin nhắn, `convertToModelMessages` giữ nguyên phần đó, và model đa phương thức đọc
+   * được. Không có bước tải tệp lên máy chủ, nên không cần kho lưu trữ ảnh.
+   *
+   * Ảnh PHẢI được thu nhỏ trước khi tới đây (xem `PhotoMealButton`): ảnh 4 MB từ camera điện
+   * thoại sẽ làm mỗi lượt chat nặng gấp hàng chục lần, và tiền token trả theo dung lượng ảnh.
+   */
+  const sendPhoto = useCallback(
+    (photo: { dataUrl: string; mediaType: string; note?: string }) => {
+      const note = photo.note?.trim() ?? ''
+      const text =
+        note.length > 0
+          ? note
+          : 'Mình vừa chụp ảnh bữa ăn. Bơ đọc giúp mình có món gì và khoảng bao nhiêu kcal nhé.'
+
+      setThreadState((state) => ({
+        ...state,
+        threads: state.threads.map((thread) =>
+          thread.id === state.activeThreadId && thread.title === 'Cuộc trò chuyện mới'
+            ? { ...thread, title: 'Ảnh bữa ăn' }
+            : thread,
+        ),
+      }))
+
+      /*
+       * Mở panel trước khi gửi: người dùng vừa bấm một nút NGOÀI thanh hỏi, nên nếu panel vẫn
+       * thu gọn thì câu trả lời của Bơ rơi vào chỗ không ai nhìn thấy.
+       */
+      useAssistantStore.getState().submitFromBar()
+
+      void sendMessage({
+        text,
+        files: [
+          { type: 'file', mediaType: photo.mediaType, filename: 'bua-an.jpg', url: photo.dataUrl },
+        ],
+      })
     },
     [sendMessage],
   )
@@ -204,13 +249,25 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       newThread,
       switchThread,
       send,
+      sendPhoto,
       stop: () => {
         stop()
       },
       isStreaming,
       errorMessage: error === undefined || error === null ? null : 'Bơ đang gặp sự cố kết nối.',
     }),
-    [messages, threads, activeThreadId, newThread, switchThread, send, stop, isStreaming, error],
+    [
+      messages,
+      threads,
+      activeThreadId,
+      newThread,
+      switchThread,
+      send,
+      sendPhoto,
+      stop,
+      isStreaming,
+      error,
+    ],
   )
 
   // `pathname` được đọc để gợi ý theo ngữ cảnh cập nhật khi đổi màn hình.

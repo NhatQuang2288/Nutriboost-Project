@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import Link from 'next/link'
+import { useState, useTransition } from 'react'
 import type { z } from 'zod'
 // Chỉ dùng ở vị trí kiểu (`typeof GENERATIVE_COMPONENTS`) — không cần giá trị lúc chạy.
 import type { GENERATIVE_COMPONENTS } from '@nutriboost/ai/schemas'
 
 import { AlertIcon, CheckIcon, InfoIcon } from '@/components/icons'
+import { saveMealAction } from '@/lib/actions/meals'
+import type { ActionResult } from '@/lib/actions/types'
 
 /**
  * Các thành phần giao diện mà trợ lý có thể dựng ra trong hội thoại.
@@ -49,7 +52,23 @@ export function FoodCandidateChips({ props }: { props: Props<'food_candidate_chi
 }
 
 export function MealConfirmCard({ props }: { props: Props<'meal_confirm_card'> }) {
-  const [confirmed, setConfirmed] = useState(false)
+  /*
+   * Kết quả lấy từ Server Action, KHÔNG phải state cục bộ.
+   *
+   * Trước đây chỗ này là `const [confirmed, setConfirmed] = useState(false)` và nút chỉ đổi
+   * biến đó rồi hiện "Đã ghi vào nhật ký hôm nay" — giao diện khẳng định một việc chưa hề xảy
+   * ra. Nay nút gọi `saveMealAction`, và chỉ hiện "Đã lưu" khi CSDL thật sự đã ghi.
+   */
+  const [result, setResult] = useState<ActionResult | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const saved = result?.ok === true
+
+  function save(): void {
+    startTransition(async () => {
+      setResult(await saveMealAction({ rawInput: props.rawInput, items: props.items }))
+    })
+  }
 
   return (
     <div className="border-line bg-surface rounded-lg border shadow-sm">
@@ -87,17 +106,34 @@ export function MealConfirmCard({ props }: { props: Props<'meal_confirm_card'> }
 
         <button
           type="button"
-          onClick={() => setConfirmed(true)}
-          disabled={confirmed}
+          onClick={save}
+          disabled={pending || saved}
           className="touch-target bg-forest-600 text-label text-ink-inverse disabled:text-ink-faint rounded-md px-4 font-semibold transition-colors duration-(--duration-fast) disabled:bg-neutral-300"
         >
-          {confirmed ? 'Đã lưu' : props.needsConfirmation ? 'Đúng rồi' : 'Lưu bữa này'}
+          {saved
+            ? 'Đã lưu'
+            : pending
+              ? 'Đang lưu…'
+              : props.needsConfirmation
+                ? 'Đúng rồi'
+                : 'Lưu bữa này'}
         </button>
       </div>
 
-      {confirmed ? (
-        <p className="border-line-subtle text-caption text-accent-text flex items-center gap-1.5 border-t px-4 py-2">
-          <CheckIcon size={14} /> Đã ghi vào nhật ký hôm nay.
+      {/* Kết quả thật từ Server Action: thành công thì khoe, thất bại thì nói rõ vì sao. */}
+      {result !== null ? (
+        <p
+          className={`border-line-subtle text-caption flex items-center gap-1.5 border-t px-4 py-2 ${
+            result.ok ? 'text-accent-text' : 'text-warning-text'
+          }`}
+        >
+          {result.ok ? <CheckIcon size={14} /> : <AlertIcon size={14} />}
+          <span>{result.message}</span>
+          {result.ok ? null : (
+            <Link href="/dang-nhap" className="shrink-0 font-semibold underline">
+              Đăng nhập
+            </Link>
+          )}
         </p>
       ) : null}
     </div>
