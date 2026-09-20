@@ -1,6 +1,8 @@
 import { formatIsoDate } from '@/lib/date'
 import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 
+import { buildDemoProgress } from './demo-week'
+
 /**
  * Lớp dữ liệu cho màn `/tien-do`.
  *
@@ -42,7 +44,24 @@ export async function getProgressView(): Promise<ProgressView> {
 }
 
 function emptyView(): ProgressView {
-  return { source: 'demo', weights: [], kcal: [], targetKcal: null }
+  /*
+   * Chế độ dữ liệu mẫu dùng **tuần mẫu** thay vì mảng rỗng.
+   *
+   * Trước đây chỗ này trả về `[]`, nên ai chưa cấu hình Supabase cũng chỉ thấy trạng thái
+   * "chưa đủ dữ liệu để vẽ biểu đồ" — biểu đồ không có cách nào nhìn thấy khi phát triển, và
+   * lỗi bố cục chỉ lộ ra ở môi trường có dữ liệu thật.
+   *
+   * Số liệu vẫn là dữ liệu mẫu, và giao diện vẫn nói rõ điều đó qua `source: 'demo'`; đổi ở
+   * đây chỉ là cho nó có hình dạng thật.
+   */
+  const week = buildDemoProgress()
+
+  return {
+    source: 'demo',
+    weights: week.weights,
+    kcal: week.kcal,
+    targetKcal: week.targetKcal,
+  }
 }
 
 /**
