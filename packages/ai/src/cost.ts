@@ -1,4 +1,4 @@
-import { priceFor } from './prices'
+import { rateFor } from './prices'
 
 export interface TokenUsage {
   /** Tổng token đầu vào, bao gồm cả phần đọc từ cache. */
@@ -18,9 +18,13 @@ export const EMPTY_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0, cached
  * chi phí sẽ bị tính cao hơn thực tế.
  *
  * Làm tròn 6 chữ số thập phân để khớp cột `ai_calls.cost_usd numeric(10,6)`.
+ *
+ * Dùng `rateFor` chứ không `priceFor`: DeepSeek tính **một nửa giá** ngoài giờ cao điểm, nên
+ * đơn giá phụ thuộc cả ngày lẫn giờ. Dùng `priceFor` sẽ tính theo giá cao điểm cho mọi lượt
+ * gọi — sai tới gấp đôi vào những giờ chiếm phần lớn thời gian trong ngày.
  */
 export function computeCostUsd(model: string, usage: TokenUsage, at: Date = new Date()): number {
-  const tier = priceFor(model, at)
+  const tier = rateFor(model, at)
 
   const cached = clampNonNegative(usage.cachedTokens)
   const input = clampNonNegative(usage.inputTokens)
@@ -43,7 +47,7 @@ export function computeCacheStorageCostUsd(
   at: Date = new Date(),
 ): number {
   if (cachedTokens <= 0 || hours <= 0) return 0
-  const tier = priceFor(model, at)
+  const tier = rateFor(model, at)
   return round6((cachedTokens * tier.cacheStoragePerMillionHour * hours) / 1_000_000)
 }
 

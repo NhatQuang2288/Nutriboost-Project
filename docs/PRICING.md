@@ -1,8 +1,10 @@
 # Rà soát mô hình giá — gói PT/Coach
 
 > Nguồn: trang giá 3 gói Plus / Premium / Diamond cho PT/Coach, Nutrition Expert.
-> Mọi con số chi phí AI dưới đây tính từ bảng giá Gemini đã đối chiếu trong
-> `packages/ai/src/prices.ts`, không phải ước lượng cảm tính.
+> Mọi con số chi phí AI dưới đây tính từ bảng giá **DeepSeek** đã đối chiếu trong
+> `packages/ai/src/prices.ts` và từ trang giá chính thức
+> (https://api-docs.deepseek.com/quick_start/pricing/, đối chiếu 21/09/2026) — không phải
+> ước lượng cảm tính.
 
 ---
 
@@ -27,48 +29,78 @@ Trang giá ghi "Hỗ trợ AI" và "Tiết kiệm chi phí dùng AI" ở **cả 
 AI là quyền lợi mặc định, không phải yếu tố phân hạng. Vì vậy **trần lượt AI chính là
 ràng buộc kinh tế của toàn bộ mô hình**, chứ không phải chi tiết kỹ thuật.
 
-### 2.1 Chi phí một khách hàng mỗi tháng theo ba kịch bản
+### 2.1 Giả định dùng để tính
 
-Giả định: 1 USD ≈ 26.000đ. Model định tuyến như thiết kế (chat mặc định dùng
-`gemini-3.5-flash-lite`, sinh kế hoạch tuần dùng `gemini-3.6-flash`).
+Mọi con số dưới đây suy ra từ ba giả định, ghi rõ để ai đọc cũng kiểm lại được:
 
-> **Vì sao không phải `gemini-3.8-flash`.** Hai model cùng mức giá $0,75/$3,75 nên con
-> số dưới đây không đổi. Nhưng đo trên khoá thật cho thấy `gemini-3.8-flash` mất **hơn
-> 90 giây** cho một lượt sinh kế hoạch tuần — không dùng được cho một sản phẩm mobile.
-> `gemini-3.6-flash` cho cùng chất lượng trong khoảng 3 giây. `gemini-3.8-flash` vẫn
-> giữ trong bảng giá vì nó là model thật của Google và có thể quay lại dùng sau.
+| Giả định                  | Giá trị              | Cơ sở                                                              |
+| ------------------------- | -------------------- | ------------------------------------------------------------------ |
+| Token mỗi lượt chat       | 1.500 vào · 250 ra   | Prompt hệ thống + dữ kiện trong ngày; trả lời của Bơ ngắn, 1–3 câu |
+| Token mỗi kế hoạch tuần   | 3.000 vào · 1.500 ra | Sinh 7 ngày × 4 bữa, model chất lượng                              |
+| Tỉ lệ thời gian thấp điểm | **79 %**             | Cao điểm là 7 giờ × 5 ngày = 35 giờ mỗi 168 giờ tuần               |
+| Tỉ giá                    | 1 USD ≈ 26.000đ      | Giả định của dự án                                                 |
 
-| Kịch bản                                                   | Lượt AI / khách / tháng | Chi phí AI | Quy ra VND    |
-| ---------------------------------------------------------- | ----------------------- | ---------- | ------------- |
-| **A. Dùng ở mức thiết kế** (5 bữa/ngày, 20 lượt chat/ngày) | ~780                    | ≈ $0,85    | **≈ 22.000đ** |
-| **B. Chạm trần hạn mức hệ thống** (40 bữa + 40 chat/ngày)  | ~2.430                  | ≈ $2,03    | **≈ 53.000đ** |
-| **C. Chạm trần và chat nâng lên model chất lượng**         | ~2.430                  | ≈ $3,49    | **≈ 91.000đ** |
+### 2.2 Vì sao phải tính theo GIỜ, không phải một con số
 
-### 2.2 Chi phí AI chiếm bao nhiêu doanh thu
+DeepSeek tính **một nửa giá** ngoài giờ cao điểm. Giờ cao điểm là 01:00–04:00 và
+06:00–10:00 UTC, thứ Hai tới thứ Sáu; mọi giờ khác — kể cả trọn ngày cuối tuần — là thấp
+điểm. Cộng lại, **79 % thời gian trong tuần là thấp điểm**.
 
-| Gói                            | 5 khách             | 10 khách            | 20 khách               |
-| ------------------------------ | ------------------- | ------------------- | ---------------------- |
-| **Kịch bản A** (22.000đ/khách) | 110.000đ · **15 %** | 220.000đ · **20 %** | 440.000đ · **24 %**    |
-| **Kịch bản B** (53.000đ/khách) | 265.000đ · **35 %** | 530.000đ · **47 %** | 1.060.000đ · **59 %**  |
-| **Kịch bản C** (91.000đ/khách) | 455.000đ · **61 %** | 910.000đ · **81 %** | 1.820.000đ · **101 %** |
+Nên giá phải tính theo tỉ lệ thời gian, không lấy mức cao điểm cho mọi lượt:
 
-**Kết luận:** nếu để người dùng chạm trần ở mọi lượt, gói Diamond mất **59 %** doanh thu
-cho AI; và chỉ cần chat bị nâng lên model chất lượng là **lỗ**. Với gói Plus, kịch bản B
-đã ăn 35 % doanh thu — mức không thể duy trì khi còn server, hỗ trợ và marketing.
+| Đơn vị                            | Cao điểm | Thấp điểm | **Trộn theo 79 %**  |
+| --------------------------------- | -------- | --------- | ------------------- |
+| Một lượt chat (`deepseek-flash`)  | $0,00075 | $0,000375 | **$0,00045** ≈ 12đ  |
+| Một lượt chat (`deepseek-v4-pro`) | $0,00297 | $0,00149  | **$0,00179** ≈ 47đ  |
+| Một kế hoạch tuần (`v4-pro`)      | $0,0099  | $0,00495  | **$0,00598** ≈ 156đ |
 
-### 2.3 Trần lượt AI theo hợp đồng làm mô hình hoạt động được
+`computeCostUsd` trong `packages/ai/src/cost.ts` nhận tham số thời điểm và chọn đúng mức giá,
+nên `ai_calls.cost_usd` phản ánh đúng số này. Bỏ qua chuyện giờ giấc sẽ làm chi phí bị thổi
+lên gần gấp đôi và toàn bộ mục này mất giá trị.
+
+### 2.3 Chi phí một khách hàng mỗi tháng theo ba kịch bản
+
+| Kịch bản                                                    | Lượt AI / khách / tháng | Chi phí AI | Quy ra VND     |
+| ----------------------------------------------------------- | ----------------------- | ---------- | -------------- |
+| **A. Dùng ở mức thiết kế** (5 lượt ghi + 20 lượt chat/ngày) | 750 lượt + 4 kế hoạch   | ≈ $0,36    | **≈ 9.500đ**   |
+| **B. Chạm trần hạn mức** (40 lượt ghi + 40 lượt chat/ngày)  | 2.400 lượt + 4 kế hoạch | ≈ $1,11    | **≈ 29.000đ**  |
+| **C. Chạm trần và chat nâng lên model chất lượng**          | 2.400 lượt + 4 kế hoạch | ≈ $4,33    | **≈ 113.000đ** |
+
+Hai điểm đáng chú ý so với bảng giá cũ (tính theo Gemini):
+
+- **Rẻ hơn khoảng 2,4 lần ở kịch bản A và 1,8 lần ở kịch bản B.** Đó là toàn bộ phần chênh
+  lợi nhuận, và nó đến từ việc chọn nhà cung cấp chứ không từ việc cắt tính năng.
+- **Kịch bản C vẫn là kịch bản duy nhất nguy hiểm** — gấp gần 4 lần kịch bản B. Lý do không
+  đổi: model chất lượng đắt hơn 4,4 lần ở đầu vào. Đây là lý do `MODEL_ROUTES` để `chat` mặc
+  định ở model nhanh và chỉ nâng cấp khi người dùng chủ động yêu cầu.
+
+### 2.4 Chi phí AI chiếm bao nhiêu doanh thu
+
+| Gói                             | 5 khách             | 10 khách               | 20 khách               |
+| ------------------------------- | ------------------- | ---------------------- | ---------------------- |
+| **Kịch bản A** (9.500đ/khách)   | 47.500đ · **6 %**   | 95.000đ · **8 %**      | 190.000đ · **11 %**    |
+| **Kịch bản B** (29.000đ/khách)  | 145.000đ · **19 %** | 290.000đ · **26 %**    | 580.000đ · **32 %**    |
+| **Kịch bản C** (113.000đ/khách) | 565.000đ · **75 %** | 1.130.000đ · **100 %** | 2.260.000đ · **126 %** |
+
+**Kết luận:** ở mức dùng thiết kế, AI chỉ chiếm 6–11 % doanh thu — mức bền vững. Nhưng nếu để
+người dùng chạm trần ở mọi lượt thì gói Diamond mất **32 %**, và **chỉ cần chat bị nâng lên
+model chất lượng là lỗ ở cả ba gói**. Trần lượt AI vì thế vẫn là ràng buộc trung tâm của mô
+hình, không phải chi tiết kỹ thuật — chỉ là nó có nhiều khoảng thở hơn so với phương án Gemini.
+
+### 2.5 Trần lượt AI theo hợp đồng làm mô hình hoạt động được
 
 Đặt hạn mức **600 lượt AI mỗi khách mỗi tháng** (khoảng 20 lượt/ngày):
 
-- Chi phí: ≈ **$0,59/khách/tháng** ≈ 15.400đ
-- Plus: 77.000đ → **10 % doanh thu**
-- Premium: 154.000đ → **14 % doanh thu**
-- Diamond: 309.000đ → **17 % doanh thu**
+- Chi phí: ≈ **$0,28/khách/tháng** ≈ 7.200đ
+- Plus: 36.000đ → **5 % doanh thu**
+- Premium: 72.000đ → **6 % doanh thu**
+- Diamond: 144.000đ → **8 % doanh thu**
 
 Đây là mức bền vững. Đáng chú ý: con số này khớp gần đúng với trần ngân sách
 **$0,02/người/ngày** đã cài trong AI Gateway (`AI_DAILY_BUDGET_USD`) — 600 lượt/tháng
-tương đương $0,60/tháng, tức $0,02/ngày. **Hai con số ở hai tầng khác nhau đã hội tụ
-về cùng một điểm, đó là dấu hiệu thiết kế đúng.**
+tương đương $0,28/tháng ở mức trộn, tức khoảng $0,01/ngày. Trần ngân sách vì thế còn **rộng
+gấp đôi** so với mức dùng theo hợp đồng, nghĩa là nó chỉ chặn được trường hợp bất thường chứ
+không chặn nhầm người dùng bình thường. Đó là tỉ lệ đúng cho một hàng rào an toàn.
 
 ⇒ **Việc bắt buộc phải làm:** ghi rõ hạn mức lượt AI vào bảng giá, và cưỡng chế nó
 ở tầng CSDL (`packages/db`, migration `20260918090300_billing.sql`), không chỉ ở giao diện.

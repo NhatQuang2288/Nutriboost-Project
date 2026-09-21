@@ -1,4 +1,4 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -24,7 +24,7 @@ import { TOOL_TO_COMPONENT, isToolRefusal, type AssistantToolName } from './tool
  * Tầng ứng dụng chỉ gọi hàm ở đây và trả `Response` thẳng cho trình duyệt.
  *
  * Có hai đường:
- *   • `buildChatStreamResponse`      — gọi Gemini thật, cần khoá.
+ *   • `buildChatStreamResponse`      — gọi DeepSeek thật, cần khoá.
  *   • `buildMockChatStreamResponse`  — dựng stream giả cùng giao thức.
  *
  * Đường thứ hai tồn tại có chủ ý: cả đội phải dựng và kiểm thử được toàn bộ giao diện
@@ -73,17 +73,19 @@ export interface MockStreamOptions {
   chunkSize?: number
 }
 
-/** Cổng AI thật: stream văn bản từ Gemini. */
+/** Cổng AI thật: stream văn bản từ DeepSeek. */
 export async function buildChatStreamResponse(options: ChatStreamOptions): Promise<Response> {
   const env = options.env ?? readAiEnv()
   const apiKey = env.apiKey
   if (apiKey === null) {
     throw new Error(
-      'buildChatStreamResponse cần GEMINI_API_KEY — dùng buildMockChatStreamResponse khi chưa có khoá.',
+      'buildChatStreamResponse cần DEEPSEEK_API_KEY — dùng buildMockChatStreamResponse khi chưa có khoá.',
     )
   }
 
-  const provider = createGoogleGenerativeAI({ apiKey })
+  const provider = createDeepSeek(
+    env.baseURL === null ? { apiKey } : { apiKey, baseURL: env.baseURL },
+  )
   const prompt = buildChatSystemPrompt({
     facts: options.facts,
     guardrails: options.guardrails,
@@ -239,4 +241,4 @@ export function buildMockChatStreamResponse(options: MockStreamOptions): Respons
 }
 
 /** Câu trả lời mặc định của đường giả, để giao diện luôn có nội dung để hiển thị. */
-export const MOCK_FALLBACK_TEXT = `Mình là ${ASSISTANT.name}. Hiện chưa cấu hình khoá Gemini nên mình chưa trả lời thật được. Bạn vẫn ghi bữa ăn bằng tay được, và mọi con số vẫn được tính đúng. ${ASSISTANT.signature}`
+export const MOCK_FALLBACK_TEXT = `Mình là ${ASSISTANT.name}. Hiện chưa cấu hình khoá DeepSeek nên mình chưa trả lời thật được. Bạn vẫn ghi bữa ăn bằng tay được, và mọi con số vẫn được tính đúng. ${ASSISTANT.signature}`

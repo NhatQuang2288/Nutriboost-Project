@@ -197,7 +197,7 @@ Trên mobile không có `Esc` → nút X + **vuốt xuống để hạ một t�
 | Hạng mục               | Thiết kế                                                                                                                                                           |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Bảng                   | `chat_threads(id, user_id, title, title_source, pinned, last_message_at, archived_at)` · `chat_messages(id, thread_id, role, parts jsonb, ai_call_id, created_at)` |
-| Tiêu đề                | Sau lượt trao đổi đầu, `gemini-3.5-flash-lite` sinh tiêu đề tiếng Việt ≤ 6 từ, `title_source = 'ai'`; người dùng đổi tên được                                      |
+| Tiêu đề                | Sau lượt trao đổi đầu, `deepseek-flash` sinh tiêu đề tiếng Việt ≤ 6 từ, `title_source = 'ai'`; người dùng đổi tên được                                             |
 | Bộ chuyển hội thoại    | Dropdown ở header dock: danh sách + tìm kiếm + ghim + đổi tên + xoá + lưu trữ                                                                                      |
 | Đồng bộ URL            | `history.replaceState('?c=<threadId>')` — **không** dùng `router.push` để tránh remount                                                                            |
 | Chuyển khi đang stream | **Khoá**, hiện cảnh báo thay vì cắt ngầm stream                                                                                                                    |

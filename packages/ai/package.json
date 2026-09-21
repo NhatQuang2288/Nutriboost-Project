@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/google": "4.0.74",
+    "@ai-sdk/deepseek": "3.0.49",
     "@nutriboost/db": "0.1.0",
     "@nutriboost/nutrition": "0.1.0",
     "ai": "7.0.105",

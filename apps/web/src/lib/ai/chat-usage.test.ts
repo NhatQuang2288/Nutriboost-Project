@@ -5,7 +5,7 @@ import { checkChatAllowance, recordChatCall } from './chat-usage'
 
 const USER = 'aaaaaaaa-0000-0000-0000-000000000001'
 
-function info(model = 'gemini-3.6-flash') {
+function info(model = 'deepseek-flash') {
   return { inputTokens: 1000, outputTokens: 500, cachedTokens: 0, model }
 }
 
@@ -52,7 +52,7 @@ describe('checkChatAllowance', () => {
     await store.logCall({
       userId: USER,
       purpose: 'chat',
-      model: 'gemini-3.6-flash',
+      model: 'deepseek-flash',
       promptVersion: 'chat-system@v1',
       usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 },
       costUsd: 0.05,
@@ -79,7 +79,7 @@ describe('checkChatAllowance', () => {
     await store.logCall({
       userId: 'nguoi-khac',
       purpose: 'chat',
-      model: 'gemini-3.6-flash',
+      model: 'deepseek-flash',
       promptVersion: 'chat-system@v1',
       usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 },
       costUsd: 5,
@@ -122,7 +122,7 @@ describe('recordChatCall', () => {
     expect(record).toBeDefined()
     expect(record?.purpose).toBe('chat')
     expect(record?.userId).toBe(USER)
-    expect(record?.model).toBe('gemini-3.6-flash')
+    expect(record?.model).toBe('deepseek-flash')
     expect(record?.promptVersion).toBe('chat-system@v1')
     expect(record?.usage).toEqual({ inputTokens: 1000, outputTokens: 500, cachedTokens: 0 })
     expect(record?.latencyMs).toBe(1234)

@@ -19,7 +19,8 @@ const schema = z.object({ title: z.string() })
 function makeEnv(overrides: Partial<AiEnv> = {}): AiEnv {
   return {
     apiKey: 'test-key',
-    models: { fast: 'gemini-3.5-flash-lite', quality: 'gemini-3.8-flash' },
+    baseURL: null,
+    models: { fast: 'deepseek-flash', quality: 'deepseek-v4-pro' },
     dailyBudgetUsd: 1,
     killSwitch: false,
     limits: { parse_meal: 5, estimate_meal: 5, generate_plan: 2, chat: 5, insight: 1, title: 5 },
@@ -104,19 +105,19 @@ describe('createAiGateway — định tuyến model', () => {
   it('chat mặc định dùng model rẻ', async () => {
     const { gateway, models } = setup()
     await gateway.generateStructured(BASE_ARGS)
-    expect(models).toEqual(['gemini-3.5-flash-lite'])
+    expect(models).toEqual(['deepseek-flash'])
   })
 
   it('sinh kế hoạch dùng model chất lượng', async () => {
     const { gateway, models } = setup()
     await gateway.generateStructured({ ...BASE_ARGS, purpose: 'generate_plan' })
-    expect(models).toEqual(['gemini-3.8-flash'])
+    expect(models).toEqual(['deepseek-v4-pro'])
   })
 
   it('chỉ nâng cấp khi được yêu cầu rõ ràng', async () => {
     const { gateway, models } = setup()
     await gateway.generateStructured({ ...BASE_ARGS, escalate: true })
-    expect(models).toEqual(['gemini-3.8-flash'])
+    expect(models).toEqual(['deepseek-v4-pro'])
   })
 })
 
@@ -141,7 +142,7 @@ describe('createAiGateway — lượt gọi thành công', () => {
     expect(call).toMatchObject({
       userId: 'user-1',
       purpose: 'chat',
-      model: 'gemini-3.5-flash-lite',
+      model: 'deepseek-flash',
       promptVersion: 'chat-system@v1',
       status: 'ok',
       cacheHit: false,
@@ -182,7 +183,7 @@ describe('createAiGateway — cache', () => {
     await store.setCached({
       cacheKey: 'k',
       purpose: 'chat',
-      model: 'gemini-3.5-flash-lite',
+      model: 'deepseek-flash',
       promptVersion: 'chat-system@v1',
       response: { title: 123 },
       ttlSeconds: 60,
@@ -275,7 +276,7 @@ describe('createAiGateway — xử lý lỗi', () => {
       store,
       client,
       // Ép model chất lượng sang một tên chưa có trong bảng giá.
-      env: makeEnv({ models: { fast: 'gemini-3.5-flash-lite', quality: 'model-chua-khai-bao' } }),
+      env: makeEnv({ models: { fast: 'deepseek-flash', quality: 'model-chua-khai-bao' } }),
       now: () => AT,
     })
 

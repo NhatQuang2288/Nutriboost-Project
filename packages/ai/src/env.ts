@@ -11,11 +11,26 @@ export type AiLimits = Readonly<Record<AiPurpose, number>>
 
 export interface AiEnv {
   apiKey: string | null
+  /** Ghi đè địa chỉ API. Bỏ trống thì dùng `https://api.deepseek.com`. */
+  baseURL: string | null
   models: { fast: string; quality: string }
   dailyBudgetUsd: number
   killSwitch: boolean
   limits: AiLimits
 }
+
+/**
+ * Model mặc định.
+ *
+ * Đọc từ biến môi trường để đổi model không phải deploy lại, nhưng luôn có giá trị mặc định:
+ * thiếu biến không được làm hỏng ứng dụng.
+ *
+ * Cả hai model DeepSeek đều hỗ trợ JSON Output và Tool Calls, nên đường gọi có cấu trúc
+ * (`generateObject` trong AI Gateway) chạy được với cả hai — không cần tách riêng model nào
+ * cho việc gì.
+ */
+export const DEFAULT_MODEL_FAST = 'deepseek-flash'
+export const DEFAULT_MODEL_QUALITY = 'deepseek-v4-pro'
 
 /**
  * Hạn mức mặc định mỗi người dùng mỗi ngày.
@@ -37,10 +52,11 @@ export const DEFAULT_DAILY_BUDGET_USD = 0.02
 
 export function readAiEnv(): AiEnv {
   return {
-    apiKey: clean(process.env.GEMINI_API_KEY),
+    apiKey: clean(process.env.DEEPSEEK_API_KEY),
+    baseURL: clean(process.env.DEEPSEEK_BASE_URL),
     models: {
-      fast: clean(process.env.AI_MODEL_FAST) ?? 'gemini-3.5-flash-lite',
-      quality: clean(process.env.AI_MODEL_QUALITY) ?? 'gemini-3.6-flash',
+      fast: clean(process.env.AI_MODEL_FAST) ?? DEFAULT_MODEL_FAST,
+      quality: clean(process.env.AI_MODEL_QUALITY) ?? DEFAULT_MODEL_QUALITY,
     },
     dailyBudgetUsd: readNumber(process.env.AI_DAILY_BUDGET_USD, DEFAULT_DAILY_BUDGET_USD),
     killSwitch: process.env.AI_KILL_SWITCH === 'true',
@@ -78,7 +94,7 @@ export function aiDisabledReason(): string | null {
     return 'Trợ lý đang tạm nghỉ để bảo trì. Bạn vẫn ghi bữa ăn bằng tay được.'
   }
   if (env.apiKey === null) {
-    return 'Chưa cấu hình khoá Gemini. Bạn vẫn ghi bữa ăn bằng tay được.'
+    return 'Chưa cấu hình khoá DeepSeek. Bạn vẫn ghi bữa ăn bằng tay được.'
   }
   return null
 }
