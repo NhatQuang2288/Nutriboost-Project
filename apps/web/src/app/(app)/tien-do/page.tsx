@@ -28,6 +28,20 @@ export default async function ProgressPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {view.source === 'demo' ? (
+        /*
+         * Nói thẳng đây là dữ liệu mẫu — cùng lý do như dải báo ở màn "Hôm nay".
+         *
+         * Trước đây chế độ mẫu chỉ có trạng thái rỗng nên câu "chưa đủ dữ liệu" đã tự nói lên
+         * điều đó. Nay tuần mẫu vẽ ra biểu đồ thật, nên nếu thiếu dải báo này thì người chưa
+         * đăng nhập sẽ thấy một tuần số liệu của người khác như thể là của mình.
+         */
+        <p className="border-info/30 bg-info-surface text-info-text text-caption rounded-lg border px-3 py-2">
+          Đang hiện dữ liệu mẫu. Bạn chưa đăng nhập nên biểu đồ dưới đây là một tuần số liệu mẫu,
+          không phải của bạn.
+        </p>
+      ) : null}
+
       <header>
         <h1 className="text-h1">Tiến độ</h1>
         <p className="text-caption text-ink-muted">Cân nặng và năng lượng theo thời gian.</p>

@@ -19,6 +19,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { PGlite } from '@electric-sql/pglite'
 import { citext } from '@electric-sql/pglite/contrib/citext'
@@ -36,8 +37,13 @@ const EXPECTED_ROWS = {
   exercises: 33,
 }
 
-/** Bản tối thiểu của những gì Supabase cung cấp sẵn. */
-const SUPABASE_STUBS = `
+/**
+ * Bản tối thiểu của những gì Supabase cung cấp sẵn.
+ *
+ * Xuất ra ngoài để `scripts/check-sample-week.mjs` dùng lại **đúng đoạn này**: nó cũng phải
+ * dựng `auth.users` và `auth.uid()` giống hệt, và hai bản sao thì sẽ lệch nhau.
+ */
+export const SUPABASE_STUBS = `
   create schema if not exists auth;
 
   create table if not exists auth.users (
@@ -137,4 +143,13 @@ async function main() {
   console.info('Migration và seed đều chạy được, số dòng đúng.')
 }
 
-await main()
+/*
+ * Chỉ tự chạy khi được gọi trực tiếp.
+ *
+ * `scripts/check-sample-week.mjs` import tệp này để dùng lại `SUPABASE_STUBS`; không có hàng rào
+ * này thì việc import cũng chạy luôn cả lần kiểm tra migration đầy đủ.
+ */
+const invokedDirectly =
+  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (invokedDirectly) await main()
