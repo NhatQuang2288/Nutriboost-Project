@@ -11,14 +11,12 @@ export const metadata: Metadata = {
 /**
  * Khung console PT.
  *
- * Dùng chung lớp trợ lý với ứng dụng khách hàng — PT cũng cần hỏi Bơ ("khách này tuần rồi
- * thế nào?"). Nhưng điều hướng thì khác: tab ngang ở đầu trang thay vì thanh dưới, và cột
- * nội dung rộng hơn để chứa bảng biểu.
+ * Sidebar PT được truyền riêng vào AssistantShell.
+ * Nội dung từng trang PT sẽ nằm ở khu vực chính bên phải.
  */
 export default function PtLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AssistantShell nav={null} wide>
-      <PtTabs />
+    <AssistantShell nav={null} wide ptLayout sidebar={<PtTabs />}>
       {children}
     </AssistantShell>
   )
