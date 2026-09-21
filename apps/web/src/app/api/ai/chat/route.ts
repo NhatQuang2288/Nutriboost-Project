@@ -201,7 +201,7 @@ export async function POST(request: Request): Promise<Response> {
    * docs/PRICING.md không được cưỡng chế ở đâu cả.
    *
    * Khi chưa cấu hình Supabase, `store` là `null` và `checkChatAllowance` cho qua — chế độ
-   * dữ liệu mẫu không có khoá Gemini nên cũng không có gì để tiêu.
+   * dữ liệu mẫu không có khoá DeepSeek nên cũng không có gì để tiêu.
    */
   const user = await getSessionUser()
   const store = createSupabaseAiStore()

@@ -1,4 +1,4 @@
-import { MODEL_PRICES } from './prices'
+import { priceFor } from './prices'
 
 /**
  * Mục đích gọi AI — khớp enum `ai_purpose` trong CSDL.
@@ -48,18 +48,31 @@ export function resolveModel(
 }
 
 /**
- * Ước lượng thô chi phí một lượt gọi, dùng cho cảnh báo trước khi gọi.
- * Đây chỉ là phòng ngừa; con số thật luôn lấy từ token đã dùng sau khi gọi xong.
+ * Ước lượng **trường hợp xấu nhất** chi phí một lượt gọi, dùng cho cảnh báo trước khi gọi.
+ *
+ * Cố ý tính theo giá cao điểm bất kể lúc nào: đây là con số dùng để chặn, nên nó phải là trần
+ * chứ không phải dự báo. Con số thật luôn lấy từ token đã dùng sau khi gọi xong.
  */
 export function estimateWorstCaseCostUsd(
   model: string,
   expectedInputTokens: number,
   maxOutputTokens: number,
 ): number {
-  const tier = MODEL_PRICES[model]?.tiers.at(-1)
-  if (tier === undefined) return Number.POSITIVE_INFINITY
+  let peak
+  try {
+    // Mốc xa trong tương lai để lấy mốc giá MỚI NHẤT, và `.peak` vì đây là trần chi phí chứ
+    // không phải dự báo cho một thời điểm cụ thể.
+    peak = priceFor(model, FAR_FUTURE).peak
+  } catch {
+    // Model chưa có bảng giá: trả về vô cùng để nơi gọi chặn, thay vì coi như miễn phí.
+    return Number.POSITIVE_INFINITY
+  }
+
   return (
-    (expectedInputTokens * tier.inputPerMillion) / 1_000_000 +
-    (maxOutputTokens * tier.outputPerMillion) / 1_000_000
+    (expectedInputTokens * peak.inputPerMillion) / 1_000_000 +
+    (maxOutputTokens * peak.outputPerMillion) / 1_000_000
   )
 }
+
+/** Mốc dùng để lấy mốc giá mới nhất. Không phải một thời điểm có thật cần xử lý. */
+const FAR_FUTURE = new Date('2099-01-01T00:00:00Z')

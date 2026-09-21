@@ -43,7 +43,7 @@ quyết định biên lợi nhuận**: không có trần, gói Diamond mất t�
 
 ### 1.1 Ba rủi ro chưa được đưa vào bất kỳ dòng nào của bản đồ
 
-1. **Quyền riêng tư dữ liệu sức khoẻ.** Free tier của Gemini API có điều khoản _dùng nội dung để cải thiện sản phẩm của Google_.
+1. **Quyền riêng tư dữ liệu sức khoẻ.** Dữ liệu sức khoẻ đi qua máy chủ của nhà cung cấp model, nên điều khoản của họ là một quyết định sản phẩm chứ không phải chi tiết kỹ thuật. Cần chốt: nhà cung cấp có dùng nội dung để cải thiện sản phẩm không, và gói nào mới tắt được điều đó. **Phải đọc lại điều khoản mỗi lần đổi nhà cung cấp** — dự án đã đổi một lần và kết luận cũ không còn tự động đúng.
    → Dev/test dùng free tier; **production bắt buộc dùng paid tier**; có màn hình xin đồng ý (`consents`) trước lần gọi AI đầu tiên.
 2. **Rủi ro pháp lý "tư vấn y khoa".** App dinh dưỡng rất dễ bị hiểu là khám/chữa bệnh.
    → Không chẩn đoán, không kê đơn, không dùng từ "chữa bệnh"; disclaimer ở onboarding + mọi output AI + màn `/toi`; có guardrail chuyển hướng chuyên gia.

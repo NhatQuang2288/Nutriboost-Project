@@ -20,7 +20,7 @@ cp .env.example .env.local
 #    im lặng trả lời mặc định — không có lỗi nào hiện ra.
 npm run env:link
 
-# 4. Kiểm tra mọi thứ chạy được (không cần Supabase hay Gemini thật)
+# 4. Kiểm tra mọi thứ chạy được (không cần Supabase hay DeepSeek thật)
 npm run typecheck && npm run lint && npm run test
 
 # 5. Chạy web

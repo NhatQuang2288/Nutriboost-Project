@@ -55,9 +55,9 @@ Một story chỉ được coi là xong khi:
 ### Tuần 0 — chốt hợp đồng (2 ngày, cả đội, TV1 dẫn)
 
 Monorepo → CI → migration khung + types sinh tự động → `packages/nutrition` interface + test vector →
-zod schema dùng chung → **mock fixtures + MSW handler mock Gemini**.
+zod schema dùng chung → **mock fixtures + MSW handler mock model**.
 
-**Cổng kiểm soát:** TV4/TV5 chạy được toàn bộ UI trợ lý với mock, không cần Supabase hay Gemini thật.
+**Cổng kiểm soát:** TV4/TV5 chạy được toàn bộ UI trợ lý với mock, không cần Supabase hay DeepSeek thật.
 
 ### R1a — vòng lặp sức khoẻ (Tuần 1–3)
 

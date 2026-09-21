@@ -2,7 +2,7 @@
  * `@nutriboost/ai` — AI Gateway và mọi thứ liên quan tới model.
  *
  * Quy tắc kiến trúc: đây là CỬA DUY NHẤT gọi model. ESLint chặn việc import `ai`
- * hay `@ai-sdk/google` ở bất kỳ gói nào khác.
+ * hay `@ai-sdk/deepseek` ở bất kỳ gói nào khác.
  *
  * Ba bất biến của gói này:
  *   1. Không con số dinh dưỡng nào do model sinh ra — chúng đến từ `@nutriboost/nutrition`.

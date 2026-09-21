@@ -61,14 +61,14 @@ describe('readAiEnv', () => {
   })
 
   it('coi khoá rỗng là chưa cấu hình', () => {
-    withEnv({ GEMINI_API_KEY: '   ' }, () => {
+    withEnv({ DEEPSEEK_API_KEY: '   ' }, () => {
       expect(readAiEnv().apiKey).toBeNull()
       expect(isAiConfigured()).toBe(false)
     })
   })
 
   it('công tắc dừng khẩn cấp tắt AI dù có khoá', () => {
-    withEnv({ GEMINI_API_KEY: 'khoá-thật', AI_KILL_SWITCH: 'true' }, () => {
+    withEnv({ DEEPSEEK_API_KEY: 'khoá-thật', AI_KILL_SWITCH: 'true' }, () => {
       expect(isAiConfigured()).toBe(false)
       expect(aiDisabledReason()).toMatch(/tạm nghỉ/)
     })
@@ -82,15 +82,15 @@ describe('readAiEnv', () => {
      * `AI_KILL_SWITCH=true` ở cấp job (để `next build` và bộ E2E chạy tất định). Chỉ xoá khoá
      * thì test rơi vào nhánh công tắc và đỏ — đúng như đã xảy ra: xanh ở máy, đỏ ở CI.
      */
-    withEnv({ GEMINI_API_KEY: '', AI_KILL_SWITCH: 'false' }, () => {
-      expect(aiDisabledReason()).toMatch(/Chưa cấu hình khoá Gemini/)
+    withEnv({ DEEPSEEK_API_KEY: '', AI_KILL_SWITCH: 'false' }, () => {
+      expect(aiDisabledReason()).toMatch(/Chưa cấu hình khoá DeepSeek/)
     })
   })
 
   it('công tắc dừng được xét TRƯỚC khoá thiếu', () => {
     // Khoá lại thứ tự đó, vì nó là lý do test trên từng phụ thuộc môi trường: đặt công tắc
     // mà không có khoá thì thông báo phải nói về bảo trì, không phải về khoá.
-    withEnv({ GEMINI_API_KEY: '', AI_KILL_SWITCH: 'true' }, () => {
+    withEnv({ DEEPSEEK_API_KEY: '', AI_KILL_SWITCH: 'true' }, () => {
       expect(aiDisabledReason()).toMatch(/tạm nghỉ/)
     })
   })

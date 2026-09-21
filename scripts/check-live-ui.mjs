@@ -242,6 +242,25 @@ async function main() {
       return 'chiều cao và cân nặng khớp'
     })
 
+    await step('trợ lý Bơ trả lời trong phiên thật', async () => {
+      /*
+       * Chưa có khoá DeepSeek thì trợ lý rơi về **đường tất định** — bộ ước lượng bữa ăn chạy
+       * tại chỗ, dựng thẻ xác nhận kèm kcal. Đó là hành vi đúng khi thiếu khoá, và bước này
+       * khoá lại rằng nó vẫn hoạt động trong phiên thật (bộ E2E chỉ kiểm ở chế độ dữ liệu mẫu).
+       *
+       * Khi có khoá thì cùng câu này đi qua model và cũng phải ra thẻ — nhờ cầu nối
+       * `bridgeToolOutputsToDataParts`. Bước này vì thế đúng ở cả hai trường hợp.
+       */
+      await page.goto(`${BASE_URL}/hom-nay`)
+      await page.fill('#ask-bar-input', 'sáng nay mình ăn phở bò và uống cà phê sữa đá')
+      await page.click('[data-action="send"]')
+
+      const list = page.getByTestId('message-list')
+      await list.getByText('Phở bò').first().waitFor({ timeout: 30_000 })
+      await list.getByText('kcal').first().waitFor({ timeout: 10_000 })
+      return 'có thẻ xác nhận bữa ăn kèm kcal'
+    })
+
     /* ---------------------------------------------------------------------
      * Vòng PT: nâng vai trò → khách thật → dựng thực đơn → duyệt
      *

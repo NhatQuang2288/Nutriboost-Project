@@ -1,4 +1,4 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 import { generateObject } from 'ai'
 import type { ZodType } from 'zod'
 
@@ -78,8 +78,15 @@ export function classifyError(error: unknown): ModelCallError {
   return new ModelCallError('unknown', name === '' ? 'unknown' : name, message)
 }
 
-export function createGeminiClient(apiKey: string): StructuredModelClient {
-  const provider = createGoogleGenerativeAI({ apiKey })
+/**
+ * Cổng gọi model thật, qua DeepSeek.
+ *
+ * DeepSeek dùng API tương thích OpenAI và `@ai-sdk/deepseek` bọc sẵn phần đó. `baseURL` cho
+ * phép trỏ sang một máy chủ tương thích khác (proxy nội bộ, bản tự dựng) mà không phải sửa mã;
+ * bỏ trống thì provider dùng `https://api.deepseek.com`.
+ */
+export function createDeepSeekClient(apiKey: string, baseURL?: string): StructuredModelClient {
+  const provider = createDeepSeek(baseURL === undefined ? { apiKey } : { apiKey, baseURL })
 
   return {
     async generate<T>(args: StructuredCallArgs<T>): Promise<StructuredCallResult<T>> {
