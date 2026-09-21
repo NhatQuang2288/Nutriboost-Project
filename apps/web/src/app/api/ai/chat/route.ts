@@ -17,6 +17,7 @@ import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
 import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { createSupabaseAiStore } from '@/lib/ai/store'
+import { inspectStreamHead } from '@/lib/ai/stream-guard'
 import { getTodayView } from '@/lib/data/today'
 import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 
@@ -261,7 +262,7 @@ export async function POST(request: Request): Promise<Response> {
         ...healthTools,
       })
 
-      return await buildChatStreamResponse({
+      const stream = await buildChatStreamResponse({
         messages: messages as never,
         userId: user?.id ?? null,
         screen,
@@ -269,6 +270,12 @@ export async function POST(request: Request): Promise<Response> {
         guardrails,
         tools,
         signal: request.signal,
+        onError: ({ message }) => {
+          // Không có dòng này thì lỗi model hỏng hoàn toàn im lặng: route rơi về đường tất định
+          // và người vận hành không có gì để lần theo. Lý do thật chỉ có ở đây — phần tử `error`
+          // mà AI SDK gửi cho trình duyệt đã bị lược thành câu chung chung.
+          console.error('[ai/chat] model không trả lời, rơi về đường tất định:', message)
+        },
         onFinish: async (info) => {
           await recordChatCall({
             store,
@@ -278,6 +285,21 @@ export async function POST(request: Request): Promise<Response> {
           })
         },
       })
+
+      /*
+       * Lỗi xác thực (khoá sai, khoá hết hạn, tài khoản DeepSeek chưa nạp tiền) KHÔNG ném ra
+       * khỏi `buildChatStreamResponse` — nó nằm trong chính stream, nên `catch` bên dưới không
+       * bao giờ chạy. Phải soi phần đầu stream thì ý định "rơi về đường tất định" mới thành sự
+       * thật. Xem `stream-guard.ts` để biết đầy đủ lý do.
+       */
+      if (stream.body === null) throw new Error('Stream rỗng.')
+
+      const head = await inspectStreamHead(stream.body)
+
+      if (!head.failedEarly) {
+        return new Response(head.body, { status: stream.status, headers: stream.headers })
+      }
+      // Ngược lại: model hỏng trước khi kịp trả chữ nào — rơi xuống đường tất định bên dưới.
     } catch {
       // Rơi về đường giả thay vì trả lỗi: ứng dụng phải luôn dùng được.
     }

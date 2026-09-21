@@ -58,6 +58,15 @@ export interface ChatStreamOptions {
     cachedTokens: number
     model: string
   }) => Promise<void>
+  /**
+   * Báo cho tầng gọi biết model đã hỏng, kèm **lý do thật**.
+   *
+   * Vì sao cần lối riêng: khi DeepSeek từ chối (khoá sai, hết hạn, tài khoản chưa nạp tiền),
+   * AI SDK biến lỗi thành một phần `error` trong stream với nội dung chung chung
+   * ("An error occurred.") — chi tiết bị lược trước khi tới trình duyệt. Không có lối này thì
+   * tầng gọi chỉ biết "model không trả lời" mà không biết vì sao, và lỗi hỏng hoàn toàn im lặng.
+   */
+  onError?: (info: { message: string; model: string }) => void
   env?: AiEnv
   signal?: AbortSignal
 }
@@ -71,6 +80,22 @@ export interface MockStreamOptions {
   suggestions?: readonly string[]
   /** Chia nhỏ văn bản để mô phỏng cảm giác gõ chữ. */
   chunkSize?: number
+}
+
+/**
+ * Rút ra câu thông báo dễ đọc từ lỗi của SDK.
+ *
+ * DeepSeek trả lời bằng JSON có trường `message` rất cụ thể ("Authentication Fails, Your api
+ * key: ****-day is invalid"), và SDK gói nó vào `Error.message`. Đó chính là thứ cần cho log.
+ */
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message.slice(0, 300)
+
+  try {
+    return JSON.stringify(error).slice(0, 300)
+  } catch {
+    return String(error).slice(0, 300)
+  }
 }
 
 /** Cổng AI thật: stream văn bản từ DeepSeek. */
@@ -108,6 +133,9 @@ export async function buildChatStreamResponse(options: ChatStreamOptions): Promi
       ? {}
       : { tools: options.tools, stopWhen: stepCountIs(options.maxSteps ?? 4) }),
     ...(options.signal === undefined ? {} : { abortSignal: options.signal }),
+    onError: ({ error }) => {
+      options.onError?.({ message: describeError(error), model: env.models.fast })
+    },
     onFinish: async ({ text, usage }) => {
       if (options.onFinish === undefined) return
       try {
