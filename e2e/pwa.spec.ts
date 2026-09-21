@@ -54,16 +54,28 @@ test.describe('PWA', () => {
     expect(manifest.start_url).toBe('/hom-nay')
   })
 
-  test('trang Tiến độ nói thẳng là chưa có số liệu, không vẽ biểu đồ giả', async ({ page }) => {
-    // Bộ kiểm thử chạy ở chế độ dữ liệu mẫu nên không có số liệu thật. Điều phải khoá lại là
-    // giao diện KHÔNG bịa ra một biểu đồ trông như thật.
+  test('trang Tiến độ vẽ tuần mẫu NHƯNG phải nói rõ đó là dữ liệu mẫu', async ({ page }) => {
+    /*
+     * Bộ kiểm thử chạy ở chế độ dữ liệu mẫu nên không có số liệu thật.
+     *
+     * Điều phải khoá lại đã đổi, có chủ ý: chế độ mẫu **được phép** vẽ biểu đồ — nếu không thì
+     * không ai nhìn thấy biểu đồ trong lúc phát triển, và lỗi bố cục chỉ lộ ra ở môi trường có
+     * dữ liệu thật. Đổi lại, dải báo "đang hiện dữ liệu mẫu" trở thành **bắt buộc**: thiếu nó
+     * là giao diện đang trình một tuần số liệu của người khác như thể là của người đang xem.
+     */
     await page.goto('/tien-do')
 
     await expect(page.getByRole('heading', { name: 'Tiến độ' })).toBeVisible()
-    await expect(page.getByText('Chưa đủ dữ liệu để vẽ biểu đồ')).toBeVisible()
-    await expect(page.getByText(/chế độ dữ liệu mẫu/)).toBeVisible()
-    // Hai khối biểu đồ vẫn có mặt, ở trạng thái chưa có dữ liệu.
+
+    // Không có dải báo này thì biểu đồ bên dưới là nói dối.
+    await expect(page.getByText('Đang hiện dữ liệu mẫu')).toBeVisible()
+
     await expect(page.getByRole('heading', { name: 'Cân nặng' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Năng lượng nạp vào' })).toBeVisible()
+
+    // Tuần mẫu có 7 điểm, nên cả hai khối đều vẽ thật thay vì rơi về trạng thái rỗng.
+    await expect(page.locator('[aria-label*="Cân nặng theo thời gian"]')).toBeVisible()
+    await expect(page.locator('[aria-label*="Năng lượng nạp vào theo ngày"]')).toBeVisible()
+    await expect(page.getByText('Chưa đủ dữ liệu để vẽ biểu đồ')).toHaveCount(0)
   })
 })
