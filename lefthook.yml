@@ -11,10 +11,6 @@ pre-commit:
 
     - name: eslint
       glob: '*.{ts,tsx}'
-      # `--no-warn-ignored`: ESLint cố tình bỏ qua `**/*.config.{js,mjs,ts}` (xem eslint.config.mjs),
-      # nhưng lefthook vẫn truyền tệp cấu hình vào theo glob. Không có cờ này thì cảnh báo
-      # "File ignored" bị `--max-warnings=0` biến thành lỗi, và commit chỉ chạm một tệp cấu hình
-      # — ví dụ `playwright.config.ts` — bị chặn oan.
       run: npx eslint --max-warnings=0 --no-warn-ignored {staged_files}
 
     - name: chặn thư viện icon
