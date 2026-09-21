@@ -251,6 +251,29 @@ thống tạm thời, bạn thử lại sau" — trong khi thử lại bao nhiê
 `message` phải nói thẳng sự thật và chỉ rõ model phải nói gì. Cầu nối trong
 `packages/ai/src/chat.ts` bỏ qua kết quả từ chối nên không có thẻ giao diện nào được dựng.
 
+### Lỗi model KHÔNG ném ra ngoài — nó nằm trong stream
+
+Khi DeepSeek từ chối (khoá sai, khoá hết hạn, tài khoản chưa nạp tiền, sai tên model),
+`buildChatStreamResponse` **không ném lỗi**. AI SDK biến lỗi HTTP thành một phần tử nằm trong
+chính stream: stream chỉ có `start` rồi `error`, và hàm kết thúc bình thường.
+
+Nghĩa là `try/catch` quanh lời gọi đó **không bao giờ chạy**. Từng đúng như vậy: route ghi rõ
+ý định "Rơi về đường giả vì ứng dụng phải luôn dùng được", nhưng một khoá sai làm mọi lượt chat
+hỏng — người dùng thấy "Bơ đang gặp sự cố kết nối" và **mất luôn thẻ ghi bữa ăn**, dù bộ ước
+lượng tất định chạy tốt mà không cần mạng.
+
+Nay `inspectStreamHead` (`apps/web/src/lib/ai/stream-guard.ts`) đọc phần đầu stream rồi mới
+quyết định: gặp `error` trước khi model kịp trả chữ nào thì route rơi xuống đường tất định. Lỗi
+xác thực xảy ra trước khi model sinh chữ, nên quyết định luôn có ngay — chỉ chậm đúng một phần
+tử so với trước. **Đừng "dọn dẹp" lời gọi này đi**; bỏ nó là quay lại hỏng im lặng.
+
+Lưu ý: lỗi giữa dòng (mạng đứt sau khi đã có chữ) cố ý **không** bị coi là lỗi sớm — lúc đó đã
+có nội dung hiển thị và không thể thay bằng câu trả lời khác.
+
+Lý do thật của lỗi chỉ có ở `ChatStreamOptions.onError` — phần tử `error` mà trình duyệt nhận
+được đã bị AI SDK lược thành câu chung chung `"An error occurred."`. Route ghi lý do đó ra log;
+không có dòng log ấy thì hỏng hoàn toàn im lặng.
+
 ### Đầu ra công cụ phải tới được giao diện
 
 Model phát ra phần `tool-*`, còn giao diện **chỉ vẽ từ `data-*`**. Cầu nối
