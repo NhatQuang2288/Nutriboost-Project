@@ -1,0 +1,29 @@
+{
+  "name": "@nutriboost/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI Gateway một cửa: model routing, hạn mức, cache, cost tracking, guardrail, tool, prompt, eval.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas.ts",
+    "./identity": "./src/identity.ts",
+    "./guardrails": "./src/guardrails.ts",
+    "./tools": "./src/tools/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "4.0.74",
+    "@nutriboost/db": "0.1.0",
+    "@nutriboost/nutrition": "0.1.0",
+    "ai": "7.0.105",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@nutriboost/seed": "0.1.0"
+  }
+}

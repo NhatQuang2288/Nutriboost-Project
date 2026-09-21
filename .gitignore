@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.npm-cache/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Test
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Environment — không bao giờ commit khoá thật
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+supabase/.status
+
+# Hệ điều hành / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Log & tạm
+*.log
+npm-debug.log*
+.turbo/
+.cache/
+tmp/
+
+# Trình duyệt Playwright cài trong workspace (một số môi trường chặn cache hệ điều hành)
+.playwright-browsers/
+
+# Công cụ tạm cài trong workspace (không thuộc dự án)
+.tools/

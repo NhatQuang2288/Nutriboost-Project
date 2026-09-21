@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NutriBoost">
+  <title>NutriBoost</title>
+  <!--
+    Bản SVG của icon ứng dụng. Cùng hình với các tệp PNG do scripts/generate-icons.mjs sinh ra:
+    nền bo góc màu forest-600, chiếc lá màu olive-100, sống lá màu olive-500.
+
+    Màu lấy từ apps/web/src/app/globals.css. Đổi một bên thì phải chạy lại script sinh PNG,
+    nếu không icon trên màn hình chính sẽ khác icon trong tab trình duyệt.
+  -->
+  <rect width="512" height="512" rx="113" fill="#324b2e" />
+  <!--
+    Lá: hai cung bậc hai nối hai đầu nhọn. Điểm điều khiển cách trục 174 đơn vị, mà cung bậc
+    hai chỉ đi được nửa khoảng đó, nên bề rộng lá là 87 — khớp hằng số trong script.
+  -->
+  <path d="M364 158 Q379 389 148 374 Q133 143 364 158 Z" fill="#e4f0d1" />
+  <path d="M342 180 170 352" stroke="#839b4a" stroke-width="9" stroke-linecap="round" />
+</svg>

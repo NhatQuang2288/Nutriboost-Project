@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@nutriboost/nutrition": ["../nutrition/src/index.ts"],
+      "@nutriboost/db": ["../db/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

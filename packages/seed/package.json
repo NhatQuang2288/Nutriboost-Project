@@ -1,0 +1,16 @@
+{
+  "name": "@nutriboost/seed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Công cụ import dữ liệu món Việt + seed mẫu. Tính đúng của dữ liệu thuộc TV3.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@nutriboost/nutrition": "0.1.0",
+    "zod": "4.6.5"
+  }
+}
