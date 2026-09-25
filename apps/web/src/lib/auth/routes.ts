@@ -14,7 +14,7 @@ export const PROTECTED_PREFIXES = [
   '/tien-do',
   '/toi',
   '/coach',
-  //'/pt',
+  '/pt',
   '/onboarding',
   // Nhập mã mời cần biết "ai đang đổi mã" — hàm `redeem_invite_code` lấy người dùng từ
   // `auth.uid()`. Chưa đăng nhập thì middleware đưa qua `/dang-nhap` kèm cả `?ma=` trong
