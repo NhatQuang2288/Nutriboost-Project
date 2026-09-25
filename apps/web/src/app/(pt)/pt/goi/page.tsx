@@ -4,58 +4,99 @@ import { CheckIcon, InfoIcon } from '@/components/icons'
 import { Card, Disclaimer } from '@/components/ui'
 import { formatVnd, getTierOffers } from '@/lib/data/pt'
 
-export const metadata: Metadata = { title: 'Gói dịch vụ' }
+export const metadata: Metadata = {
+  title: 'Gói dịch vụ',
+}
+
 export const dynamic = 'force-dynamic'
 
-/**
- * Tab Gói dịch vụ.
- *
- * Giữ nguyên toàn bộ logic và dữ liệu gói dịch vụ hiện tại.
- * Chỉ thay đổi cách trình bày giao diện.
- */
 export default async function TiersPage() {
   const offers = await getTierOffers()
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <header>
-        <p className="text-caption text-ink-muted mb-1">Quản lý gói PT</p>
+    <div className="flex flex-col gap-7 pb-8">
+      {/* =========================================================
+          HEADER
+      ========================================================= */}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-h1">Gói dịch vụ</h1>
+      <header className="relative overflow-hidden rounded-[28px] border border-[#e5eadc] bg-white p-6 shadow-[0_4px_18px_rgba(50,70,45,0.05)] sm:p-7">
+        {/* DECORATION */}
 
-            <p className="text-caption text-ink-muted mt-1 max-w-2xl">
-              Chọn gói phù hợp với số lượng khách hàng và nhu cầu sử dụng trợ lý AI của bạn.
-            </p>
+        <div className="absolute -top-14 -right-14 size-40 rounded-full bg-[#e9f5d7]" />
+
+        <div className="absolute top-8 right-16 size-12 rounded-full bg-[#f5d98c]/50" />
+
+        <div className="absolute -bottom-12 left-1/3 size-28 rounded-full bg-[#e5f1f7]/60" />
+
+        <div className="relative z-10 flex flex-col gap-6">
+          {/* HEADER TEXT */}
+
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-xl bg-[#e8f2d7] text-[13px]">
+                  ✦
+                </span>
+
+                <p className="text-[9px] font-bold tracking-[0.12em] text-[#6c873f]">
+                  QUẢN LÝ GÓI PT
+                </p>
+              </div>
+
+              <h1 className="text-[28px] font-bold tracking-[-0.035em] text-[#29352d]">
+                Gói dịch vụ
+              </h1>
+
+              <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-[#899188]">
+                Chọn gói phù hợp với số lượng khách hàng và nhu cầu sử dụng trợ lý AI của bạn.
+              </p>
+            </div>
+
+            {/* TOTAL */}
+
+            <div className="flex w-fit items-center gap-2 rounded-full bg-[#eef5df] px-4 py-2.5">
+              <span className="size-2 rounded-full bg-[#91bd55]" />
+
+              <span className="text-[9px] font-bold text-[#617b39]">
+                {offers.length} gói dịch vụ
+              </span>
+            </div>
           </div>
 
-          <span className="text-accent-text text-caption w-fit shrink-0 rounded-full bg-olive-100 px-3 py-1.5 font-semibold">
-            3 gói dịch vụ
-          </span>
+          {/* QUICK SUMMARY */}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {offers.map((offer) => (
+              <SummaryCard
+                key={offer.tier}
+                label={offer.label}
+                clientLimit={offer.clientLimit}
+                price={formatVnd(offer.priceVnd)}
+                current={offer.current}
+                tier={offer.tier}
+              />
+            ))}
+          </div>
         </div>
       </header>
 
-      {/* Tổng quan */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {offers.map((offer) => (
-          <SummaryCard
-            key={offer.tier}
-            label={offer.label}
-            clientLimit={offer.clientLimit}
-            price={formatVnd(offer.priceVnd)}
-            current={offer.current}
-          />
-        ))}
-      </section>
+      {/* =========================================================
+          PLANS
+      ========================================================= */}
 
-      {/* Danh sách gói */}
       <section>
-        <div className="mb-3">
-          <p className="text-caption text-ink-muted">Chi tiết từng gói</p>
+        <div className="mb-4 flex flex-col gap-1">
+          <p className="text-[9px] font-semibold tracking-[0.08em] text-[#9aa198] uppercase">
+            Chi tiết từng gói
+          </p>
 
-          <h2 className="text-h2 text-ink mt-0.5">Chọn gói theo quy mô khách hàng</h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <h2 className="text-[21px] font-bold tracking-[-0.025em] text-[#344139]">
+              Chọn gói theo quy mô khách hàng
+            </h2>
+
+            <p className="text-[9px] text-[#a0a69d]">Có thể thay đổi theo nhu cầu sử dụng</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -65,33 +106,48 @@ export default async function TiersPage() {
         </div>
       </section>
 
-      {/* Giải thích hạn mức AI */}
-      <Card className="border-info/30 bg-info-surface rounded-3xl border shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="text-info-text mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/60">
-            <InfoIcon size={18} />
-          </span>
+      {/* =========================================================
+          AI LIMIT
+      ========================================================= */}
 
-          <div className="min-w-0">
-            <h2 className="text-h3 text-info-text">Vì sao có hạn mức lượt trợ lý AI?</h2>
+      <Card className="overflow-hidden rounded-[26px] border border-[#e3ead7] bg-white shadow-[0_3px_14px_rgba(50,70,45,0.04)]">
+        <div className="relative overflow-hidden bg-[#f2f7e9] p-5 sm:p-6">
+          <div className="absolute -top-8 -right-8 size-28 rounded-full bg-[#e2efc8]" />
 
-            <div className="text-caption text-info-text mt-3 flex flex-col gap-3 leading-relaxed">
-              <p>
-                Hạn mức giữ cho chi phí vận hành ở mức {`<`} 20 % doanh thu của gói, nhờ đó giá
-                không phải tăng khi một khách dùng nhiều.
+          <div className="absolute right-20 bottom-0 size-12 rounded-full bg-[#f7df9d]/60" />
+
+          <div className="relative z-10 flex items-start gap-4">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#6e8e40] shadow-sm">
+              <InfoIcon size={19} />
+            </span>
+
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold tracking-[0.1em] text-[#6e8e40] uppercase">
+                Trợ lý Bơ AI
               </p>
 
-              <p>
-                600 lượt mỗi tháng tương đương khoảng 20 lượt mỗi ngày — đủ dùng thoải mái cho một
-                người.
-              </p>
+              <h2 className="mt-1 text-[17px] font-bold text-[#354139]">
+                Vì sao có hạn mức lượt trợ lý AI?
+              </h2>
 
-              <p>Khi khách gần chạm hạn mức, hệ thống báo trước cho cả bạn và khách.</p>
+              <div className="mt-4 flex flex-col gap-3 text-[10px] leading-relaxed text-[#788278]">
+                <p>
+                  Hạn mức giữ cho chi phí vận hành ở mức {'<'} 20 % doanh thu của gói, nhờ đó giá
+                  không phải tăng khi một khách dùng nhiều.
+                </p>
 
-              <p>
-                Việc dựng thực đơn và lịch tập không tính vào hạn mức này vì chúng chạy bằng công
-                thức, không gọi AI.
-              </p>
+                <p>
+                  600 lượt mỗi tháng tương đương khoảng 20 lượt mỗi ngày — đủ dùng thoải mái cho một
+                  người.
+                </p>
+
+                <p>Khi khách gần chạm hạn mức, hệ thống báo trước cho cả bạn và khách.</p>
+
+                <p>
+                  Việc dựng thực đơn và lịch tập không tính vào hạn mức này vì chúng chạy bằng công
+                  thức, không gọi AI.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -102,144 +158,87 @@ export default async function TiersPage() {
   )
 }
 
-/**
- * Card tóm tắt nhanh một gói.
- */
+/* ================================================================
+   SUMMARY CARD
 function SummaryCard({
   label,
   clientLimit,
   price,
   current,
+  tier,
 }: {
   label: string
   clientLimit: number
   price: string
   current: boolean
+  tier: string
 }) {
+  const icon = tier === 'plus' ? '🌱' : tier === 'diamond' ? '💎' : '⭐'
+
   return (
-    <Card
+    <div
       className={[
-        'rounded-3xl border shadow-sm',
-        current ? 'border-forest-600 bg-olive-50/50' : 'border-olive-100',
+        'relative overflow-hidden rounded-[20px] border p-4 transition-all duration-200',
+        current
+          ? 'border-[#b8d88b] bg-[#f1f7e7] shadow-[0_4px_12px_rgba(110,140,65,0.08)]'
+          : 'border-[#e8ece4] bg-[#fafbf9] hover:border-[#cbdcb1] hover:bg-[#f5f9ed]',
       ].join(' ')}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-caption text-ink-muted">{label}</p>
+      {/* DECORATIVE CIRCLE */}
 
-          <p className="text-h2 text-ink mt-1">
-            {clientLimit}
-            <span className="text-caption text-ink-muted ml-1 font-normal">khách</span>
-          </p>
-        </div>
-
-        {current ? (
-          <span className="bg-forest-600 text-micro shrink-0 rounded-full px-2.5 py-1 font-semibold text-white">
-            Hiện tại
-          </span>
-        ) : null}
-      </div>
-
-      <div className="border-line-subtle mt-4 border-t pt-3">
-        <p className="text-caption text-ink-muted">Từ</p>
-
-        <p className="text-body text-ink mt-0.5 font-semibold">
-          {price}
-          <span className="text-micro text-ink-faint ml-1 font-normal">/tháng</span>
-        </p>
-      </div>
-    </Card>
-  )
-}
-
-/**
- * Card chi tiết của từng gói.
- *
- * Không thay đổi dữ liệu hoặc điều kiện hiển thị tính năng.
- */
-function TierCard({ offer }: { offer: Awaited<ReturnType<typeof getTierOffers>>[number] }) {
-  return (
-    <Card
-      as="article"
-      className={[
-        'relative flex h-full flex-col rounded-3xl shadow-sm',
-        offer.current ? 'border-forest-600 border-2' : 'border border-olive-100',
-      ].join(' ')}
-    >
-      {/* Badge gói hiện tại */}
-      {offer.current ? (
-        <div className="absolute top-5 right-5">
-          <span className="bg-forest-600 text-micro rounded-full px-3 py-1.5 font-semibold text-white">
-            GÓI HIỆN TẠI
-          </span>
-        </div>
+      {current ? (
+        <div className="absolute -top-6 -right-6 size-20 rounded-full bg-[#dfedc5]" />
       ) : null}
 
-      {/* Tên gói */}
-      <div className={offer.current ? 'pr-28' : ''}>
-        <p className="text-caption text-ink-muted">Gói dịch vụ</p>
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={[
+                'flex size-8 items-center justify-center rounded-xl text-[15px]',
+                current ? 'bg-white' : 'bg-[#eef1ea]',
+              ].join(' ')}
+            >
+              {icon}
+            </span>
 
-        <h2 className="text-h2 text-ink mt-1">{offer.label}</h2>
+            <p className="text-[10px] font-semibold text-[#69736b]">{label}</p>
+          </div>
 
-        <p className="text-caption text-ink-muted mt-1">Tối đa {offer.clientLimit} khách hàng</p>
-      </div>
+          {current ? (
+            <span className="rounded-full bg-[#66833b] px-2.5 py-1 text-[7px] font-bold text-white">
+              HIỆN TẠI
+            </span>
+          ) : null}
+        </div>
 
-      {/* Giá */}
-      <div className="mt-6">
-        <p className="text-display text-ink tabular-nums">{formatVnd(offer.priceVnd)}</p>
+        <p className="mt-3 text-[23px] font-bold tracking-[-0.03em] text-[#354139]">
+          {clientLimit}
 
-        <p className="text-caption text-ink-muted mt-1">mỗi tháng</p>
+          <span className="ml-1 text-[9px] font-medium text-[#8c958c]">khách</span>
+        </p>
 
-        <div className="mt-4 rounded-2xl bg-olive-50 px-4 py-3">
-          <p className="text-micro text-ink-faint">Chi phí trung bình</p>
+        <div className="mt-2 flex items-baseline gap-1">
+          <span className="text-[8px] text-[#9aa198]">Từ</span>
 
-          <p className="text-body text-forest-700 mt-0.5 font-semibold">
-            {formatVnd(offer.pricePerClient)}
-            <span className="text-micro text-ink-muted ml-1 font-normal">/khách/tháng</span>
-          </p>
+          <span className="text-[11px] font-bold text-[#56654d]">{price}</span>
+
+          <span className="text-[7px] text-[#a0a69d]">/tháng</span>
         </div>
       </div>
-
-      {/* Tính năng */}
-      <div className="border-line-subtle mt-6 flex-1 border-t pt-5">
-        <p className="text-caption text-ink font-semibold">Bao gồm</p>
-
-        <ul className="mt-3 flex flex-col gap-3">
-          <Feature>Thực đơn cá nhân hoá theo mục tiêu năng lượng</Feature>
-
-          <Feature>Lịch tập dựng theo trình độ và chấn thương</Feature>
-
-          <Feature>Nhắc nhở tự động, giới hạn 4 lần mỗi ngày</Feature>
-
-          <Feature strong>{offer.aiTurnsPerClient} lượt trợ lý AI mỗi khách mỗi tháng</Feature>
-
-          {offer.tier !== 'plus' ? <Feature>Thương hiệu riêng trên ứng dụng khách</Feature> : null}
-
-          {offer.tier === 'diamond' ? <Feature>Nhiều PT trong một tài khoản</Feature> : null}
-        </ul>
-      </div>
-
-      {/* Footer card */}
-      <div className="border-line-subtle mt-6 border-t pt-4">
-        <p className="text-micro text-ink-faint">
-          {offer.aiTurnsPerClient} lượt AI / khách / tháng
-        </p>
-      </div>
-    </Card>
+    </div>
   )
 }
 
-function Feature({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
-  return (
-    <li className="flex items-start gap-2.5">
-      <span className="text-accent-text mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-olive-100">
+/* ================================================================
+   TIER CARD
         <CheckIcon size={13} />
       </span>
 
       <span
         className={[
-          'text-body leading-relaxed',
-          strong === true ? 'text-ink font-semibold' : 'text-ink-muted',
+          'text-[10px] leading-relaxed',
+          strong ? 'font-bold text-[#46553f]' : 'text-[#788278]',
         ].join(' ')}
       >
         {children}

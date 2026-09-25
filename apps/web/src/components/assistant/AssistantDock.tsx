@@ -338,11 +338,6 @@ function DockBody() {
               }
             }}
           />
-          <VoiceInput
-  onResult={(text) => {
-    setDraft(text)
-  }}
-/>
 
           <button
             type="submit"
