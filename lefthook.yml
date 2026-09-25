@@ -11,7 +11,7 @@ pre-commit:
 
     - name: eslint
       glob: '*.{ts,tsx}'
-      run: npx eslint --max-warnings=0 {staged_files}
+      run: npx eslint --max-warnings=0 --no-warn-ignored {staged_files}
 
     - name: chặn thư viện icon
       run: node scripts/check-no-icon-libs.mjs

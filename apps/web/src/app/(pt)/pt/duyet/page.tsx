@@ -255,6 +255,15 @@ export default async function ApprovalQueuePage() {
                         <ApprovalActions planId={approval.id} clientName={approval.clientName} />
                       </div>
                     </div>
+                  ) : null}
+
+                  {/* Source */}
+                  <div className="border-line-subtle text-ink-faint mt-4 flex items-center gap-2 border-t pt-4">
+                    <BoIcon size={14} />
+
+                    <p className="text-micro">
+                      Dựng bằng công thức trong mã nguồn, không phải AI đoán
+                    </p>
                   </div>
                 </Card>
               )
@@ -374,54 +383,6 @@ function Kpi({
 
 /* ================================================================
    METRIC
-================================================================ */
-
-function Metric({
-  label,
-  value,
-  tone = 'normal',
-  icon,
-}: {
-  label: string
-  value: string
-  tone?: 'normal' | 'success' | 'warning'
-  icon: string
-}) {
-  const styles = {
-    normal: {
-      card: 'bg-[#f6f8f4]',
-      icon: 'bg-white',
-      value: 'text-[#354238]',
-    },
-
-    success: {
-      card: 'bg-[#eef6df]',
-      icon: 'bg-[#e1edca]',
-      value: 'text-[#66813c]',
-    },
-
-    warning: {
-      card: 'bg-[#fff7e5]',
-      icon: 'bg-[#ffedc4]',
-      value: 'text-[#a67d29]',
-    },
-  }
-
-  const style = styles[tone]
-
-  return (
-    <div className={`rounded-[17px] p-3.5 ${style.card}`}>
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex size-7 items-center justify-center rounded-lg text-[11px] ${style.icon}`}
-        >
-          {icon}
-        </span>
-
-        <p className="text-[10px] font-semibold text-[#7d877e]">{label}</p>
-      </div>
-
-      <p className={`mt-2 text-[16px] font-bold tracking-[-0.02em] ${style.value}`}>{value}</p>
     </div>
   )
 }

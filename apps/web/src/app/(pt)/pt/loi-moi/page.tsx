@@ -163,76 +163,12 @@ export default async function InvitePage() {
 
 /* ================================================================
    STEP CARD
-================================================================ */
-
-function StepCard({
-  number,
-  icon,
-  title,
-  description,
-  type,
-}: {
-  number: string
-  icon: string
-  title: string
-  description: string
-  type: 'green' | 'yellow' | 'blue'
-}) {
-  const styles = {
-    green: {
-      background: 'bg-[#eef7e3]',
-      icon: 'bg-[#d8ebbd] text-[#62863c]',
-      number: 'text-[#71944b]',
-      border: 'border-[#dcebc9]',
-    },
-
-    yellow: {
-      background: 'bg-[#fff8e7]',
-      icon: 'bg-[#ffedbd] text-[#aa8229]',
-      number: 'text-[#b18b32]',
-      border: 'border-[#f4e8c5]',
-    },
-
-    blue: {
-      background: 'bg-[#edf7f8]',
-      icon: 'bg-[#d7edf0] text-[#5e8d96]',
-      number: 'text-[#67959d]',
-      border: 'border-[#d8eaed]',
-    },
-  }
-
-  const style = styles[type]
-
-  return (
-    <div
-      className={`rounded-[21px] border ${style.border} ${style.background} p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
-    >
-      <div className="flex items-start justify-between">
-        <div
-          className={`flex size-11 items-center justify-center rounded-2xl text-[19px] font-bold ${style.icon}`}
-        >
-          {icon}
-        </div>
-
-        <span className={`text-[12px] font-extrabold ${style.number}`}>{number}</span>
-      </div>
-
-      <h3 className="mt-4 text-[16px] font-extrabold text-[#344337]">{title}</h3>
-
-      <p className="mt-1.5 text-[10px] leading-[1.65] font-medium text-[#7d877d]">{description}</p>
     </div>
   )
 }
 
 /* ================================================================
    HERO ILLUSTRATION
-================================================================ */
-
-function HeroIllustration() {
-  return (
-    <svg
-      viewBox="0 0 430 300"
-      className="h-full w-full"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -411,8 +347,6 @@ function HeroIllustration() {
 
 /* ================================================================
    ORIGIN
-================================================================ */
-
 async function readOrigin(): Promise<string> {
   const headerList = await headers()
 

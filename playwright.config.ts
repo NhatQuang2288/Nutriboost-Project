@@ -1,4 +1,6 @@
-import { defineConfig, devices } from '@playwright/test'
+import { existsSync } from 'node:fs'
+
+import { defineConfig, devices, chromium } from '@playwright/test'
 
 /**
  * Cấu hình kiểm thử đầu-cuối.
@@ -10,6 +12,59 @@ import { defineConfig, devices } from '@playwright/test'
  * Trình duyệt được cài vào thư mục trong workspace (`PLAYWRIGHT_BROWSERS_PATH`)
  * vì một số môi trường chặn ghi vào thư mục cache của hệ điều hành.
  */
+/** Trình duyệt có sẵn trên máy, theo hệ điều hành. Dùng khi chưa tải được Chromium của Playwright. */
+const SYSTEM_BROWSERS: readonly { channel: string; paths: readonly string[] }[] = [
+  {
+    channel: 'chrome',
+    paths: [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/usr/bin/google-chrome',
+    ],
+  },
+  {
+    channel: 'msedge',
+    paths: [
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+      '/usr/bin/microsoft-edge',
+    ],
+  },
+]
+
+/**
+ * Chọn trình duyệt để chạy test.
+ *
+ * Vì sao cần lớp này: `npx playwright install` phải tải Chromium từ `cdn.playwright.dev`. Mạng
+ * sau proxy hoặc tường lửa thường làm việc tải đó quá thời gian (`timed out after 30000ms`), và
+ * khi ấy **không chạy được test nào** dù mã nguồn hoàn toàn ổn. Máy nào đã có Chrome hoặc Edge
+ * thì chạy được ngay mà không cần tải gì.
+ *
+ * Thứ tự quyết định:
+ *   1. `PLAYWRIGHT_CHANNEL` — người dùng chỉ định thẳng (`PLAYWRIGHT_CHANNEL=chrome`).
+ *   2. Chromium của Playwright nếu đã cài — giữ nguyên hành vi cũ, CI không đổi gì.
+ *   3. Chrome/Edge có sẵn trên máy — kèm một dòng cảnh báo, không im lặng.
+ */
+function resolveBrowserChannel(): string | undefined {
+  const explicit = process.env.PLAYWRIGHT_CHANNEL?.trim()
+  if (explicit !== undefined && explicit !== '') return explicit
+
+  if (existsSync(chromium.executablePath())) return undefined
+
+  const system = SYSTEM_BROWSERS.find((browser) => browser.paths.some((path) => existsSync(path)))
+  if (system === undefined) return undefined
+
+  console.warn(
+    `[playwright] Chưa có Chromium của Playwright — dùng "${system.channel}" có sẵn trên máy.\n` +
+      '[playwright] Muốn dùng đúng bản của Playwright: npm run e2e:install',
+  )
+  return system.channel
+}
+
+const browserChannel = resolveBrowserChannel()
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -28,12 +83,16 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 900 },
+        channel: browserChannel,
+      },
       testIgnore: /mobile\.spec\.ts$/,
     },
     {
       name: 'mobile',
-      use: { ...devices['Pixel 7'] },
+      use: { ...devices['Pixel 7'], channel: browserChannel },
       testMatch: /mobile\.spec\.ts$/,
     },
   ],

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
-import { CameraIcon, HistoryIcon, MicIcon, RepeatIcon } from '@/components/icons'
+import { PhotoMealButton } from '@/components/assistant/PhotoMealButton'
+import { HistoryIcon, MicIcon, RepeatIcon } from '@/components/icons'
 import { Card, Disclaimer, SectionTitle } from '@/components/ui'
 
 export const metadata: Metadata = { title: 'Ghi bữa ăn' }
@@ -28,15 +29,17 @@ export default function LogMealPage() {
       <Card>
         <SectionTitle>Lối vào nhanh</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
-          <QuickAction icon={<RepeatIcon size={20} />} label="Lặp bữa hôm qua" />
-          <QuickAction icon={<HistoryIcon size={20} />} label="Món hay ăn" />
+          {/* Đường thật: mở camera, thu nhỏ ảnh ở trình duyệt, rồi gửi cho Bơ đọc. */}
+          <PhotoMealButton />
+          <QuickAction icon={<RepeatIcon size={20} />} label="Lặp bữa hôm qua (sắp có)" disabled />
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 opacity-50">
-          <QuickAction icon={<CameraIcon size={20} />} label="Chụp ảnh (sắp có)" disabled />
+          <QuickAction icon={<HistoryIcon size={20} />} label="Món hay ăn (sắp có)" disabled />
           <QuickAction icon={<MicIcon size={20} />} label="Nói (sắp có)" disabled />
         </div>
         <p className="text-caption text-ink-faint mt-3">
-          Chụp ảnh và nhập bằng giọng nói nằm trong Release 2.
+          Chụp ảnh đã dùng được. “Lặp bữa hôm qua”, “Món hay ăn” và nhập bằng giọng nói nằm trong
+          Release 2.
         </p>
       </Card>
 
