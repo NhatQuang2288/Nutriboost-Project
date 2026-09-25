@@ -19,6 +19,7 @@ import { useAssistant, type RenderablePart } from '@/components/assistant/Assist
 import { GenerativePart, UnknownPart } from '@/components/assistant/generative/registry'
 import { suggestionsFor } from '@/components/assistant/suggestions'
 import { useAssistantStore } from '@/stores/assistant'
+import { VoiceInput } from '@/components/assistant/VoiceInput'
 
 import styles from './assistant.module.css'
 
@@ -337,6 +338,11 @@ function DockBody() {
               }
             }}
           />
+          <VoiceInput
+  onResult={(text) => {
+    setDraft(text)
+  }}
+/>
 
           <button
             type="submit"
