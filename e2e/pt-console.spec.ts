@@ -9,8 +9,18 @@ import { expect, test } from '@playwright/test'
 
 const DOCK = '#assistant-dock'
 
+/*
+ * Ngày 26/09, trang tổng quan PT được trả về đúng bản thiết kế của Vy (0091908) theo quyết định
+ * của nhóm. Bản đó chưa hiện bốn thứ dưới đây, nên bốn test tương ứng được đánh `fixme` thay vì
+ * xoá: chúng vẫn là yêu cầu của sản phẩm (xem CLAUDE.md "Hai chế độ dữ liệu phải nói ra" và
+ * docs/PRICING.md), và khi thiết kế thêm các khối đó thì chỉ cần bỏ `fixme` là test chạy lại.
+ */
+const OVERVIEW_PENDING_DESIGN =
+  'Bản thiết kế tổng quan PT hiện tại chưa có khối này — xem ghi chú đầu tệp.'
+
 test.describe('tổng quan', () => {
   test('nói thẳng đang hiện dữ liệu mẫu khi tài khoản không phải PT', async ({ page }) => {
+    test.fixme(true, OVERVIEW_PENDING_DESIGN)
     /*
      * Bộ kiểm thử chạy ở chế độ dữ liệu mẫu. Điều phải khoá lại là giao diện KHÔNG giả vờ
      * rằng năm khách hàng dưới đây là của người đang xem.
@@ -21,6 +31,7 @@ test.describe('tổng quan', () => {
   })
 
   test('hiện gói hiện tại, số chỗ đã dùng và số còn nhận', async ({ page }) => {
+    test.fixme(true, OVERVIEW_PENDING_DESIGN)
     await page.goto('/pt')
 
     await expect(page.getByRole('heading', { name: /Xin chào/ })).toBeVisible()
@@ -30,6 +41,7 @@ test.describe('tổng quan', () => {
   })
 
   test('nêu tên những khách cần chú ý kèm lý do', async ({ page }) => {
+    test.fixme(true, OVERVIEW_PENDING_DESIGN)
     await page.goto('/pt')
 
     await expect(page.getByRole('heading', { name: 'Cần chú ý hôm nay' })).toBeVisible()
@@ -51,6 +63,7 @@ test.describe('tổng quan', () => {
   })
 
   test('báo số thực đơn đang chờ duyệt và đi tới được hàng đợi', async ({ page }) => {
+    test.fixme(true, OVERVIEW_PENDING_DESIGN)
     await page.goto('/pt')
 
     const banner = page.getByText(/thực đơn đang chờ bạn duyệt/)
