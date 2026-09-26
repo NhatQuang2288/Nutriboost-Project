@@ -4,7 +4,7 @@ import { z } from 'zod'
  * Schema cho đầu ra của model.
  *
  * Mọi phản hồi của model đều phải qua zod trước khi chạm vào hệ thống.
- * Đây là lớp phòng thủ thứ hai: lớp thứ nhất là `responseSchema` gửi cho Gemini,
+ * Đây là lớp phòng thủ thứ hai: lớp thứ nhất là JSON Schema gửi cho model,
  * nhưng model vẫn có thể trả sai, nên luôn kiểm tra lại.
  * ======================================================================= */
 

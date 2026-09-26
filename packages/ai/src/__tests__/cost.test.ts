@@ -8,90 +8,128 @@ import {
   formatUsd,
 } from '../cost'
 
-const AT = new Date('2026-09-18T00:00:00Z')
+/**
+ * Chi phí, theo bảng giá DeepSeek.
+ *
+ * Thứ Ba 22/09/2026, 02:00 UTC — trong khung cao điểm 01:00–04:00.
+ * `deepseek-flash` cao điểm: vào 0,3 · ra 1,2 · cache 0,006 USD mỗi 1M token.
+ */
+const PEAK = new Date('2026-09-22T02:00:00Z')
+/** Cùng ngày, 12:00 UTC — thấp điểm, đúng bằng một nửa giá. */
+const OFF_PEAK = new Date('2026-09-22T12:00:00Z')
 
 describe('computeCostUsd', () => {
   it('tính đúng khi không có cache', () => {
-    // (1000 × 0,75 + 500 × 3,75) / 1e6 = 0,002625
+    // (1000 × 0,3 + 500 × 1,2) / 1e6 = 0,0009
     const cost = computeCostUsd(
-      'gemini-3.8-flash',
+      'deepseek-flash',
       { inputTokens: 1000, outputTokens: 500, cachedTokens: 0 },
-      AT,
+      PEAK,
     )
-    expect(cost).toBe(0.002625)
+    expect(cost).toBe(0.0009)
   })
 
   it('trừ token cache khỏi phần tính giá đầy đủ', () => {
-    // Phần không cache 200 × 0,75 + cache 800 × 0,075 + ra 500 × 3,75 = 2 085 / 1e6
+    // Không cache 200 × 0,3 + cache 800 × 0,006 + ra 500 × 1,2 = 664,8 / 1e6
     const cost = computeCostUsd(
-      'gemini-3.8-flash',
+      'deepseek-flash',
       { inputTokens: 1000, outputTokens: 500, cachedTokens: 800 },
-      AT,
+      PEAK,
     )
-    expect(cost).toBe(0.002085)
+    expect(cost).toBe(0.000665)
   })
 
   it('cache làm giảm chi phí thật', () => {
     const usage = { inputTokens: 1000, outputTokens: 500, cachedTokens: 0 }
-    const khongCache = computeCostUsd('gemini-3.8-flash', usage, AT)
-    const coCache = computeCostUsd('gemini-3.8-flash', { ...usage, cachedTokens: 1000 }, AT)
+    const khongCache = computeCostUsd('deepseek-flash', usage, PEAK)
+    const coCache = computeCostUsd('deepseek-flash', { ...usage, cachedTokens: 1000 }, PEAK)
     expect(coCache).toBeLessThan(khongCache)
   })
 
-  it('dùng bảng giá của model rẻ hơn cho model rẻ', () => {
-    const usage = { inputTokens: 1000, outputTokens: 500, cachedTokens: 0 }
-    const chatLuong = computeCostUsd('gemini-3.8-flash', usage, AT)
-    const nhanh = computeCostUsd('gemini-3.5-flash-lite', usage, AT)
-    const reNhat = computeCostUsd('gemini-3.1-flash-lite', usage, AT)
+  it('giờ thấp điểm rẻ đúng bằng một nửa giờ cao điểm', () => {
+    /*
+     * Đây là điểm khác Gemini rõ nhất. DeepSeek tính một nửa giá ngoài hai khung cao điểm, và
+     * phần lớn thời gian trong ngày là thấp điểm — nên nếu bỏ qua chuyện giờ giấc thì
+     * `ai_calls.cost_usd` bị thổi lên gần gấp đôi, và phân tích biên trong docs/PRICING.md
+     * mất giá trị.
+     */
+    /*
+     * Chọn token tròn để phép so sánh không phụ thuộc làm tròn: `computeCostUsd` làm tròn 6
+     * chữ số để khớp cột `numeric(10,6)`, nên với số lẻ thì "gấp đôi" chỉ đúng trong phạm vi
+     * một đơn vị ở chữ số cuối — và một test như vậy sẽ đỏ vì lý do không liên quan tới logic.
+     *
+     * Cao điểm: 1M vào không cache × 0,3 + 1M cache × 0,006 + 1M ra × 1,2 = 1,506 USD
+     * Thấp điểm: đúng một nửa = 0,753 USD
+     */
+    const usage = { inputTokens: 2_000_000, outputTokens: 1_000_000, cachedTokens: 1_000_000 }
+    const caoDiem = computeCostUsd('deepseek-flash', usage, PEAK)
+    const thapDiem = computeCostUsd('deepseek-flash', usage, OFF_PEAK)
 
-    expect(nhanh).toBeLessThan(chatLuong)
-    expect(reNhat).toBeLessThan(nhanh)
+    expect(caoDiem).toBe(1.506)
+    expect(thapDiem).toBe(0.753)
+    expect(thapDiem * 2).toBeCloseTo(caoDiem, 10)
   })
 
-  it('đổi theo mốc giá: cùng lượt gọi, chi phí khác nhau sau 01/01/2027', () => {
+  it('cuối tuần tính giá thấp điểm dù đúng khung giờ cao điểm', () => {
+    // Thứ Bảy 26/09/2026, 02:00 UTC.
+    const weekend = new Date('2026-09-26T02:00:00Z')
     const usage = { inputTokens: 1000, outputTokens: 500, cachedTokens: 0 }
-    const truoc = computeCostUsd('gemini-3.8-flash', usage, new Date('2026-12-31T00:00:00Z'))
-    const sau = computeCostUsd('gemini-3.8-flash', usage, new Date('2027-01-01T00:00:00Z'))
-    expect(sau).toBeCloseTo(truoc * 2, 6)
+
+    expect(computeCostUsd('deepseek-flash', usage, weekend)).toBe(
+      computeCostUsd('deepseek-flash', usage, OFF_PEAK),
+    )
+  })
+
+  it('model chất lượng đắt hơn model nhanh', () => {
+    const usage = { inputTokens: 1000, outputTokens: 500, cachedTokens: 0 }
+    expect(computeCostUsd('deepseek-v4-pro', usage, PEAK)).toBeGreaterThan(
+      computeCostUsd('deepseek-flash', usage, PEAK),
+    )
+    // Và vẫn đắt hơn ở thấp điểm: hai mức giá chênh nhau chứ không triệt tiêu nhau.
+    expect(computeCostUsd('deepseek-v4-pro', usage, OFF_PEAK)).toBeGreaterThan(
+      computeCostUsd('deepseek-flash', usage, OFF_PEAK),
+    )
   })
 
   it('làm tròn 6 chữ số thập phân để khớp cột numeric(10,6)', () => {
     const cost = computeCostUsd(
-      'gemini-3.5-flash-lite',
+      'deepseek-flash',
       { inputTokens: 137, outputTokens: 29, cachedTokens: 3 },
-      AT,
+      PEAK,
     )
     expect(Number.isInteger(cost * 1_000_000)).toBe(true)
   })
 
   it('bỏ qua token âm hoặc không hữu hạn', () => {
     const cost = computeCostUsd(
-      'gemini-3.5-flash-lite',
+      'deepseek-flash',
       { inputTokens: -100, outputTokens: Number.NaN, cachedTokens: -5 },
-      AT,
+      PEAK,
     )
     expect(cost).toBe(0)
   })
 
   it('không tính âm khi cache lớn hơn tổng đầu vào', () => {
     const cost = computeCostUsd(
-      'gemini-3.5-flash-lite',
+      'deepseek-flash',
       { inputTokens: 100, outputTokens: 0, cachedTokens: 500 },
-      AT,
+      PEAK,
     )
     expect(cost).toBeGreaterThanOrEqual(0)
   })
 })
 
 describe('computeCacheStorageCostUsd', () => {
-  it('tính chi phí lưu cache theo giờ', () => {
-    // 1 000 000 token × 0,5 USD/1M/giờ × 2 giờ = 1 USD
-    expect(computeCacheStorageCostUsd('gemini-3.8-flash', 1_000_000, 2, AT)).toBe(1)
+  it('bằng 0 vì DeepSeek không thu phí lưu cache', () => {
+    // Khác Gemini: Gemini tính tiền lưu cache theo giờ. DeepSeek lưu KV cache miễn phí và chỉ
+    // thu ở token đọc lại. Giữ nguyên cách tính của Gemini ở đây là cộng thêm một khoản không
+    // tồn tại vào nhật ký chi phí.
+    expect(computeCacheStorageCostUsd('deepseek-flash', 1_000_000, 2, PEAK)).toBe(0)
   })
 
   it('bằng 0 khi không có token hoặc không có giờ', () => {
-    expect(computeCacheStorageCostUsd('gemini-3.8-flash', 0, 5, AT)).toBe(0)
-    expect(computeCacheStorageCostUsd('gemini-3.8-flash', 1000, 0, AT)).toBe(0)
+    expect(computeCacheStorageCostUsd('deepseek-flash', 0, 5, PEAK)).toBe(0)
+    expect(computeCacheStorageCostUsd('deepseek-flash', 1000, 0, PEAK)).toBe(0)
   })
 })
 

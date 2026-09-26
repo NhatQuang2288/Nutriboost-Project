@@ -14,7 +14,7 @@ Trợ lý tên **Bơ**. Sản phẩm lấy AI làm trung tâm và **tối thiể
    Model chỉ được: hiểu ngôn ngữ, chọn `food_id`, chọn khẩu phần, diễn giải.
 
 2. **Mọi lời gọi AI đi qua `@nutriboost/ai`.**
-   Không import `ai` hay `@ai-sdk/google` ở nơi khác. ESLint chặn việc này.
+   Không import `ai` hay `@ai-sdk/deepseek` ở nơi khác. ESLint chặn việc này.
 
 3. **Không dùng thư viện icon.**
    Toàn bộ icon là SVG tự vẽ trong `apps/web/src/components/icons/`. ESLint chặn.
@@ -167,20 +167,42 @@ Kiểm tra giá trị mà container thật sự nhận:
 docker inspect supabase_auth_Nutriboost_Project --format '{{range .Config.Env}}{{println .}}{{end}}' | grep GOTRUE
 ```
 
+### Giá DeepSeek phụ thuộc GIỜ, không phải chỉ ngày
+
+DeepSeek tính **một nửa giá** ngoài giờ cao điểm. Giờ cao điểm là 01:00–04:00 và 06:00–10:00
+UTC, thứ Hai tới thứ Sáu; mọi giờ khác — kể cả trọn ngày cuối tuần — là thấp điểm. Cộng lại
+khoảng **79 % thời gian trong tuần** là thấp điểm.
+
+Nên `PriceTier` có hai mức giá (`peak`, `offPeak`) chứ không một, và `computeCostUsd` phải gọi
+`rateFor(model, at)` chứ **không** `priceFor(model, at)`:
+
+```ts
+rateFor(model, at) // đúng: chọn mức theo giờ
+priceFor(model, at) // chỉ chọn MỐC giá theo ngày, dùng cho việc khác
+```
+
+Dùng nhầm `priceFor` sẽ tính giá cao điểm cho mọi lượt gọi, tức là `ai_calls.cost_usd` bị thổi
+lên gần **gấp đôi** — và phân tích biên trong `docs/PRICING.md` mất giá trị. `prices.test.ts`
+khoá cả hai đường đi này lại.
+
+Ngày lễ Trung Quốc được tính là **cao điểm** dù tài liệu DeepSeek nói lễ là thấp điểm: danh
+sách lễ đổi hằng năm và không nằm trong tài liệu API. Tính dư vài ngày mỗi năm làm trần chi phí
+chặn sớm hơn một chút; tính thiếu thì trần **không chặn** đúng lúc cần chặn.
+
 ### Test đọc biến môi trường phải kiểm soát MỌI biến nó phụ thuộc
 
-`verify` trong CI đặt bốn biến ở cấp job: `AI_KILL_SWITCH=true`, `GEMINI_API_KEY=''`,
+`verify` trong CI đặt bốn biến ở cấp job: `AI_KILL_SWITCH=true`, `DEEPSEEK_API_KEY=''`,
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ở máy thì những biến đó nằm
 trong `.env.local`, mà Vitest **không** nạp tệp đó.
 
 Nghĩa là một test có thể xanh ở máy và đỏ ở CI (hoặc ngược lại) chỉ vì môi trường khác nhau.
-Đã xảy ra thật: test "nói rõ lý do khi chưa có khoá" chỉ xoá `GEMINI_API_KEY`, trong khi
+Đã xảy ra thật: test "nói rõ lý do khi chưa có khoá" chỉ xoá `DEEPSEEK_API_KEY`, trong khi
 `aiDisabledReason` xét công tắc dừng **trước** khoá — nên ở CI nó rơi vào nhánh bảo trì và đỏ.
 
 Cách chạy để bắt được loại lỗi này trước khi đẩy:
 
 ```bash
-AI_KILL_SWITCH=true GEMINI_API_KEY='' \
+AI_KILL_SWITCH=true DEEPSEEK_API_KEY='' \
   NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
   NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-dummy-anon-key \
   npm run test
@@ -228,6 +250,29 @@ thống tạm thời, bạn thử lại sau" — trong khi thử lại bao nhiê
 
 `message` phải nói thẳng sự thật và chỉ rõ model phải nói gì. Cầu nối trong
 `packages/ai/src/chat.ts` bỏ qua kết quả từ chối nên không có thẻ giao diện nào được dựng.
+
+### Lỗi model KHÔNG ném ra ngoài — nó nằm trong stream
+
+Khi DeepSeek từ chối (khoá sai, khoá hết hạn, tài khoản chưa nạp tiền, sai tên model),
+`buildChatStreamResponse` **không ném lỗi**. AI SDK biến lỗi HTTP thành một phần tử nằm trong
+chính stream: stream chỉ có `start` rồi `error`, và hàm kết thúc bình thường.
+
+Nghĩa là `try/catch` quanh lời gọi đó **không bao giờ chạy**. Từng đúng như vậy: route ghi rõ
+ý định "Rơi về đường giả vì ứng dụng phải luôn dùng được", nhưng một khoá sai làm mọi lượt chat
+hỏng — người dùng thấy "Bơ đang gặp sự cố kết nối" và **mất luôn thẻ ghi bữa ăn**, dù bộ ước
+lượng tất định chạy tốt mà không cần mạng.
+
+Nay `inspectStreamHead` (`apps/web/src/lib/ai/stream-guard.ts`) đọc phần đầu stream rồi mới
+quyết định: gặp `error` trước khi model kịp trả chữ nào thì route rơi xuống đường tất định. Lỗi
+xác thực xảy ra trước khi model sinh chữ, nên quyết định luôn có ngay — chỉ chậm đúng một phần
+tử so với trước. **Đừng "dọn dẹp" lời gọi này đi**; bỏ nó là quay lại hỏng im lặng.
+
+Lưu ý: lỗi giữa dòng (mạng đứt sau khi đã có chữ) cố ý **không** bị coi là lỗi sớm — lúc đó đã
+có nội dung hiển thị và không thể thay bằng câu trả lời khác.
+
+Lý do thật của lỗi chỉ có ở `ChatStreamOptions.onError` — phần tử `error` mà trình duyệt nhận
+được đã bị AI SDK lược thành câu chung chung `"An error occurred."`. Route ghi lý do đó ra log;
+không có dòng log ấy thì hỏng hoàn toàn im lặng.
 
 ### Đầu ra công cụ phải tới được giao diện
 

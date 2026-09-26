@@ -36,7 +36,7 @@ export interface ChatCallInfo {
  *
  * Thứ tự giống `createAiGateway`: hạn mức lượt trước, rồi mới tới trần chi phí. Không có
  * `store` (chế độ dữ liệu mẫu, hoặc thiếu khoá service role) thì cho qua — lúc đó cũng
- * không có khoá Gemini nên không có gì để tiêu.
+ * không có khoá DeepSeek nên không có gì để tiêu.
  */
 export async function checkChatAllowance(args: {
   store: AiStore | null

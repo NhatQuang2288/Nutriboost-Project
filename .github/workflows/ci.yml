@@ -20,7 +20,7 @@ jobs:
       # Việc đọc biến môi trường trong code phải là lười (lazy), không ném lỗi lúc build.
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
-      GEMINI_API_KEY: ''
+      DEEPSEEK_API_KEY: ''
       AI_KILL_SWITCH: 'true'
 
     steps:
@@ -61,7 +61,7 @@ jobs:
       # Chạy E2E với công tắc dừng AI: đường phản hồi giả cho kết quả tất định nên
       # test không phụ thuộc dịch vụ ngoài, không cần khoá và không tốn tiền.
       AI_KILL_SWITCH: 'true'
-      GEMINI_API_KEY: ''
+      DEEPSEEK_API_KEY: ''
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
 

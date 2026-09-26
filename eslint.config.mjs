@@ -105,7 +105,7 @@ export default tseslint.config(
               message: 'Mọi lời gọi AI phải đi qua @nutriboost/ai (AI Gateway).',
             },
             {
-              name: '@ai-sdk/google',
+              name: '@ai-sdk/deepseek',
               message: 'Mọi lời gọi AI phải đi qua @nutriboost/ai (AI Gateway).',
             },
           ],
@@ -148,7 +148,7 @@ export default tseslint.config(
    * nó chỉ định dạng request và đọc stream về. Việc gọi model vẫn nằm ở server, trong
    * `@nutriboost/ai`.
    *
-   * `@ai-sdk/google` VẪN BỊ CẤM ở đây: không có đường nào để trình duyệt chạm tới model.
+   * `@ai-sdk/deepseek` VẪN BỊ CẤM ở đây: không có đường nào để trình duyệt chạm tới model.
    */
   {
     files: ['apps/web/src/components/assistant/**/*.{ts,tsx}'],
@@ -162,7 +162,7 @@ export default tseslint.config(
               message: 'Không dùng thư viện icon.',
             })),
             {
-              name: '@ai-sdk/google',
+              name: '@ai-sdk/deepseek',
               message:
                 'Không bao giờ gọi model từ trình duyệt. Mọi lời gọi phải đi qua @nutriboost/ai ở server.',
             },

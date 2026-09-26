@@ -115,7 +115,7 @@ export default defineConfig({
       // Chạy E2E với công tắc dừng AI: đường giả cho ra kết quả tất định,
       // nên test không phụ thuộc dịch vụ ngoài và không tốn tiền.
       AI_KILL_SWITCH: 'true',
-      GEMINI_API_KEY: '',
+      DEEPSEEK_API_KEY: '',
       /*
        * Phải khai báo RỖNG, không được bỏ trống hai dòng này.
        *
