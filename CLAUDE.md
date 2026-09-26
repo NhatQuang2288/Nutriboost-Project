@@ -148,6 +148,18 @@ diện.
 docker info >/dev/null && echo "docker OK" || echo "Docker chưa chạy"
 ```
 
+### Mẫu email phải dùng `token_hash`, không dùng mẫu mặc định
+
+Mẫu email mặc định của Supabase đưa người dùng qua `/auth/v1/verify` rồi trả về `?code=…` (luồng
+PKCE). Mã đó chỉ đổi được thành phiên ở **đúng trình duyệt đã gửi yêu cầu**, vì code verifier nằm
+trong cookie của nó. Bấm "Quên mật khẩu" trên máy tính rồi mở thư trên điện thoại là hỏng — người
+dùng thấy "liên kết không dùng được" ngay lần đầu. Magic link và thư xác nhận đăng ký cũng vậy.
+
+Ba mẫu trong `supabase/templates/` trỏ thẳng về `/auth/callback?token_hash=…&type=…`, và callback tự
+xác minh ở bất kỳ đâu. Local đọc chúng qua `config.toml`. **Supabase thật thì không**: phải dán nội
+dung ba tệp vào Dashboard → Authentication → Email Templates (Confirm signup, Magic Link, Reset
+Password). `npm run check:live:ui` có bước báo ra nếu thư vẫn dùng mẫu mặc định.
+
 ### Sửa `supabase/config.toml` thì phải `db:stop` rồi `db:start`
 
 Cấu hình Supabase được nhúng vào **biến môi trường của container** lúc tạo. `config.toml`

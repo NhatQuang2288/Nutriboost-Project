@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+  <body
+    style="
+      margin: 0;
+      padding: 24px;
+      background: #fafaf7;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #324b2e;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="
+        max-width: 520px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 32px;
+      "
+    >
+      <tr>
+        <td>
+          <p
+            style="
+              margin: 0 0 4px;
+              font-size: 13px;
+              font-weight: bold;
+              letter-spacing: 2px;
+              color: #839b4a;
+            "
+          >
+            NUTRIBOOST
+          </p>
+          <h1 style="margin: 0 0 16px; font-size: 22px; color: #283c25">Xác nhận email của bạn</h1>
+          <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #57574e">
+            Bơ chào bạn! Bấm nút dưới đây để xác nhận email và bắt đầu dùng NutriBoost.
+          </p>
+          <p style="margin: 0 0 24px">
+            <a
+              href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+              style="
+                display: inline-block;
+                background: #324b2e;
+                color: #ffffff;
+                text-decoration: none;
+                font-weight: bold;
+                padding: 14px 24px;
+                border-radius: 10px;
+              "
+              >Xác nhận email</a
+            >
+          </p>
+          <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #7a7a70">
+            Nếu bạn không tạo tài khoản NutriBoost, cứ bỏ qua thư này.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

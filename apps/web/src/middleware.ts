@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { safeNextPath } from '@/lib/auth/redirect'
 import { isGuestOnlyPage, isProtectedApi, isProtectedPage } from '@/lib/auth/routes'
 import { updateSession } from '@/lib/supabase/middleware'
 
@@ -35,9 +36,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return response
   }
 
-  // Đã đăng nhập mà còn vào màn đăng nhập, đăng ký hay quên mật khẩu thì đưa vào ứng dụng.
+  /*
+   * Đã đăng nhập mà còn vào màn đăng nhập, đăng ký hay quên mật khẩu thì đưa vào ứng dụng — tới
+   * đúng `next` nếu có. Trước đây luôn về `/hom-nay`: khách mở liên kết mời, đăng nhập ở tab khác
+   * rồi tải lại trang thì mất mã mời.
+   */
   if (userId !== null && isGuestOnlyPage(pathname)) {
-    return keepCookies(response, request, '/hom-nay')
+    return keepCookies(response, request, safeNextPath(request.nextUrl.searchParams.get('next')))
   }
 
   if (isProtectedPage(pathname) && userId === null) {
@@ -59,9 +64,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
  */
 function keepCookies(from: NextResponse, request: NextRequest, path: string): NextResponse {
   const url = request.nextUrl.clone()
-  const [pathname = '/', query = ''] = path.split('?')
-  url.pathname = pathname
-  url.search = query.length > 0 ? `?${query}` : ''
+  // Cắt ở dấu `?` ĐẦU TIÊN: `path` có thể là `next` do người dùng đưa vào, và `split('?')`
+  // sẽ lặng lẽ bỏ mất phần sau của một query có dấu `?` thứ hai.
+  const cut = path.indexOf('?')
+  url.pathname = cut === -1 ? path : path.slice(0, cut)
+  url.search = cut === -1 ? '' : path.slice(cut)
 
   const redirect = NextResponse.redirect(url)
   for (const cookie of from.cookies.getAll()) redirect.cookies.set(cookie)
