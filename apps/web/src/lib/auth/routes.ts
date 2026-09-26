@@ -22,6 +22,15 @@ export const PROTECTED_PREFIXES = [
   '/tham-gia',
 ] as const
 
+/**
+ * Màn chỉ dành cho người **chưa** đăng nhập. Đã có phiên mà mở các màn này thì middleware đưa
+ * thẳng vào ứng dụng.
+ *
+ * `/dat-lai-mat-khau` cố ý không có ở đây: người dùng tới màn đó **nhờ** có phiên (từ liên kết
+ * quên mật khẩu), nên đẩy họ đi là mất luôn lý do họ mở email.
+ */
+export const GUEST_ONLY_PAGES = ['/dang-nhap', '/dang-ky', '/quen-mat-khau'] as const
+
 /** API bắt buộc phải đăng nhập — trả 401 JSON, không redirect. */
 export const PROTECTED_API_PREFIXES = ['/api/ai'] as const
 
@@ -41,4 +50,8 @@ export function isProtectedPage(pathname: string): boolean {
 
 export function isProtectedApi(pathname: string): boolean {
   return matchesPrefix(pathname, PROTECTED_API_PREFIXES)
+}
+
+export function isGuestOnlyPage(pathname: string): boolean {
+  return (GUEST_ONLY_PAGES as readonly string[]).includes(pathname)
 }

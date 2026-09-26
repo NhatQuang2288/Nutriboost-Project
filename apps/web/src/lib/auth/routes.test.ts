@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   PROTECTED_API_PREFIXES,
   PROTECTED_PREFIXES,
+  isGuestOnlyPage,
   isProtectedApi,
   isProtectedPage,
   matchesPrefix,
@@ -52,17 +53,45 @@ describe('danh sách route bảo vệ', () => {
   })
 
   it('để mở màn đăng nhập và route xác thực', () => {
-    for (const path of ['/dang-nhap', '/auth/callback', '/dang-xuat']) {
+    for (const path of [
+      '/dang-nhap',
+      '/dang-ky',
+      '/quen-mat-khau',
+      '/dat-lai-mat-khau',
+      '/auth/callback',
+      '/dang-xuat',
+    ]) {
       expect(isProtectedPage(path), `${path} không được chặn`).toBe(false)
     }
   })
 
-  it('bảo vệ API trợ lý nhưng không bảo vệ API gửi liên kết đăng nhập', () => {
+  it('bảo vệ API trợ lý nhưng không bảo vệ API tài khoản', () => {
     expect(isProtectedApi('/api/ai/chat')).toBe(true)
-    expect(isProtectedApi('/api/auth/magic-link')).toBe(false)
+    for (const path of [
+      '/api/auth/magic-link',
+      '/api/auth/sign-in',
+      '/api/auth/sign-up',
+      '/api/auth/forgot-password',
+      // Route này tự kiểm phiên và trả 401 kèm lời giải thích về liên kết hết hạn.
+      '/api/auth/update-password',
+    ]) {
+      expect(isProtectedApi(path), `${path} không được chặn`).toBe(false)
+    }
   })
 
   it('danh sách API nằm trong hằng số đã xuất', () => {
     expect(PROTECTED_API_PREFIXES).toContain('/api/ai')
+  })
+})
+
+describe('màn chỉ dành cho người chưa đăng nhập', () => {
+  it('gồm đăng nhập, đăng ký và quên mật khẩu', () => {
+    for (const path of ['/dang-nhap', '/dang-ky', '/quen-mat-khau']) {
+      expect(isGuestOnlyPage(path), `${path}`).toBe(true)
+    }
+  })
+
+  it('KHÔNG gồm màn đặt mật khẩu mới — người dùng tới đó nhờ có phiên', () => {
+    expect(isGuestOnlyPage('/dat-lai-mat-khau')).toBe(false)
   })
 })

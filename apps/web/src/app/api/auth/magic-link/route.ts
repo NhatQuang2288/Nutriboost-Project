@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@nutriboost/db'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { NEXT_COOKIE, safeNextPath } from '@/lib/auth/redirect'
+import { safeNextPath } from '@/lib/auth/redirect'
+import { rememberNextPath } from '@/lib/auth/session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -11,8 +11,9 @@ export const dynamic = 'force-dynamic'
 /**
  * Gửi liên kết đăng nhập bằng email (magic link).
  *
- * Dùng magic link thay vì mật khẩu: ít thao tác hơn cho người dùng, và không phải
- * quản lý băm mật khẩu. Đây là lựa chọn có chủ ý theo nguyên tắc "hạn chế thao tác".
+ * Cách đăng nhập chính nay là email + mật khẩu (`/api/auth/sign-in`). Magic link được giữ làm
+ * lối phụ vì hai lý do: tài khoản tạo trước khi có mật khẩu **chưa có mật khẩu nào** nên chỉ
+ * vào được bằng đường này, và `npm run check:live:ui` kiểm luồng đăng nhập thật qua nó.
  *
  * Khi chưa cấu hình Supabase, route trả 503 kèm lời giải thích — không giả vờ thành công.
  */
@@ -70,17 +71,7 @@ export async function POST(request: Request): Promise<Response> {
   const origin = new URL(request.url).origin
   const next = safeNextPath(parsed.data.next)
 
-  const cookieStore = await cookies()
-  cookieStore.set(NEXT_COOKIE, next, {
-    httpOnly: true,
-    // `lax` là mức tối thiểu vẫn cho cookie đi kèm khi người dùng mở liên kết trong email:
-    // đó là một lượt điều hướng cấp cao nhất từ tên miền khác.
-    sameSite: 'lax',
-    // Trên `http://127.0.0.1`, cookie có `secure` sẽ bị trình duyệt bỏ luôn.
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60,
-  })
+  await rememberNextPath(next)
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
