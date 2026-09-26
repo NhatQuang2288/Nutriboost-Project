@@ -139,7 +139,6 @@ export default async function ApprovalQueuePage() {
                   <div className="p-5 sm:p-6">
                     <div className="flex flex-col gap-5">
                       {/* CUSTOMER */}
-
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex min-w-0 items-center gap-3.5">
                           <div
@@ -162,8 +161,6 @@ export default async function ApprovalQueuePage() {
                             </p>
                           </div>
                         </div>
-
-                        {/* PROFILE */}
 
                         <Link
                           href={`/pt/khach/${approval.clientId}`}

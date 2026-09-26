@@ -185,7 +185,6 @@ function SummaryCard({
       ].join(' ')}
     >
       {/* DECORATIVE CIRCLE */}
-
       {current ? (
         <div className="absolute -top-6 -right-6 size-20 rounded-full bg-[#dfedc5]" />
       ) : null}
