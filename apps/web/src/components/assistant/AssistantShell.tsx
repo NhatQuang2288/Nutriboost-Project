@@ -54,7 +54,9 @@ export function AssistantShell({
         <AssistantDock />
       </div>
 
-      {mode === 'bar' ? <AskBar /> : null}
+      {mode === 'bar' ? (
+        <AskBar aboveBottomNav={nav !== null} besideSidebar={ptLayout && sidebar !== undefined} />
+      ) : null}
 
       {nav === undefined ? <BottomNav /> : nav}
     </AssistantProvider>

@@ -32,13 +32,9 @@ interface SpeechRecognitionInstance {
 
   onstart: (() => void) | null
 
-  onresult:
-    | ((event: SpeechRecognitionEventLike) => void)
-    | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
 
-  onerror:
-    | ((event: SpeechRecognitionErrorEventLike) => void)
-    | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
 
   onend: (() => void) | null
 }
@@ -79,20 +75,16 @@ const MAX_SECONDS = 10
  * ============================================
  */
 
-export function VoiceInput({
-  onResult,
-}: VoiceInputProps) {
+export function VoiceInput({ onResult }: VoiceInputProps) {
   /*
    * --------------------------------------------
    * STATE
    * --------------------------------------------
    */
 
-  const [isListening, setIsListening] =
-    useState(false)
+  const [isListening, setIsListening] = useState(false)
 
-  const [remainingTime, setRemainingTime] =
-    useState(MAX_SECONDS)
+  const [remainingTime, setRemainingTime] = useState(MAX_SECONDS)
 
   /*
    * --------------------------------------------
@@ -101,38 +93,25 @@ export function VoiceInput({
    */
 
   // Speech Recognition hiện tại
-  const recognitionRef =
-    useRef<SpeechRecognitionInstance | null>(
-      null,
-    )
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
 
   // Trạng thái microphone
-  const isListeningRef =
-    useRef(false)
+  const isListeningRef = useRef(false)
 
   // Phần text đã được Speech Recognition xác nhận
-  const finalTextRef =
-    useRef('')
+  const finalTextRef = useRef('')
 
   // Phần text đang nhận tạm thời
-  const interimTextRef =
-    useRef('')
+  const interimTextRef = useRef('')
 
   // Timer countdown
-  const timerRef =
-    useRef<ReturnType<typeof setInterval> | null>(
-      null,
-    )
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Timeout 10 giây
-  const timeoutRef =
-    useRef<ReturnType<typeof setTimeout> | null>(
-      null,
-    )
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Tránh finishListening chạy nhiều lần
-  const finishingRef =
-    useRef(false)
+  const finishingRef = useRef(false)
 
   /*
    * ============================================
@@ -167,9 +146,7 @@ export function VoiceInput({
    */
 
   const getCurrentText = () => {
-    const text =
-      finalTextRef.current +
-      interimTextRef.current
+    const text = finalTextRef.current + interimTextRef.current
 
     return text.trim()
   }
@@ -230,13 +207,9 @@ export function VoiceInput({
      * kết quả:
      * "Tôi muốn ăn phở bò"
      */
-    const finalText =
-      getCurrentText()
+    const finalText = getCurrentText()
 
-    console.log(
-      '🎤 Kết quả cuối cùng:',
-      finalText,
-    )
+    console.log('🎤 Kết quả cuối cùng:', finalText)
 
     /*
      * Đưa text ra component cha
@@ -271,9 +244,7 @@ export function VoiceInput({
      * Một số browser dùng:
      * SpeechRecognition
      */
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
     /*
      * Browser không hỗ trợ
@@ -296,8 +267,7 @@ export function VoiceInput({
     /*
      * Tạo recognition mới
      */
-    const recognition =
-      new SpeechRecognition()
+    const recognition = new SpeechRecognition()
 
     /*
      * Ngôn ngữ tiếng Việt
@@ -334,8 +304,7 @@ export function VoiceInput({
     /*
      * Lưu recognition
      */
-    recognitionRef.current =
-      recognition
+    recognitionRef.current = recognition
 
     /*
      * Đánh dấu đang nghe
@@ -356,9 +325,7 @@ export function VoiceInput({
      */
 
     recognition.onstart = () => {
-      console.log(
-        '🎤 Microphone bắt đầu nghe',
-      )
+      console.log('🎤 Microphone bắt đầu nghe')
     }
 
     /*
@@ -367,9 +334,7 @@ export function VoiceInput({
      * ==========================================
      */
 
-    recognition.onresult = (
-      event,
-    ) => {
+    recognition.onresult = (event) => {
       /*
        * Text đang nói
        */
@@ -378,23 +343,18 @@ export function VoiceInput({
       /*
        * Duyệt qua các kết quả
        */
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
-        const result =
-          event.results[i]
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
 
-        const text =
-          result[0].transcript
+        if (!result) continue
+
+        const text = result[0]?.transcript ?? ''
 
         /*
          * Nếu browser đã xác nhận câu
          */
         if (result.isFinal) {
-          finalTextRef.current +=
-            text + ' '
+          finalTextRef.current += text + ' '
         }
 
         /*
@@ -408,21 +368,17 @@ export function VoiceInput({
       /*
        * Lưu phần đang nói
        */
-      interimTextRef.current =
-        interimText
+      interimTextRef.current = interimText
 
       /*
        * Ghép toàn bộ text
        */
-      const currentText =
-        getCurrentText()
+      const currentText = getCurrentText()
 
       /*
        * Cập nhật textarea realtime
        */
-      if (
-        currentText.length > 0
-      ) {
+      if (currentText.length > 0) {
         onResult(currentText)
       }
     }
@@ -433,33 +389,22 @@ export function VoiceInput({
      * ==========================================
      */
 
-    recognition.onerror = (
-      event,
-    ) => {
-      console.error(
-        'Speech Recognition Error:',
-        event.error,
-      )
+    recognition.onerror = (event) => {
+      console.error('Speech Recognition Error:', event.error)
 
       /*
        * Không có giọng nói
        *
        * Không cần tắt ngay.
        */
-      if (
-        event.error ===
-        'no-speech'
-      ) {
+      if (event.error === 'no-speech') {
         return
       }
 
       /*
        * Người dùng chủ động stop
        */
-      if (
-        event.error ===
-        'aborted'
-      ) {
+      if (event.error === 'aborted') {
         return
       }
 
@@ -476,9 +421,7 @@ export function VoiceInput({
      */
 
     recognition.onend = () => {
-      console.log(
-        '🎤 Speech Recognition ended',
-      )
+      console.log('🎤 Speech Recognition ended')
 
       /*
        * Chrome đôi khi tự stop.
@@ -486,20 +429,13 @@ export function VoiceInput({
        * Nếu chúng ta vẫn muốn nghe
        * thì start lại.
        */
-      if (
-        isListeningRef.current &&
-        !finishingRef.current
-      ) {
+      if (isListeningRef.current && !finishingRef.current) {
         try {
           recognition.start()
 
-          console.log(
-            '🎤 Speech Recognition restarted',
-          )
+          console.log('🎤 Speech Recognition restarted')
         } catch {
-          console.log(
-            'Không thể restart recognition',
-          )
+          console.log('Không thể restart recognition')
         }
       }
     }
@@ -513,13 +449,9 @@ export function VoiceInput({
     try {
       recognition.start()
     } catch (error) {
-      console.error(
-        'Không thể bắt đầu microphone:',
-        error,
-      )
+      console.error('Không thể bắt đầu microphone:', error)
 
-      isListeningRef.current =
-        false
+      isListeningRef.current = false
 
       setIsListening(false)
 
@@ -534,29 +466,21 @@ export function VoiceInput({
 
     let seconds = MAX_SECONDS
 
-    timerRef.current =
-      setInterval(() => {
-        seconds -= 1
+    timerRef.current = setInterval(() => {
+      seconds -= 1
 
-        /*
-         * Không cho xuống âm
-         */
-        setRemainingTime(
-          Math.max(
-            seconds,
-            0,
-          ),
-        )
+      /*
+       * Không cho xuống âm
+       */
+      setRemainingTime(Math.max(seconds, 0))
 
-        /*
-         * Countdown hết
-         */
-        if (
-          seconds <= 0
-        ) {
-          clearTimers()
-        }
-      }, 1000)
+      /*
+       * Countdown hết
+       */
+      if (seconds <= 0) {
+        clearTimers()
+      }
+    }, 1000)
 
     /*
      * ==========================================
@@ -564,14 +488,11 @@ export function VoiceInput({
      * ==========================================
      */
 
-    timeoutRef.current =
-      setTimeout(() => {
-        console.log(
-          '⏱️ Đã đủ 10 giây',
-        )
+    timeoutRef.current = setTimeout(() => {
+      console.log('⏱️ Đã đủ 10 giây')
 
-        finishListening()
-      }, MAX_RECORDING_TIME)
+      finishListening()
+    }, MAX_RECORDING_TIME)
   }
 
   /*
@@ -581,9 +502,7 @@ export function VoiceInput({
    */
 
   const stopListening = () => {
-    console.log(
-      '🛑 Người dùng dừng microphone',
-    )
+    console.log('🛑 Người dùng dừng microphone')
 
     finishListening()
   }
@@ -599,8 +518,7 @@ export function VoiceInput({
       /*
        * Đánh dấu đã dừng
        */
-      isListeningRef.current =
-        false
+      isListeningRef.current = false
 
       /*
        * Xóa timer
@@ -616,8 +534,7 @@ export function VoiceInput({
         // ignore
       }
 
-      recognitionRef.current =
-        null
+      recognitionRef.current = null
     }
   }, [])
 
@@ -630,34 +547,14 @@ export function VoiceInput({
   return (
     <button
       type="button"
-      onClick={
-        isListening
-          ? stopListening
-          : startListening
-      }
-      aria-label={
-        isListening
-          ? 'Dừng nhập bằng giọng nói'
-          : 'Nhập bằng giọng nói'
-      }
-      title={
-        isListening
-          ? 'Dừng nhập bằng giọng nói'
-          : 'Nhập bằng giọng nói'
-      }
+      onClick={isListening ? stopListening : startListening}
+      aria-label={isListening ? 'Dừng nhập bằng giọng nói' : 'Nhập bằng giọng nói'}
+      title={isListening ? 'Dừng nhập bằng giọng nói' : 'Nhập bằng giọng nói'}
       className={`touch-target relative flex size-9 shrink-0 items-center justify-center rounded-md transition-colors ${
-        isListening
-          ? 'bg-red-500 text-white'
-          : 'text-ink-muted hover:bg-surface-sunken'
+        isListening ? 'bg-red-500 text-white' : 'text-ink-muted hover:bg-surface-sunken'
       }`}
     >
-      {isListening ? (
-        <span className="text-xs font-semibold">
-          {remainingTime}s
-        </span>
-      ) : (
-        '🎤'
-      )}
+      {isListening ? <span className="text-xs font-semibold">{remainingTime}s</span> : '🎤'}
     </button>
   )
 }
