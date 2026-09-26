@@ -28,7 +28,7 @@ const APP_ENV_LINK = 'apps/web/.env.local'
 const REQUIRED = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']
 
 /** Biến nên có nhưng thiếu vẫn chạy được. */
-const OPTIONAL = ['SUPABASE_SERVICE_ROLE_KEY', 'GEMINI_API_KEY']
+const OPTIONAL = ['SUPABASE_SERVICE_ROLE_KEY', 'DEEPSEEK_API_KEY']
 
 /** Đọc `.env.local`: KEY=VALUE, bỏ comment, bỏ dấu nháy bao quanh. */
 function readEnvFile(path) {
@@ -229,9 +229,9 @@ async function main() {
     console.info(`  CẢNH  anon key trả về HTTP ${anonProbe.status}`)
   }
 
-  if (!env.get('GEMINI_API_KEY')) {
+  if (!env.get('DEEPSEEK_API_KEY')) {
     console.info('')
-    console.info('  Ghi chú: chưa có GEMINI_API_KEY nên trợ lý Bơ sẽ trả câu mặc định.')
+    console.info('  Ghi chú: chưa có DEEPSEEK_API_KEY nên trợ lý Bơ sẽ trả câu mặc định.')
     console.info('  Mọi thứ khác — dựng thực đơn, lịch tập, tính calo — vẫn chạy bình thường.')
   }
 

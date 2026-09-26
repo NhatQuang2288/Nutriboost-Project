@@ -25,7 +25,7 @@ if (!existsSync(SOURCE)) {
   console.error('Tạo file trước:')
   console.error('  cp .env.example .env.local')
   console.error('')
-  console.error('Rồi điền khoá Supabase và GEMINI_API_KEY vào đó.')
+  console.error('Rồi điền khoá Supabase và DEEPSEEK_API_KEY vào đó.')
   process.exit(1)
 }
 
