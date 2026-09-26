@@ -1,0 +1,30 @@
+# Git hook — chạy nhanh, không phụ thuộc node_modules của husky.
+# Cài: npx lefthook install
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: prettier
+      glob: '*.{ts,tsx,js,mjs,json,md,css,yml,yaml}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    - name: eslint
+      glob: '*.{ts,tsx}'
+      run: npx eslint --max-warnings=0 --no-warn-ignored {staged_files}
+
+    - name: chặn thư viện icon
+      run: node scripts/check-no-icon-libs.mjs
+
+commit-msg:
+  jobs:
+    - name: conventional commit
+      run: node scripts/check-commit-msg.mjs {1}
+
+pre-push:
+  jobs:
+    - name: typecheck
+      run: npm run typecheck
+
+    - name: test
+      run: npm run test

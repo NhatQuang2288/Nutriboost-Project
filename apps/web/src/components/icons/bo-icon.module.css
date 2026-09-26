@@ -1,0 +1,119 @@
+/*
+ * Trạng thái của BoIcon.
+ *
+ * Tất cả chuyển động đều bằng CSS, không bằng JS, để icon không gây render thêm
+ * khi đang stream câu trả lời.
+ */
+
+.icon {
+  display: inline-block;
+  vertical-align: -0.125em;
+  overflow: visible;
+}
+
+/* Chỉ hiện ở trạng thái tương ứng */
+.dial,
+.eyeOpen {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * idle — mắt cong như logo, cả icon nhịp thở nhẹ
+ * ------------------------------------------------------------------------- */
+.idle {
+  animation: bo-breathe 4s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * thinking — mắt phải biến thành mặt đồng hồ quay, mầm lá đung đưa
+ * ------------------------------------------------------------------------- */
+.thinking .dial {
+  display: block;
+}
+
+.thinking .eyeArcRight {
+  display: none;
+}
+
+.thinking .leaves,
+.speaking .leaves {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.thinking .leaves {
+  animation: bo-sway 1.2s ease-in-out infinite;
+}
+
+.thinking .tick {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: bo-spin 1.1s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * speaking — mắt mở tròn, mầm lá vươn nhanh hơn
+ * ------------------------------------------------------------------------- */
+.speaking .eyeArc {
+  display: none;
+}
+
+.speaking .eyeOpen {
+  display: block;
+}
+
+.speaking .leaves {
+  animation: bo-sway 0.8s ease-in-out infinite;
+}
+
+.speaking .eyeOpen {
+  animation: bo-blink 2.4s ease-in-out infinite;
+}
+
+@keyframes bo-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.6px);
+  }
+}
+
+@keyframes bo-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes bo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bo-blink {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 0.2;
+  }
+}
+
+/* Người dùng tắt hiệu ứng chuyển động: giữ hình tĩnh, không mất thông tin. */
+@media (prefers-reduced-motion: reduce) {
+  .idle,
+  .thinking .leaves,
+  .thinking .tick,
+  .speaking .leaves,
+  .speaking .eyeOpen {
+    animation: none;
+  }
+}
