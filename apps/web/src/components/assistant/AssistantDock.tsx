@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { Streamdown, defaultRehypePlugins, type StreamdownProps } from 'streamdown'
 
 import { ASSISTANT } from '@nutriboost/ai/identity'
 import { parseGenerativePayload } from '@nutriboost/ai/schemas'
@@ -484,6 +485,19 @@ function MessageBubble({ message }: MessageBubbleProps) {
   )
 }
 
+/**
+ * Plugin cho Markdown trong câu trả lời của Bơ.
+ *
+ * Mặc định Streamdown bật `raw` — plugin dựng HTML thô thành phần tử thật, rồi mới làm sạch —
+ * nên `<b>`, `<a>` do model sinh ra vẫn hiện thành thẻ. Hợp đồng §9.4 nói KHÔNG bật HTML thô, nên
+ * bỏ `raw` và chỉ giữ `sanitize` (danh sách trắng thẻ) cùng `harden` (chặn liên kết nguy hiểm).
+ * Tuỳ chọn `skipHtml` không đủ: đã thử, thẻ `<b>` vẫn lọt qua.
+ */
+const MARKDOWN_REHYPE_PLUGINS: NonNullable<StreamdownProps['rehypePlugins']> = [
+  defaultRehypePlugins.sanitize,
+  defaultRehypePlugins.harden,
+].filter((plugin) => plugin !== undefined)
+
 function renderPart(part: RenderablePart, index: number): React.ReactNode {
   if (part.type === 'text') {
     const text = part.text ?? ''
@@ -492,10 +506,22 @@ function renderPart(part: RenderablePart, index: number): React.ReactNode {
       return null
     }
 
+    /*
+     * Model trả lời bằng Markdown (`**2.360 kcal**`, gạch đầu dòng). In thô thì người dùng thấy
+     * nguyên dấu sao. Hợp đồng docs/ASSISTANT-UX.md §9.4: Markdown qua `streamdown`, KHÔNG bật
+     * HTML thô — xem `MARKDOWN_REHYPE_PLUGINS`.
+     */
     return (
-      <p key={index} className="text-body text-ink leading-relaxed whitespace-pre-wrap">
+      <Streamdown
+        key={index}
+        rehypePlugins={MARKDOWN_REHYPE_PLUGINS}
+        // Ảnh do model chèn sẽ được tải từ máy chủ bất kỳ, để lộ IP người dùng. Bơ không cần ảnh.
+        disallowedElements={['img']}
+        controls={false}
+        className="text-body text-ink leading-relaxed"
+      >
         {text}
-      </p>
+      </Streamdown>
     )
   }
 

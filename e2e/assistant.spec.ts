@@ -257,6 +257,51 @@ test.describe('§11.11 — tôn trọng prefers-reduced-motion', () => {
   })
 })
 
+test.describe('§9.4 — câu trả lời hiển thị Markdown, không dựng HTML thô', () => {
+  test('chữ đậm và danh sách hiện đúng; thẻ HTML model sinh ra không thành phần tử', async ({
+    page,
+  }) => {
+    await page.route('**/api/ai/chat', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+        body: sse([
+          { type: 'start' },
+          { type: 'text-start', id: 't1' },
+          {
+            type: 'text-delta',
+            id: 't1',
+            delta:
+              'Hôm nay bạn còn **2.360 kcal**.\n\n- Bữa trưa: cơm gạo lứt\n- Bữa tối: canh rau\n\n' +
+              '<img src="x" onerror="window.__bi_tan_cong = true"><b>thẻ lạ</b>',
+          },
+          { type: 'text-end', id: 't1' },
+          { type: 'finish' },
+        ]),
+      })
+    })
+
+    await page.goto('/hom-nay')
+    await askFromBar(page, 'hôm nay mình còn bao nhiêu calo')
+
+    const list = page.getByTestId('message-list')
+    // Markdown được dựng: Streamdown vẽ chữ đậm bằng `span[data-streamdown="strong"]`, và
+    // không còn dấu sao thô.
+    await expect(
+      list.locator('[data-streamdown="strong"]', { hasText: '2.360 kcal' }),
+    ).toBeVisible()
+    await expect(list).not.toContainText('**')
+    // Chỉ đếm mục do Markdown dựng — bản thân danh sách tin nhắn cũng dùng `<li>`.
+    await expect(list.locator('[data-streamdown="list-item"]')).toHaveCount(2)
+    // HTML thô bị bỏ: không có <img>, không có <b> do model sinh, và không chạy được mã nào.
+    await expect(list.locator('img')).toHaveCount(0)
+    await expect(list.locator('b', { hasText: 'thẻ lạ' })).toHaveCount(0)
+    expect(await page.evaluate(() => (window as { __bi_tan_cong?: boolean }).__bi_tan_cong)).toBe(
+      undefined,
+    )
+  })
+})
+
 test.describe('§11.12 — generative UI chỉ render thành phần trong sổ đăng ký', () => {
   test('tên thành phần lạ thì hiện thẻ dự phòng, không vỡ giao diện', async ({ page }) => {
     await page.route('**/api/ai/chat', async (route) => {

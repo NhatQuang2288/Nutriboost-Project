@@ -10,6 +10,13 @@
 
 @import 'tailwindcss';
 
+/*
+ * Streamdown (hiển thị Markdown trong câu trả lời của Bơ) dùng class Tailwind trong mã của nó.
+ * Tailwind không quét `node_modules`, nên thiếu dòng này thì danh sách, chữ đậm, bảng… hiện ra
+ * không có kiểu. Đường dẫn tính từ tệp này tới `node_modules` ở gốc monorepo.
+ */
+@source '../../../../node_modules/streamdown/dist/*.js';
+
 /* Tailwind 4 mặc định dùng `prefers-color-scheme` cho biến thể `dark:`. */
 
 @theme {
