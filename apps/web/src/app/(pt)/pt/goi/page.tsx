@@ -160,6 +160,8 @@ export default async function TiersPage() {
 
 /* ================================================================
    SUMMARY CARD
+================================================================ */
+
 function SummaryCard({
   label,
   clientLimit,
@@ -232,6 +234,173 @@ function SummaryCard({
 
 /* ================================================================
    TIER CARD
+================================================================ */
+
+function TierCard({ offer }: { offer: Awaited<ReturnType<typeof getTierOffers>>[number] }) {
+  const theme =
+    offer.tier === 'plus'
+      ? {
+          border: 'border-[#dce8c8]',
+          bg: 'bg-[#fbfcf8]',
+          icon: 'bg-[#e9f3d8] text-[#729145]',
+          accent: 'bg-[#9bc565]',
+          soft: 'bg-[#f0f6e5]',
+          text: 'text-[#627d3c]',
+        }
+      : offer.tier === 'diamond'
+        ? {
+            border: 'border-[#d9e7ed]',
+            bg: 'bg-[#fbfdfe]',
+            icon: 'bg-[#e2f0f4] text-[#648f9a]',
+            accent: 'bg-[#8db8c2]',
+            soft: 'bg-[#eef7f8]',
+            text: 'text-[#628b95]',
+          }
+        : {
+            border: 'border-[#eee1bc]',
+            bg: 'bg-[#fffdfa]',
+            icon: 'bg-[#fff1c9] text-[#a1812e]',
+            accent: 'bg-[#d5b64f]',
+            soft: 'bg-[#fff8e7]',
+            text: 'text-[#9a7b29]',
+          }
+
+  const icon = offer.tier === 'plus' ? '🌱' : offer.tier === 'diamond' ? '💎' : '⭐'
+
+  return (
+    <Card
+      as="article"
+      className={[
+        'relative flex h-full flex-col overflow-hidden rounded-[26px] transition-all duration-200',
+        offer.current
+          ? `${theme.border} ${theme.bg} border-2 shadow-[0_7px_20px_rgba(70,90,60,0.09)]`
+          : `border ${theme.border} ${theme.bg} shadow-[0_3px_12px_rgba(50,70,55,0.04)] hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(50,70,55,0.08)]`,
+      ].join(' ')}
+    >
+      {/* TOP COLOR */}
+
+      <div className={`h-1.5 w-full ${theme.accent}`} />
+
+      <div className="flex h-full flex-col p-5 sm:p-6">
+        {/* BADGE */}
+
+        <div className="flex items-start justify-between gap-3">
+          <span
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[8px] font-bold ${theme.soft} ${theme.text}`}
+          >
+            <span className="size-1.5 rounded-full bg-current" />
+            GÓI DỊCH VỤ
+          </span>
+
+          {offer.current ? (
+            <span className="rounded-full bg-[#5e7d38] px-3 py-1.5 text-[7px] font-bold text-white">
+              GÓI HIỆN TẠI
+            </span>
+          ) : null}
+        </div>
+
+        {/* TITLE */}
+
+        <div className="mt-5 flex items-center gap-3">
+          <div
+            className={`flex size-12 shrink-0 items-center justify-center rounded-2xl text-[21px] ${theme.icon}`}
+          >
+            {icon}
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="text-[20px] font-bold tracking-[-0.025em] text-[#354139]">
+              {offer.label}
+            </h2>
+
+            <p className="mt-0.5 text-[9px] text-[#8b948b]">
+              Tối đa {offer.clientLimit} khách hàng
+            </p>
+          </div>
+        </div>
+
+        {/* PRICE */}
+
+        <div className="mt-6">
+          <p className="text-[29px] font-bold tracking-[-0.04em] text-[#303c34]">
+            {formatVnd(offer.priceVnd)}
+          </p>
+
+          <p className="mt-1 text-[9px] text-[#929a92]">mỗi tháng</p>
+        </div>
+
+        {/* PRICE PER CLIENT */}
+
+        <div className={`mt-5 rounded-[18px] p-4 ${theme.soft}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[7px] font-medium text-[#9aa198]">CHI PHÍ TRUNG BÌNH</p>
+
+              <p className={`mt-1 text-[13px] font-bold ${theme.text}`}>
+                {formatVnd(offer.pricePerClient)}
+              </p>
+            </div>
+
+            <span className="rounded-full bg-white px-2.5 py-1 text-[7px] font-medium text-[#8b948b]">
+              / khách
+            </span>
+          </div>
+        </div>
+
+        {/* FEATURES */}
+
+        <div className="mt-6 flex-1 border-t border-[#edf0ea] pt-5">
+          <p className="text-[11px] font-bold text-[#465248]">Bao gồm</p>
+
+          <ul className="mt-4 flex flex-col gap-3.5">
+            <Feature>Thực đơn cá nhân hoá theo mục tiêu năng lượng</Feature>
+
+            <Feature>Lịch tập dựng theo trình độ và chấn thương</Feature>
+
+            <Feature>Nhắc nhở tự động, giới hạn 4 lần mỗi ngày</Feature>
+
+            <Feature strong>{offer.aiTurnsPerClient} lượt trợ lý AI mỗi khách mỗi tháng</Feature>
+
+            {offer.tier !== 'plus' ? (
+              <Feature>Thương hiệu riêng trên ứng dụng khách</Feature>
+            ) : null}
+
+            {offer.tier === 'diamond' ? <Feature>Nhiều PT trong một tài khoản</Feature> : null}
+          </ul>
+        </div>
+
+        {/* FOOTER */}
+
+        <div className="mt-6 rounded-[18px] border border-[#e9ede5] bg-white px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span
+              className={`flex size-8 items-center justify-center rounded-full ${theme.soft} ${theme.text}`}
+            >
+              <CheckIcon size={15} />
+            </span>
+
+            <div>
+              <p className="text-[9px] font-bold text-[#465248]">Trợ lý AI</p>
+
+              <p className="mt-0.5 text-[8px] text-[#9aa198]">
+                {offer.aiTurnsPerClient} lượt / khách / tháng
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+/* ================================================================
+   FEATURE
+================================================================ */
+
+function Feature({ children, strong = false }: { children: React.ReactNode; strong?: boolean }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#eaf2dc] text-[#6f8d42]">
         <CheckIcon size={13} />
       </span>
 

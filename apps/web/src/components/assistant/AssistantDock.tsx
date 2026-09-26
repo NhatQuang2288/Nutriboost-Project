@@ -339,6 +339,8 @@ function DockBody() {
             }}
           />
 
+          <VoiceInput onResult={(text) => setDraft(text)} />
+
           <button
             type="submit"
             aria-label="Gửi tin nhắn"

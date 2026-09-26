@@ -386,8 +386,10 @@ export function VoiceInput({
         const result =
           event.results[i]
 
+        if (!result) continue
+
         const text =
-          result[0].transcript
+          result[0]?.transcript ?? ''
 
         /*
          * Nếu browser đã xác nhận câu
