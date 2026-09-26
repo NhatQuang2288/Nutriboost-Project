@@ -62,10 +62,11 @@ test.describe('§11.6 — thanh hỏi rộng tối đa 680px', () => {
     expect(box).not.toBeNull()
     expect(box!.width).toBeLessThanOrEqual(680)
 
-    // Căn giữa ngang trong cột nội dung: lề trái và phải xấp xỉ nhau.
-    const viewport = page.viewportSize()!
-    const leftGap = box!.x
-    const rightGap = viewport.width - (box!.x + box!.width)
+    // Căn giữa ngang trong CỘT NỘI DUNG (docs/ASSISTANT-UX.md §4), không phải cả khung: ở màn
+    // hình lớn có sidebar trái, nên đo so với `main` chứ không so với mép trình duyệt.
+    const column = (await page.locator('main').boundingBox())!
+    const leftGap = box!.x - column.x
+    const rightGap = column.x + column.width - (box!.x + box!.width)
     expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(2)
   })
 })

@@ -120,3 +120,11 @@ test.describe('thu tầng trên mobile', () => {
     expect(box.height).toBeCloseTo(viewport.height, -1)
   })
 })
+
+test.describe('điều hướng trên mobile', () => {
+  test('dùng thanh điều hướng dưới, sidebar của màn hình lớn bị ẩn', async ({ page }) => {
+    await page.goto('/hom-nay')
+    await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Điều hướng ứng dụng' })).toBeHidden()
+  })
+})

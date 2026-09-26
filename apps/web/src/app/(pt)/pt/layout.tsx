@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  */
 export default function PtLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AssistantShell nav={null} wide ptLayout sidebar={<PtTabs />}>
+    <AssistantShell nav={null} wide sidebar={<PtTabs />}>
       {children}
     </AssistantShell>
   )
