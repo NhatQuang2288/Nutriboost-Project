@@ -1,78 +1,161 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useId, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 
-import { BoIcon } from '@/components/icons/BoIcon'
+import { BoIcon, ExpandIcon, SendIcon } from '@/components/icons'
+import { useAssistant } from '@/components/assistant/AssistantProvider'
+import { suggestionsFor } from '@/components/assistant/suggestions'
 import { useAssistantStore } from '@/stores/assistant'
 
 /**
- * Tầng 1 — nút mở trợ lý Bơ AI.
+ * Tầng 1 — thanh hỏi nổi ở đáy vùng nội dung.
  *
- * Khi ở chế độ bar:
- * - Không hiển thị thanh nhập dài.
- * - Chỉ hiển thị logo Bơ AI ở góc phải phía dưới.
- * - Bấm vào logo → mở AssistantDock.
+ * Hợp đồng (docs/ASSISTANT-UX.md §4) — mỗi dòng có test E2E ở `e2e/assistant.spec.ts`:
+ *   • nổi ở đáy `main`, căn giữa ngang, rộng tối đa 680px
+ *   • gõ nội dung + Enter → mở panel VÀ gửi luôn
+ *   • ô trống → nút bên phải là "Mở rộng"; có nội dung → nút "Gửi"
+ *   • phím `/` hoặc bấm vào ô → hiện gợi ý theo ngữ cảnh màn hình
  *
- * Toàn bộ logic chat vẫn nằm trong AssistantDock / AssistantProvider.
+ * Đừng thu thanh này về một nút tròn chỉ để mở panel: ghi bữa ăn bằng một câu gõ ngay tại
+ * màn hình đang xem là thao tác chính của sản phẩm, và một nút tròn bắt người dùng bấm thêm
+ * một lần cho mọi câu hỏi.
  */
-export function AskBar() {
+export function AskBar({
+  aboveBottomNav = true,
+  besideSidebar = false,
+}: {
+  /** Chừa chỗ cho thanh điều hướng dưới của khách hàng. */
+  aboveBottomNav?: boolean
+  /** Console PT có sidebar trái 16rem ở màn hình lớn; căn giữa theo cột nội dung, không theo cả khung. */
+  besideSidebar?: boolean
+}) {
+  const pathname = usePathname()
+  const draft = useAssistantStore((state) => state.draft)
+  const setDraft = useAssistantStore((state) => state.setDraft)
+  const submitFromBar = useAssistantStore((state) => state.submitFromBar)
   const expandFromBar = useAssistantStore((state) => state.expandFromBar)
+  const suggestionsVisible = useAssistantStore((state) => state.suggestionsVisible)
+  const setSuggestionsVisible = useAssistantStore((state) => state.setSuggestionsVisible)
 
-  const handleOpen = useCallback(() => {
-    expandFromBar()
-  }, [expandFromBar])
+  const { send } = useAssistant()
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const listId = useId()
+
+  const suggestions = suggestionsFor(pathname)
+  const hasContent = draft.trim().length > 0
+  const showSuggestions = suggestionsVisible && !hasContent
+
+  // Ô nhập tự giãn theo nội dung, tối đa 4 dòng.
+  useEffect(() => {
+    const element = inputRef.current
+    if (element === null) return
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 96)}px`
+  }, [draft])
+
+  const handleSubmit = useCallback(() => {
+    const text = draft.trim()
+    if (text.length === 0) {
+      expandFromBar()
+      return
+    }
+    submitFromBar()
+    setDraft('')
+    send(text)
+  }, [draft, expandFromBar, send, setDraft, submitFromBar])
+
+  const pickSuggestion = useCallback(
+    (message: string) => {
+      submitFromBar()
+      setSuggestionsVisible(false)
+      send(message)
+    },
+    [send, setSuggestionsVisible, submitFromBar],
+  )
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
-      <div className="pointer-events-auto flex justify-end px-5 pb-5 lg:px-7 lg:pb-7">
-        <button
-          type="button"
-          onClick={handleOpen}
-          aria-label="Mở trợ lý Bơ AI"
-          title="Mở Bơ AI"
-          data-testid="ask-bar"
+    <div
+      className={[
+        'pointer-events-none fixed inset-x-0 bottom-0 z-20',
+        aboveBottomNav ? 'pb-24' : 'pb-5 lg:pb-7',
+        besideSidebar ? 'lg:pl-64' : '',
+      ].join(' ')}
+    >
+      <div
+        className="pointer-events-auto mx-auto w-full max-w-[var(--width-content)] px-4"
+        data-testid="ask-bar"
+      >
+        {showSuggestions ? (
+          <div
+            id={listId}
+            role="listbox"
+            aria-label="Gợi ý cho màn hình này"
+            className="mb-2 flex flex-wrap gap-2"
+          >
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion.label}
+                type="button"
+                role="option"
+                aria-selected={false}
+                // Chặn blur của ô nhập, nếu không danh sách gợi ý biến mất trước khi kịp bấm.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => pickSuggestion(suggestion.message ?? suggestion.label)}
+                className="text-caption text-ink rounded-full border border-olive-200 bg-white px-3.5 py-1.5 shadow-sm transition-all duration-200 hover:bg-olive-50 active:scale-[0.98]"
+              >
+                {suggestion.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div
           className={[
-            'group relative flex size-14 items-center justify-center',
-            'rounded-2xl',
-            'bg-forest-600 text-white',
-            'shadow-[0_10px_30px_rgba(20,50,30,0.18)]',
+            'border-line-subtle flex items-end gap-2 rounded-2xl border bg-white p-2',
+            'shadow-[0_10px_30px_rgba(20,50,30,0.14)]',
             'transition-all duration-200',
-            'hover:-translate-y-1',
-            'hover:bg-forest-700',
-            'hover:shadow-[0_14px_35px_rgba(20,50,30,0.24)]',
-            'active:translate-y-0',
-            'active:scale-95',
+            'focus-within:border-olive-300 focus-within:ring-4 focus-within:ring-olive-100/70',
           ].join(' ')}
         >
-          <BoIcon size={27} />
-
-          {/* Chấm online */}
           <span
             aria-hidden="true"
-            className={[
-              'absolute top-1.5 right-1.5',
-              'size-3.5 rounded-full',
-              'border-forest-600 border-2',
-              'bg-green-400',
-            ].join(' ')}
+            className="bg-forest-600 mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
+          >
+            <BoIcon size={22} />
+          </span>
+
+          <textarea
+            id="ask-bar-input"
+            ref={inputRef}
+            rows={1}
+            value={draft}
+            placeholder="Hỏi Bơ, hoặc kể mình nghe bữa ăn của bạn…"
+            aria-label="Hỏi trợ lý Bơ"
+            aria-controls={showSuggestions ? listId : undefined}
+            className="text-body text-ink placeholder:text-ink-faint max-h-24 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 outline-none"
+            onChange={(event) => setDraft(event.target.value)}
+            onFocus={() => setSuggestionsVisible(true)}
+            onBlur={() => setSuggestionsVisible(false)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                handleSubmit()
+              }
+            }}
           />
 
-          {/* Tooltip */}
-          <span
-            className={[
-              'pointer-events-none absolute right-full mr-3',
-              'whitespace-nowrap',
-              'bg-ink rounded-xl px-3 py-2',
-              'text-xs font-medium text-white',
-              'translate-x-1 opacity-0',
-              'shadow-lg',
-              'transition-all duration-200',
-              'group-hover:translate-x-0 group-hover:opacity-100',
-            ].join(' ')}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            aria-label={hasContent ? 'Gửi tin nhắn' : 'Mở rộng trợ lý'}
+            title={hasContent ? 'Gửi' : 'Mở rộng'}
+            data-action={hasContent ? 'send' : 'expand'}
+            className="touch-target bg-forest-600 hover:bg-forest-700 flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition-all duration-200 active:scale-95"
           >
-            Mở Bơ AI
-          </span>
-        </button>
+            {hasContent ? <SendIcon size={18} /> : <ExpandIcon size={18} />}
+          </button>
+        </div>
       </div>
     </div>
   )

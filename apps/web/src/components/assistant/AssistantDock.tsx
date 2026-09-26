@@ -317,7 +317,7 @@ function DockBody() {
             rows={1}
             value={draft}
             aria-label="Nhập tin nhắn cho Bơ"
-            placeholder="Hỏi Bơ về khách hàng, thực đơn..."
+            placeholder="Nhắn cho Bơ…"
             className={[
               'text-body text-ink placeholder:text-ink-faint',
               'max-h-28 min-h-9 flex-1 resize-none',
