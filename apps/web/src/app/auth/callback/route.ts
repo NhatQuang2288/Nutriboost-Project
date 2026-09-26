@@ -39,8 +39,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const type = searchParams.get('type')
   /*
    * Đích đến đọc từ cookie do các route gửi email đặt (magic link, xác nhận đăng ký, quên
-   * mật khẩu). Vẫn nhận thêm `?next=` để những
-   * liên kết đã gửi trước khi đổi cách vẫn hoạt động.
+   * mật khẩu). Vẫn nhận thêm `?next=` để những liên kết đã gửi trước khi đổi cách vẫn hoạt động.
+   *
+   * Mở liên kết ở trình duyệt khác thì không có cookie: người dùng về `/hom-nay` (hoặc qua
+   * onboarding) — mất đích đến sâu nhưng vẫn đăng nhập được, nhờ mẫu email dùng `token_hash`
+   * (xem `supabase/config.toml`).
    */
   const cookieStore = await cookies()
   const next = safeNextPath(searchParams.get('next') ?? cookieStore.get(NEXT_COOKIE)?.value)
@@ -48,6 +51,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createSupabaseServerClient()
   if (supabase === null) {
     return NextResponse.redirect(`${origin}/dang-nhap?loi=chua-cau-hinh`)
+  }
+
+  /*
+   * Supabase báo liên kết hỏng (hết hạn, đã dùng) bằng `?error=…&error_code=otp_expired` thay vì
+   * `code`. Trước đây nhánh này rơi xuống "liên kết thiếu mã" — sai sự thật, và không nói cho
+   * người dùng biết việc cần làm là xin liên kết mới.
+   */
+  if (searchParams.has('error') || searchParams.has('error_code')) {
+    return NextResponse.redirect(`${origin}/dang-nhap?loi=link-khong-dung`)
   }
 
   if (code !== null) {
@@ -71,8 +83,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * Liên kết "quên mật khẩu" đi thẳng tới trang đặt mật khẩu mới. Vòng qua onboarding ở đây
    * nghĩa là người dùng chưa kịp đặt mật khẩu đã bị hỏi chiều cao cân nặng — và mất luôn lý
    * do họ mở email.
+   *
+   * Nhận biết bằng `type=recovery` trong liên kết, không chỉ bằng cookie: mở thư trên điện thoại
+   * thì không có cookie của máy tính đã gửi yêu cầu.
    */
-  if (next === RESET_PASSWORD_PATH) {
+  if (type === 'recovery' || next === RESET_PASSWORD_PATH) {
     return NextResponse.redirect(`${origin}${RESET_PASSWORD_PATH}`)
   }
 

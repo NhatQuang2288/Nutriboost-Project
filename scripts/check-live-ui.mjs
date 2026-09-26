@@ -72,6 +72,19 @@ async function step(name, run) {
   }
 }
 
+/**
+ * Nơi liên kết trong thư đưa người dùng về.
+ *
+ * Mẫu email của dự án (supabase/templates) trỏ thẳng về `/auth/callback?token_hash=…`. Mẫu mặc
+ * định của Supabase thì đi qua `/auth/v1/verify?redirect_to=…` — vẫn nhận để script chạy được
+ * trên dự án chưa đổi mẫu, nhưng bước kiểm `token_hash` sẽ báo ra.
+ */
+function callbackTarget(link) {
+  const url = new URL(link)
+  if (url.pathname.endsWith('/auth/v1/verify')) return url.searchParams.get('redirect_to') ?? ''
+  return `${url.origin}${url.pathname}`
+}
+
 /** Đợi thư mới nhất gửi tới `email` rồi rút liên kết xác thực ra khỏi nội dung. */
 async function waitForMagicLink(email, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs
@@ -84,9 +97,12 @@ async function waitForMagicLink(email, timeoutMs = 20_000) {
 
     if (message !== undefined) {
       const detail = await (await fetch(`${MAILPIT_URL}/api/v1/message/${message.ID}`)).json()
-      const body = String(detail.Text ?? detail.HTML ?? '')
+      // Thư HTML có thể không có phần chữ, và `&` trong href bị viết thành `&amp;`.
+      const body = [detail.Text, detail.HTML].filter(Boolean).join('\n').replaceAll('&amp;', '&')
       const links = [...body.matchAll(/https?:\/\/[^\s"'<>)]+/g)].map((match) => match[0])
-      const verify = links.find((url) => url.includes('/auth/v1/verify'))
+      const verify = links.find(
+        (url) => url.includes('/auth/callback?token_hash=') || url.includes('/auth/v1/verify'),
+      )
       if (verify !== undefined) return verify
     }
 
@@ -108,6 +124,7 @@ async function passwordFlow(browser, service) {
   const firstPassword = `Mat-khau-${Date.now()}-aA1`
   const secondPassword = `Doi-moi-${Date.now()}-bB2`
   let createdId = null
+  let resetLink = null
 
   async function signIn(password) {
     const context = await browser.newContext()
@@ -190,22 +207,39 @@ async function passwordFlow(browser, service) {
     await page.getByRole('button', { name: 'Gửi liên kết đặt lại' }).click()
     await page.getByText('Kiểm tra hộp thư của bạn').waitFor({ timeout: 15_000 })
 
-    const link = await waitForMagicLink(email)
-    const redirectTarget = new URL(link).searchParams.get('redirect_to')
+    resetLink = await waitForMagicLink(email)
+    const target = callbackTarget(resetLink)
     assert(
-      redirectTarget !== null && redirectTarget.includes('/auth/callback'),
-      `redirect_to phải trỏ tới /auth/callback, đang là "${redirectTarget}"`,
+      target.includes('/auth/callback'),
+      `liên kết phải về /auth/callback, đang là "${target}"`,
     )
-
-    // Mở trong CÙNG phiên: cookie đích đến được đặt lúc gửi yêu cầu.
-    await page.goto(link, { waitUntil: 'domcontentloaded' })
-    await page.waitForURL(/\/dat-lai-mat-khau/, { timeout: 20_000 })
-    await page.getByLabel('Mật khẩu mới', { exact: true }).fill(secondPassword)
-    await page.getByLabel('Nhập lại mật khẩu mới').fill(secondPassword)
-    await page.getByRole('button', { name: 'Lưu mật khẩu mới' }).click()
-    await page.getByText('Đã đổi mật khẩu.').waitFor({ timeout: 15_000 })
     await context.close()
-    return 'đã đổi'
+
+    /*
+     * Mở ở một TRÌNH DUYỆT KHÁC (phiên mới, không cookie) — đúng cảnh bấm "Quên mật khẩu" trên
+     * máy tính rồi mở thư trên điện thoại. Với mẫu email mặc định (PKCE) bước này hỏng: chỉ
+     * trình duyệt đã gửi yêu cầu mới giữ code verifier.
+     */
+    const other = await browser.newContext()
+    const phone = await other.newPage()
+    await phone.goto(resetLink, { waitUntil: 'domcontentloaded' })
+    await phone.waitForURL(/\/dat-lai-mat-khau/, { timeout: 20_000 })
+    await phone.getByLabel('Mật khẩu mới', { exact: true }).fill(secondPassword)
+    await phone.getByLabel('Nhập lại mật khẩu mới').fill(secondPassword)
+    await phone.getByRole('button', { name: 'Lưu mật khẩu mới' }).click()
+    await phone.getByText('Đã đổi mật khẩu.').waitFor({ timeout: 15_000 })
+    await other.close()
+    return 'mở ở trình duyệt khác vẫn đổi được'
+  })
+
+  await step('liên kết đặt lại chỉ dùng được một lần', async () => {
+    assert(resetLink !== null, 'không có liên kết')
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(resetLink, { waitUntil: 'domcontentloaded' })
+    await page.waitForURL(/\/dang-nhap\?loi=link-khong-dung/, { timeout: 20_000 })
+    await context.close()
+    return 'báo liên kết không dùng được'
   })
 
   await step('mật khẩu mới dùng được, mật khẩu cũ thì không', async () => {
@@ -273,13 +307,23 @@ async function main() {
     let verifyUrl = null
     await step('Supabase chấp nhận /auth/callback trong liên kết', async () => {
       verifyUrl = await waitForMagicLink(email)
-      const redirectTarget = new URL(verifyUrl).searchParams.get('redirect_to')
+      const target = callbackTarget(verifyUrl)
       assert(
-        redirectTarget !== null && redirectTarget.includes('/auth/callback'),
-        `redirect_to phải trỏ tới /auth/callback, đang là "${redirectTarget}". ` +
+        target.includes('/auth/callback'),
+        `liên kết phải về /auth/callback, đang là "${target}". ` +
           'Nghĩa là GOTRUE_URI_ALLOW_LIST từ chối — xem CLAUDE.md mục config.toml.',
       )
-      return redirectTarget
+      return target
+    })
+
+    await step('liên kết dùng token_hash — mở được ở thiết bị khác', async () => {
+      assert(verifyUrl !== null, 'không có liên kết')
+      assert(
+        new URL(verifyUrl).searchParams.has('token_hash'),
+        'thư vẫn dùng mẫu mặc định (PKCE): mở ở trình duyệt khác sẽ hỏng. ' +
+          'Xem supabase/templates và mục mẫu email trong CLAUDE.md.',
+      )
+      return 'có token_hash'
     })
 
     await step('mở liên kết trong CÙNG trình duyệt → vào onboarding', async () => {
@@ -423,13 +467,22 @@ async function main() {
       return 'PT gói Plus, 5 khách'
     })
 
-    await step('console PT liệt kê khách thật (chưa có ai)', async () => {
+    /*
+     * Trang tổng quan PT là bản thiết kế của Vy (xem e2e/pt-console.spec.ts): chưa hiện gói và
+     * dải dữ liệu mẫu, nên kiểm bằng lời chào — phải là tên thật của PT, không phải "Coach Linh"
+     * của dữ liệu mẫu.
+     */
+    await step('console PT dùng hồ sơ thật (chưa có khách)', async () => {
+      const { data: profile } = await service
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single()
       await page.goto(`${BASE_URL}/pt`)
-      await page.getByRole('heading', { name: /Xin chào/ }).waitFor({ timeout: 10_000 })
-      const demoNotice = await page.getByText('Đang hiện dữ liệu mẫu').count()
-      assert(demoNotice === 0, 'vẫn hiện dải dữ liệu mẫu')
-      await page.getByText('Gói Plus', { exact: false }).first().waitFor({ timeout: 5_000 })
-      return 'gói thật, không có dải dữ liệu mẫu'
+      await page.getByText(`Hello ${profile.full_name}`).waitFor({ timeout: 10_000 })
+      const demoName = await page.getByText('Coach Linh').count()
+      assert(demoName === 0, 'vẫn hiện "Coach Linh" của dữ liệu mẫu')
+      return `chào ${profile.full_name}`
     })
 
     await step('liên kết một khách và thấy khách đó trong console', async () => {

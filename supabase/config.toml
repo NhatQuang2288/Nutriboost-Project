@@ -265,6 +265,25 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Mẫu email dùng `token_hash` thay cho luồng PKCE mặc định. Mẫu mặc định đưa người dùng qua
+# `/auth/v1/verify` rồi trả về `?code=…`, và chỉ trình duyệt đã GỬI yêu cầu mới đổi được mã đó
+# thành phiên (code verifier nằm trong cookie của nó). Bấm "Quên mật khẩu" trên máy tính rồi mở
+# thư trên điện thoại là hỏng. `token_hash` thì `/auth/callback` tự xác minh được ở bất kỳ đâu.
+#
+# Supabase thật (hosted) KHÔNG đọc tệp này: dán nội dung ba tệp vào Dashboard → Authentication →
+# Email Templates. Sửa ở đây thì phải `npm run db:stop && npm run db:start` mới có hiệu lực.
+[auth.email.template.confirmation]
+subject = "Xác nhận email NutriBoost"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Liên kết đăng nhập NutriBoost"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Đặt lại mật khẩu NutriBoost"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
