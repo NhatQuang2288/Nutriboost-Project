@@ -27,7 +27,7 @@ export function AskBar({
 }: {
   /** Chừa chỗ cho thanh điều hướng dưới của khách hàng. */
   aboveBottomNav?: boolean
-  /** Console PT có sidebar trái 16rem ở màn hình lớn; căn giữa theo cột nội dung, không theo cả khung. */
+  /** Có sidebar trái 16rem ở màn hình lớn; căn giữa theo cột nội dung, không theo cả khung. */
   besideSidebar?: boolean
 }) {
   const pathname = usePathname()
@@ -78,7 +78,8 @@ export function AskBar({
     <div
       className={[
         'pointer-events-none fixed inset-x-0 bottom-0 z-20',
-        aboveBottomNav ? 'pb-24' : 'pb-5 lg:pb-7',
+        // Có sidebar thì từ `lg` thanh điều hướng dưới bị ẩn, nên không còn phải chừa chỗ cho nó.
+        aboveBottomNav ? (besideSidebar ? 'pb-24 lg:pb-7' : 'pb-24') : 'pb-5 lg:pb-7',
         besideSidebar ? 'lg:pl-64' : '',
       ].join(' ')}
     >
