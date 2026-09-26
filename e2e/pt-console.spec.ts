@@ -45,7 +45,7 @@ test.describe('tổng quan', () => {
     await page.goto('/pt')
 
     await expect(page.getByText('Nguyễn Minh')).toBeVisible()
-    await expect(page.getByText('tuân thủ 86%', { exact: false })).toBeVisible()
+    await expect(page.getByText('86% tuân thủ', { exact: false })).toBeVisible()
     await expect(page.getByText('Cần chú ý').first()).toBeVisible()
     await expect(page.getByText('Tạm dừng').first()).toBeVisible()
   })
@@ -74,8 +74,9 @@ test.describe('hàng đợi duyệt thực đơn', () => {
     await page.goto('/pt/duyet')
 
     await expect(page.getByRole('heading', { name: 'Duyệt thực đơn' })).toBeVisible()
-    await expect(page.getByText('Lệch mục tiêu')).toHaveCount(2)
-    await expect(page.getByText(/Trung bình mỗi ngày/).first()).toBeVisible()
+    // `exact`: ô tổng hợp đầu trang có dòng phụ "lệch mục tiêu" viết thường, không tính.
+    await expect(page.getByText('Lệch mục tiêu', { exact: true })).toHaveCount(2)
+    await expect(page.getByText('Trung bình', { exact: true }).first()).toBeVisible()
   })
 
   /*
@@ -108,7 +109,7 @@ test.describe('hàng đợi duyệt thực đơn', () => {
   test('giải thích vì sao có bước duyệt', async ({ page }) => {
     await page.goto('/pt/duyet')
     await expect(page.getByText('Vì sao có bước duyệt')).toBeVisible()
-    await expect(page.getByText(/bạn là người chịu trách nhiệm cuối cùng/)).toBeVisible()
+    await expect(page.getByText(/PT là người kiểm tra và quyết định cuối cùng/)).toBeVisible()
   })
 })
 
@@ -120,12 +121,13 @@ test.describe('gói dịch vụ', () => {
       await expect(page.getByRole('heading', { name: label, exact: true })).toBeVisible()
     }
 
-    await expect(page.getByText('750.000đ')).toBeVisible()
-    await expect(page.getByText('1.125.000đ')).toBeVisible()
-    await expect(page.getByText('1.800.000đ')).toBeVisible()
-    // 750.000 / 5 khách = 150.000đ mỗi khách
-    await expect(page.getByText('150.000đ mỗi khách mỗi tháng')).toBeVisible()
-    await expect(page.getByText('90.000đ mỗi khách mỗi tháng')).toBeVisible()
+    // Mỗi giá xuất hiện hai lần: ở dải tóm tắt đầu trang và ở thẻ chi tiết của gói.
+    await expect(page.getByText('750.000đ', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('1.125.000đ', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('1.800.000đ', { exact: true }).first()).toBeVisible()
+    // Chi phí trung bình mỗi khách: 750.000 / 5 khách = 150.000đ, 1.800.000 / 20 = 90.000đ.
+    await expect(page.getByText('150.000đ', { exact: true })).toBeVisible()
+    await expect(page.getByText('90.000đ', { exact: true })).toBeVisible()
   })
 
   test('ghi rõ hạn mức lượt trợ lý — con số bảng giá gốc còn thiếu', async ({ page }) => {
@@ -163,8 +165,10 @@ test.describe('hồ sơ khách hàng', () => {
 
     await expect(page.getByRole('heading', { name: 'Nhắc nhở đang bật' })).toBeVisible()
     // Ba luật của dữ liệu mẫu, kèm ngày trong tuần viết gọn.
-    await expect(page.getByText('Nhắc ghi bữa ăn — 12:30 mỗi ngày')).toBeVisible()
-    await expect(page.getByText('Nhắc buổi tập — 18:00 T2, T4, T6')).toBeVisible()
+    await expect(page.getByText('Nhắc ghi bữa ăn', { exact: true })).toBeVisible()
+    await expect(page.getByText('12:30 · mỗi ngày')).toBeVisible()
+    await expect(page.getByText('Nhắc buổi tập', { exact: true })).toBeVisible()
+    await expect(page.getByText('18:00 · T2, T4, T6')).toBeVisible()
     // Khung giờ yên lặng lấy từ hằng số của @nutriboost/ai, không chép lại trong trang.
     await expect(page.getByText('21:30–06:30', { exact: false })).toBeVisible()
   })
