@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { isProtectedApi, isProtectedPage } from '@/lib/auth/routes'
+import { isGuestOnlyPage, isProtectedApi, isProtectedPage } from '@/lib/auth/routes'
 import { updateSession } from '@/lib/supabase/middleware'
 
 /**
@@ -35,8 +35,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return response
   }
 
-  // Đã đăng nhập mà còn vào màn đăng nhập thì đưa vào ứng dụng.
-  if (userId !== null && pathname === '/dang-nhap') {
+  // Đã đăng nhập mà còn vào màn đăng nhập, đăng ký hay quên mật khẩu thì đưa vào ứng dụng.
+  if (userId !== null && isGuestOnlyPage(pathname)) {
     return keepCookies(response, request, '/hom-nay')
   }
 

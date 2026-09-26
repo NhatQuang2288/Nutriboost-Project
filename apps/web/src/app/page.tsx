@@ -39,11 +39,18 @@ export default function LandingPage() {
 
       <div className="content-column flex w-full flex-col items-center gap-4">
         <Link
-          href="/hom-nay"
+          href="/dang-ky"
           className="bg-forest-600 text-label text-ink-inverse hover:bg-forest-700 active:bg-forest-700 flex min-h-12 w-full items-center justify-center rounded-md px-6 font-semibold transition-colors duration-(--duration-fast)"
         >
           Bắt đầu
         </Link>
+
+        <p className="text-body text-ink-muted">
+          Đã có tài khoản?{' '}
+          <Link href="/dang-nhap" className="text-accent-text font-semibold hover:underline">
+            Đăng nhập
+          </Link>
+        </p>
 
         <p className="text-caption text-ink-faint max-w-[42ch] text-center">
           NutriBoost đưa ra gợi ý tham khảo và không thay thế tư vấn y khoa. Hãy hỏi bác sĩ hoặc

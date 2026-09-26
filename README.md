@@ -68,19 +68,22 @@ docs                      Review MVP, phân công, đặc tả trợ lý, ADR
 
 **Khách hàng**
 
-| Đường dẫn     | Nội dung                                 |
-| ------------- | ---------------------------------------- |
-| `/`           | Trang giới thiệu                         |
-| `/dang-nhap`  | Đăng nhập bằng magic link                |
-| `/onboarding` | 5 câu hỏi, ra mục tiêu năng lượng ngay   |
-| `/tham-gia`   | Nhập mã mời của PT để được kết nối       |
-| `/hom-nay`    | Vòng calo, bữa ăn, gợi ý của Bơ mỗi ngày |
-| `/ghi-nhan`   | Ghi bữa ăn                               |
-| `/ke-hoach`   | Thực đơn 7 ngày, dựng tất định           |
-| `/lich-tap`   | Lịch tập tuần kèm kcal đốt từng buổi     |
-| `/coach`      | Quản lý các đoạn hội thoại với Bơ        |
-| `/tien-do`    | Cân nặng và năng lượng theo thời gian    |
-| `/toi`        | Hồ sơ, mục tiêu, quyền xoá dữ liệu       |
+| Đường dẫn           | Nội dung                                                |
+| ------------------- | ------------------------------------------------------- |
+| `/`                 | Trang giới thiệu                                        |
+| `/dang-nhap`        | Đăng nhập bằng email + mật khẩu (magic link là lối phụ) |
+| `/dang-ky`          | Tạo tài khoản bằng email + mật khẩu                     |
+| `/quen-mat-khau`    | Xin liên kết đặt lại mật khẩu                           |
+| `/dat-lai-mat-khau` | Đặt mật khẩu mới từ liên kết trong email                |
+| `/onboarding`       | 5 câu hỏi, ra mục tiêu năng lượng ngay                  |
+| `/tham-gia`         | Nhập mã mời của PT để được kết nối                      |
+| `/hom-nay`          | Vòng calo, bữa ăn, gợi ý của Bơ mỗi ngày                |
+| `/ghi-nhan`         | Ghi bữa ăn                                              |
+| `/ke-hoach`         | Thực đơn 7 ngày, dựng tất định                          |
+| `/lich-tap`         | Lịch tập tuần kèm kcal đốt từng buổi                    |
+| `/coach`            | Quản lý các đoạn hội thoại với Bơ                       |
+| `/tien-do`          | Cân nặng và năng lượng theo thời gian                   |
+| `/toi`              | Hồ sơ, mục tiêu, quyền xoá dữ liệu                      |
 
 **Console PT** (sản phẩm bán cho PT/Coach — xem `docs/PRICING.md`)
 

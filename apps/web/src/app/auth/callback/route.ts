@@ -1,8 +1,10 @@
-import { type EmailOtpType, type SupabaseClient } from '@supabase/supabase-js'
+import { type EmailOtpType } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { RESET_PASSWORD_PATH } from '@/lib/auth/credentials'
 import { NEXT_COOKIE, safeNextPath } from '@/lib/auth/redirect'
+import { destinationAfterSignIn } from '@/lib/auth/session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -36,7 +38,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
   /*
-   * Đích đến đọc từ cookie do `/api/auth/magic-link` đặt. Vẫn nhận thêm `?next=` để những
+   * Đích đến đọc từ cookie do các route gửi email đặt (magic link, xác nhận đăng ký, quên
+   * mật khẩu). Vẫn nhận thêm `?next=` để những
    * liên kết đã gửi trước khi đổi cách vẫn hoạt động.
    */
   const cookieStore = await cookies()
@@ -60,38 +63,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(`${origin}/dang-nhap?loi=link-thieu-ma`)
   }
 
-  /*
-   * Hồ sơ đã hoàn tất chưa? Chưa thì đưa qua onboarding. Đây là chỗ duy nhất biết chắc
-   * người dùng vừa đăng nhập lần đầu, nên chỉ tốn đúng một truy vấn cho mỗi lần đăng nhập.
-   *
-   * `tiep` mang theo đích đến ban đầu. Thiếu nó, một khách mở liên kết mời rồi bị đưa qua
-   * onboarding sẽ mất mã mời ở giữa đường và phải nhờ PT gửi lại.
-   */
-  const onboarded = await isOnboarded(supabase)
-
   // Dùng xong thì xoá: cookie còn nằm lại nghĩa là lần đăng nhập sau ở cùng trình duyệt sẽ
   // bị đưa tới đích đến của lần trước.
   cookieStore.delete(NEXT_COOKIE)
 
-  if (onboarded) {
-    return NextResponse.redirect(`${origin}${next}`)
+  /*
+   * Liên kết "quên mật khẩu" đi thẳng tới trang đặt mật khẩu mới. Vòng qua onboarding ở đây
+   * nghĩa là người dùng chưa kịp đặt mật khẩu đã bị hỏi chiều cao cân nặng — và mất luôn lý
+   * do họ mở email.
+   */
+  if (next === RESET_PASSWORD_PATH) {
+    return NextResponse.redirect(`${origin}${RESET_PASSWORD_PATH}`)
   }
 
-  return NextResponse.redirect(`${origin}/onboarding?tiep=${encodeURIComponent(next)}`)
-}
-
-/** Mặc định `false`: chưa đọc được hồ sơ thì đưa qua onboarding, không bỏ qua bước đó. */
-async function isOnboarded(supabase: SupabaseClient): Promise<boolean> {
-  const { data: userData } = await supabase.auth.getUser()
-  const userId = userData.user?.id
-  if (userId === undefined) return false
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('onboarded_at')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (error !== null || data === null) return false
-  return (data as { onboarded_at: string | null }).onboarded_at !== null
+  /*
+   * Hồ sơ đã hoàn tất chưa? Chưa thì đưa qua onboarding. Đây là chỗ duy nhất biết chắc
+   * người dùng vừa đăng nhập lần đầu, nên chỉ tốn đúng một truy vấn cho mỗi lần đăng nhập.
+   */
+  return NextResponse.redirect(`${origin}${await destinationAfterSignIn(supabase, next)}`)
 }

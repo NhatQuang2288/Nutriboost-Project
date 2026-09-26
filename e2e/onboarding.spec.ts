@@ -143,6 +143,42 @@ test.describe('đăng nhập', () => {
     expect(body.error).toContain('Chưa cấu hình Supabase')
   })
 
+  for (const route of ['/dang-ky', '/quen-mat-khau', '/dat-lai-mat-khau']) {
+    test(`${route} nói thẳng khi chưa cấu hình, không hiện form giả`, async ({ page }) => {
+      await page.goto(route)
+      await expect(page.getByText('Chưa cấu hình Supabase')).toBeVisible()
+      await expect(page.getByLabel('Email')).toHaveCount(0)
+      await expect(page.getByLabel('Mật khẩu', { exact: true })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Tiếp tục với dữ liệu mẫu' })).toBeVisible()
+    })
+  }
+
+  for (const route of [
+    '/api/auth/sign-in',
+    '/api/auth/sign-up',
+    '/api/auth/forgot-password',
+    '/api/auth/update-password',
+  ]) {
+    test(`${route} trả 503 khi chưa cấu hình, không giả vờ thành công`, async ({ request }) => {
+      const response = await request.post(route, {
+        data: { email: 'ban@example.com', password: 'mat-khau-du-dai', fullName: 'Minh' },
+      })
+      expect(response.status()).toBe(503)
+      const body = (await response.json()) as { error?: string; ok?: boolean }
+      expect(body.ok).toBeUndefined()
+      expect(body.error).toContain('Chưa cấu hình Supabase')
+    })
+  }
+
+  test('trang chủ dẫn người mới sang đăng ký, người cũ sang đăng nhập', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('link', { name: 'Bắt đầu' })).toHaveAttribute('href', '/dang-ky')
+    await expect(page.getByRole('link', { name: 'Đăng nhập' })).toHaveAttribute(
+      'href',
+      '/dang-nhap',
+    )
+  })
+
   test('route vẫn kiểm tra email trước khi gọi Supabase', async ({ request }) => {
     const response = await request.post('/api/auth/magic-link', { data: { email: 'sai' } })
     // Chưa cấu hình thì trả 503 trước; kiểm tra email nằm sau bước cấu hình.

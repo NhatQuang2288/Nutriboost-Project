@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Walkthrough thật trong trình duyệt: đăng nhập bằng magic link → onboarding → màn Hôm nay.
+ * Walkthrough thật trong trình duyệt: đăng nhập bằng magic link (lối phụ của màn đăng nhập)
+ * → onboarding → màn Hôm nay.
  *
  * Vì sao cần, khi đã có `check:live` và bộ E2E:
  *
@@ -95,6 +96,132 @@ async function waitForMagicLink(email, timeoutMs = 20_000) {
   throw new Error(`không nhận được thư cho ${email} sau ${timeoutMs / 1000} giây`)
 }
 
+/**
+ * Đăng ký, đăng nhập, quên và đặt lại mật khẩu — toàn bộ qua giao diện, trên Supabase thật.
+ *
+ * Mỗi bước dùng một phiên trình duyệt mới (cookie sạch), đúng như một người mở máy khác.
+ * Trả về id tài khoản tạm để nơi gọi xoá ở `finally`, kể cả khi có bước hỏng giữa chừng.
+ */
+async function passwordFlow(browser, service) {
+  const email = `mat-khau-${Date.now()}@example.com`
+  const fullName = 'Kiểm Chứng'
+  const firstPassword = `Mat-khau-${Date.now()}-aA1`
+  const secondPassword = `Doi-moi-${Date.now()}-bB2`
+  let createdId = null
+
+  async function signIn(password) {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(`${BASE_URL}/dang-nhap`)
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(password)
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click()
+    return { context, page }
+  }
+
+  await step('mật khẩu dưới 8 ký tự bị chặn ngay trên form đăng ký', async () => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(`${BASE_URL}/dang-ky`)
+    await page.getByLabel('Tên của bạn').fill(fullName)
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Mật khẩu', { exact: true }).fill('ngan')
+    await page.getByLabel('Nhập lại mật khẩu').fill('ngan')
+    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click()
+    await page.getByText('Mật khẩu cần ít nhất 8 ký tự.').waitFor({ timeout: 5_000 })
+    await context.close()
+    return 'báo lỗi, không gửi lên máy chủ'
+  })
+
+  const created = await step('đăng ký bằng mật khẩu → vào onboarding', async () => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(`${BASE_URL}/dang-ky`)
+    await page.getByLabel('Tên của bạn').fill(fullName)
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Mật khẩu', { exact: true }).fill(firstPassword)
+    await page.getByLabel('Nhập lại mật khẩu').fill(firstPassword)
+    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click()
+    await page.waitForURL(/\/onboarding/, { timeout: 20_000 })
+    await context.close()
+
+    const { data, error } = await service.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    assert(error === null, error?.message)
+    const user = data.users.find((item) => item.email === email)
+    assert(user !== undefined, 'không thấy tài khoản vừa tạo trong auth.users')
+    createdId = user.id
+    return user.id
+  })
+
+  if (!created) return createdId
+
+  await step('hồ sơ lấy đúng tên nhập ở form đăng ký', async () => {
+    const { data, error } = await service
+      .from('profiles')
+      .select('full_name, role')
+      .eq('id', createdId)
+      .single()
+    assert(error === null, error?.message)
+    assert(data.full_name === fullName, `full_name là "${data.full_name}"`)
+    assert(data.role === 'client', `đăng ký không được tự cấp vai trò, đang là "${data.role}"`)
+    return `${data.full_name} · ${data.role}`
+  })
+
+  await step('đăng nhập bằng mật khẩu ở phiên mới', async () => {
+    const { context, page } = await signIn(firstPassword)
+    await page.waitForURL(/\/onboarding/, { timeout: 20_000 })
+    await context.close()
+    return 'có phiên, vào onboarding vì hồ sơ chưa xong'
+  })
+
+  await step('sai mật khẩu báo lỗi tiếng Việt, không lộ email nào có tài khoản', async () => {
+    const { context, page } = await signIn('sai-mat-khau-hoan-toan')
+    await page.getByText('Email hoặc mật khẩu không đúng.').waitFor({ timeout: 10_000 })
+    assert(page.url().includes('/dang-nhap'), `không được rời màn đăng nhập, đang ở ${page.url()}`)
+    await context.close()
+    return 'đúng câu chung'
+  })
+
+  await step('quên mật khẩu → liên kết trong email → đặt mật khẩu mới', async () => {
+    const context = await browser.newContext()
+    const page = await context.newPage()
+    await page.goto(`${BASE_URL}/quen-mat-khau`)
+    await page.getByLabel('Email').fill(email)
+    await page.getByRole('button', { name: 'Gửi liên kết đặt lại' }).click()
+    await page.getByText('Kiểm tra hộp thư của bạn').waitFor({ timeout: 15_000 })
+
+    const link = await waitForMagicLink(email)
+    const redirectTarget = new URL(link).searchParams.get('redirect_to')
+    assert(
+      redirectTarget !== null && redirectTarget.includes('/auth/callback'),
+      `redirect_to phải trỏ tới /auth/callback, đang là "${redirectTarget}"`,
+    )
+
+    // Mở trong CÙNG phiên: cookie đích đến được đặt lúc gửi yêu cầu.
+    await page.goto(link, { waitUntil: 'domcontentloaded' })
+    await page.waitForURL(/\/dat-lai-mat-khau/, { timeout: 20_000 })
+    await page.getByLabel('Mật khẩu mới', { exact: true }).fill(secondPassword)
+    await page.getByLabel('Nhập lại mật khẩu mới').fill(secondPassword)
+    await page.getByRole('button', { name: 'Lưu mật khẩu mới' }).click()
+    await page.getByText('Đã đổi mật khẩu.').waitFor({ timeout: 15_000 })
+    await context.close()
+    return 'đã đổi'
+  })
+
+  await step('mật khẩu mới dùng được, mật khẩu cũ thì không', async () => {
+    const fresh = await signIn(secondPassword)
+    await fresh.page.waitForURL(/\/onboarding/, { timeout: 20_000 })
+    await fresh.context.close()
+
+    const old = await signIn(firstPassword)
+    await old.page.getByText('Email hoặc mật khẩu không đúng.').waitFor({ timeout: 10_000 })
+    await old.context.close()
+    return 'đúng cả hai chiều'
+  })
+
+  return createdId
+}
+
 async function main() {
   const env = readEnv()
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
@@ -118,11 +245,13 @@ async function main() {
   const page = await context.newPage()
   let userId = null
   let clientId = null
+  /** Tài khoản tạo bằng form đăng ký mật khẩu — xoá ở `finally` như hai tài khoản kia. */
+  let passwordUserId = null
   /** Con số hiện trên màn kết quả onboarding, để đối chiếu với con số trong CSDL. */
   let shownTargetKcal = null
 
   try {
-    await step('màn đăng nhập hiện form magic link (đã cấu hình Supabase)', async () => {
+    await step('màn đăng nhập hiện form (đã cấu hình Supabase)', async () => {
       await page.goto(`${BASE_URL}/dang-nhap`)
       await page.getByLabel('Email').waitFor({ timeout: 10_000 })
       const demoNotice = await page.getByText('Chưa cấu hình Supabase').count()
@@ -131,6 +260,8 @@ async function main() {
     })
 
     const sent = await step('gửi liên kết đăng nhập từ giao diện', async () => {
+      // Đường chính là email + mật khẩu; magic link nằm sau nút phụ. Chuyển sang đó trước.
+      await page.getByRole('button', { name: /Đăng nhập bằng liên kết qua email/ }).click()
       await page.getByLabel('Email').fill(email)
       await page.getByRole('button', { name: /Gửi liên kết đăng nhập/ }).click()
       await page.getByText(/Mình đã gửi liên kết đăng nhập/).waitFor({ timeout: 15_000 })
@@ -378,8 +509,11 @@ async function main() {
       assert((count ?? 0) > 0, 'thực đơn không có món nào')
       return `active, ${count} món`
     })
+
+    passwordUserId = await passwordFlow(browser, service)
   } finally {
     await browser.close()
+    if (passwordUserId !== null) await service.auth.admin.deleteUser(passwordUserId)
     if (clientId !== null) await service.auth.admin.deleteUser(clientId)
     if (userId !== null) {
       await service.auth.admin.deleteUser(userId)
