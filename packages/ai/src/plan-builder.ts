@@ -131,18 +131,42 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
 
   const days: PlanDay[] = []
 
-  // Bộ đếm dùng chung cho cả tuần: mỗi món được lấy ra thì tăng lên một, nên hai món
-  // liền kề trong thực đơn không bao giờ trùng nhau.
-  let picker = 0
+  /*
+   * Mỗi loại bữa lấy món từ nhóm hợp với nó: trà sữa hay chè không bao giờ thành bữa trưa, còn
+   * bữa phụ lấy từ món nhẹ. Danh mục không khai loại món (như fixture trong test) thì mọi bữa
+   * dùng chung một nhóm — đúng hành vi cũ.
+   */
+  const groupByMeal = new Map<MealType, readonly MealCatalogueEntry[]>()
+  const groupBySignature = new Map<string, readonly MealCatalogueEntry[]>()
+  for (const mealType of mealsPerDay) {
+    const suitable = pool.filter((entry) => isSuitableForMeal(entry, mealType))
+    const group = suitable.length === 0 ? pool : suitable
+    // Bữa sáng, trưa, tối cùng nhóm món thì phải dùng CHUNG một mảng, để chung một bộ đếm.
+    const signature = group.map((entry) => entry.slug).join(',')
+    if (!groupBySignature.has(signature)) groupBySignature.set(signature, group)
+    groupByMeal.set(mealType, groupBySignature.get(signature)!)
+  }
 
   /*
-   * Bước nhảy trong danh mục, nguyên tố cùng nhau với số món.
+   * Bộ đếm cho từng nhóm món, dùng chung cả tuần: mỗi món được lấy ra thì tăng lên một, nên
+   * hai món liền kề trong thực đơn không bao giờ trùng nhau.
    *
-   * Bản đầu lấy món liền kề theo thứ tự chữ cái, nên các món cùng tiền tố đứng cạnh nhau: một
-   * ngày ra "bánh mì cá, bánh mì thịt, bánh mì thịt nướng, bánh mì trứng". Nhảy cách quãng rải
-   * đều khắp danh mục, mà vẫn đi hết mọi món trước khi lặp lại (vì bước nguyên tố cùng nhau).
+   * Bước nhảy nguyên tố cùng nhau với số món. Bản đầu lấy món liền kề theo thứ tự chữ cái, nên
+   * các món cùng tiền tố đứng cạnh nhau: một ngày ra "bánh mì cá, bánh mì thịt, bánh mì thịt
+   * nướng, bánh mì trứng". Nhảy cách quãng rải đều khắp danh mục, mà vẫn đi hết mọi món trước
+   * khi lặp lại.
    */
-  const stride = spreadStride(pool.length)
+  const pickers = new Map<readonly MealCatalogueEntry[], { next: number; stride: number }>()
+  const pickFrom = (group: readonly MealCatalogueEntry[]): MealCatalogueEntry | undefined => {
+    let state = pickers.get(group)
+    if (state === undefined) {
+      state = { next: 0, stride: spreadStride(group.length) }
+      pickers.set(group, state)
+    }
+    const dish = group[(state.next * state.stride) % group.length]
+    state.next += 1
+    return dish
+  }
 
   for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
     const meals: PlanMeal[] = []
@@ -158,8 +182,7 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
       for (let attempt = 0; attempt < MAX_DISHES_PER_MEAL; attempt += 1) {
         if (remaining <= mealTargetKcal * MEAL_TOLERANCE) break
 
-        const dish = pool[(picker * stride) % pool.length]
-        picker += 1
+        const dish = pickFrom(groupByMeal.get(mealType) ?? pool)
         if (dish === undefined) break
 
         const item = scaleDishToTarget(dish, remaining, minBound, maxBound)
@@ -244,6 +267,27 @@ export function scaleDishToTarget(
     carbG: round1(dish.carbG * factor),
     fatG: round1(dish.fatG * factor),
   }
+}
+
+/**
+ * Loại món không đưa vào thực đơn hay gợi ý: người dùng vẫn GHI được chúng, nhưng Bơ không tự
+ * đề xuất trà sữa hay chè như một phần của chế độ ăn.
+ */
+const NOT_PLANNED_CATEGORIES: ReadonlySet<string> = new Set(['Đồ uống', 'Tráng miệng'])
+
+/** Loại món nhẹ, chỉ hợp với bữa phụ. */
+const SNACK_CATEGORIES: ReadonlySet<string> = new Set(['Bữa phụ', 'Món phụ', 'Ăn vặt'])
+
+/**
+ * Món có hợp với bữa này không, theo loại món trong danh mục.
+ *
+ * Món không khai loại thì coi là hợp mọi bữa — danh mục cũ và dữ liệu thử vẫn chạy như trước.
+ */
+export function isSuitableForMeal(entry: MealCatalogueEntry, mealType: MealType): boolean {
+  const category = entry.category
+  if (category === undefined) return true
+  if (NOT_PLANNED_CATEGORIES.has(category)) return false
+  return mealType === 'snack' ? SNACK_CATEGORIES.has(category) : !SNACK_CATEGORIES.has(category)
 }
 
 /** Bước nhảy ≈ 38 % số món, nguyên tố cùng nhau với số món để đi hết danh mục. */

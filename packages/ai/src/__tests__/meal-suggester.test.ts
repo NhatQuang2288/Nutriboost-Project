@@ -73,6 +73,15 @@ describe('suggestMeals', () => {
     expect(new Set(names).size).toBe(names.length)
   })
 
+  it('không gợi ý đồ uống cho bữa chính dù vừa ngân sách', () => {
+    const catalogue = [
+      ...CATALOGUE,
+      { ...dish('tra-sua', 'Trà sữa trân châu', 91, 0.3, 360), category: 'Đồ uống' },
+    ]
+    const { options } = suggestMeals({ catalogue, mealType: 'dinner', budgetKcal: 330, count: 5 })
+    expect(options.map((option) => option.slug)).not.toContain('tra-sua')
+  })
+
   it('cùng hạt giống cho cùng kết quả', () => {
     const input = { catalogue: CATALOGUE, mealType: 'lunch' as const, budgetKcal: 450, seed: 'a' }
     expect(suggestMeals(input)).toEqual(suggestMeals(input))

@@ -77,6 +77,86 @@ describe('món ăn', () => {
   })
 })
 
+describe('danh mục đủ dùng', () => {
+  const dataset = buildDataset()
+  const kcalPerServing = (slug: string): number => {
+    const food = dataset.all.find((item) => item.slug === slug)
+    expect(food, `thiếu ${slug}`).toBeDefined()
+    return ((food?.kcalPer100g ?? 0) * (food?.servingGrams ?? 0)) / 100
+  }
+
+  it('không có hai món trùng tên — thẻ gợi ý sẽ hiện hai dòng y hệt', () => {
+    const names = dataset.all.map((item) => item.nameVi.toLowerCase())
+    const duplicated = names.filter((name, index) => names.indexOf(name) !== index)
+    expect(duplicated).toEqual([])
+  })
+
+  it('không có bí danh nào trỏ tới hai món khác nhau', () => {
+    const owner = new Map<string, string>()
+    const clashes: string[] = []
+    for (const item of dataset.all) {
+      for (const alias of item.aliases ?? []) {
+        const key = alias.toLowerCase()
+        const previous = owner.get(key)
+        if (previous !== undefined && previous !== item.slug) {
+          clashes.push(`"${alias}": ${previous} và ${item.slug}`)
+        }
+        owner.set(key, item.slug)
+      }
+    }
+    expect(clashes).toEqual([])
+  })
+
+  it('có các món người Việt hay ghi mà trước đây thiếu', () => {
+    for (const slug of [
+      'tra-sua-tran-chau',
+      'bun-rieu-cua',
+      'bun-thit-nuong',
+      'bun-dau-mam-tom',
+      'banh-cuon',
+      'banh-xeo',
+      'mi-tom-trung',
+      'nuoc-mia',
+      'ga-ran',
+    ]) {
+      expect(
+        dataset.all.some((item) => item.slug === slug),
+        slug,
+      ).toBe(true)
+    }
+  })
+
+  it('một ly trà sữa trân châu nằm trong khoảng 250–450 kcal', () => {
+    const kcal = kcalPerServing('tra-sua-tran-chau')
+    expect(kcal).toBeGreaterThan(250)
+    expect(kcal).toBeLessThan(450)
+  })
+
+  it('cháo có nước nấu — không đặc như gạo sống', () => {
+    // Bản đầu thiếu nước nên cháo gà ra 231 kcal/100 g. Cháo thật khoảng 50–90 kcal/100 g.
+    for (const slug of ['chao-ga', 'chao-ca-basa', 'chao-thit-bam']) {
+      const food = dataset.all.find((item) => item.slug === slug)
+      expect(food?.kcalPer100g, slug).toBeLessThan(100)
+    }
+  })
+
+  it('xôi nấu từ gạo nếp có nước, khoảng 200–280 kcal/100 g', () => {
+    for (const slug of ['xoi-ga', 'xoi-dau-phong', 'xoi-xeo']) {
+      const food = dataset.all.find((item) => item.slug === slug)
+      expect(food?.kcalPer100g, slug).toBeGreaterThan(200)
+      expect(food?.kcalPer100g, slug).toBeLessThan(280)
+    }
+  })
+
+  it('món nước có nước dùng, dưới 150 kcal/100 g', () => {
+    const soups = DISHES.filter((dish) => dish.category === 'Món nước')
+    for (const dish of soups) {
+      const food = dataset.all.find((item) => item.slug === dish.dishSlug)
+      expect(food?.kcalPer100g, dish.dishSlug).toBeLessThan(160)
+    }
+  })
+})
+
 describe('bộ dữ liệu', () => {
   it('dựng được và không có lỗi', () => {
     const report = validateFullDataset()

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import { type MealCatalogueEntry } from '../meal-estimator'
-import { addDays, buildPlan, scaleDishToTarget, MAX_DISHES_PER_MEAL } from '../plan-builder'
+import {
+  addDays,
+  buildPlan,
+  isSuitableForMeal,
+  scaleDishToTarget,
+  MAX_DISHES_PER_MEAL,
+} from '../plan-builder'
 
 const DISHES: readonly MealCatalogueEntry[] = [
   {
@@ -272,5 +278,63 @@ describe('buildPlan', () => {
     const plan = buildPlan({ weekStart: '2026-09-21', targets: TARGETS, catalogue: DISHES })
     const deviation = Math.abs(plan.averageKcal - TARGETS.targetKcal) / TARGETS.targetKcal
     expect(deviation).toBeLessThan(0.15)
+  })
+})
+
+describe('món hợp với bữa', () => {
+  const entry = (slug: string, category: string | undefined): MealCatalogueEntry => ({
+    slug,
+    nameVi: slug,
+    kind: 'dish',
+    ...(category === undefined ? {} : { category }),
+    servingGrams: 300,
+    kcalPer100g: 150,
+    proteinG: 8,
+    carbG: 20,
+    fatG: 4,
+  })
+
+  it('đồ uống và tráng miệng không bao giờ được tự xếp vào thực đơn', () => {
+    for (const mealType of ['breakfast', 'lunch', 'dinner', 'snack'] as const) {
+      expect(isSuitableForMeal(entry('tra-sua', 'Đồ uống'), mealType)).toBe(false)
+      expect(isSuitableForMeal(entry('che', 'Tráng miệng'), mealType)).toBe(false)
+    }
+  })
+
+  it('món ăn vặt chỉ hợp bữa phụ, món chính không vào bữa phụ', () => {
+    expect(isSuitableForMeal(entry('bap-luoc', 'Ăn vặt'), 'snack')).toBe(true)
+    expect(isSuitableForMeal(entry('bap-luoc', 'Ăn vặt'), 'lunch')).toBe(false)
+    expect(isSuitableForMeal(entry('pho', 'Món nước'), 'lunch')).toBe(true)
+    expect(isSuitableForMeal(entry('pho', 'Món nước'), 'snack')).toBe(false)
+  })
+
+  it('món không khai loại hợp mọi bữa — danh mục cũ chạy như trước', () => {
+    expect(isSuitableForMeal(entry('x', undefined), 'snack')).toBe(true)
+    expect(isSuitableForMeal(entry('x', undefined), 'dinner')).toBe(true)
+  })
+
+  it('thực đơn xếp món theo đúng nhóm của từng bữa', () => {
+    const catalogue = [
+      entry('pho', 'Món nước'),
+      entry('com-ga', 'Cơm'),
+      entry('bun-cha', 'Món khô'),
+      entry('bap-luoc', 'Ăn vặt'),
+      entry('trung-luoc', 'Món phụ'),
+      entry('tra-sua', 'Đồ uống'),
+      entry('che', 'Tráng miệng'),
+    ]
+    const plan = buildPlan({ weekStart: '2026-09-21', targets: TARGETS, catalogue })
+    const snackSlugs = new Set(['bap-luoc', 'trung-luoc'])
+
+    for (const day of plan.days) {
+      for (const meal of day.meals) {
+        for (const item of meal.items) {
+          expect(['tra-sua', 'che']).not.toContain(item.slug)
+          expect(snackSlugs.has(item.slug), `${meal.mealType}: ${item.slug}`).toBe(
+            meal.mealType === 'snack',
+          )
+        }
+      }
+    }
   })
 })

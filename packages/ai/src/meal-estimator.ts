@@ -30,6 +30,11 @@ export interface MealCatalogueEntry {
   nameVi: string
   /** Phân biệt nguyên liệu và món — dùng để phá thế hoà khi hai bên cùng điểm. */
   kind?: 'ingredient' | 'dish'
+  /**
+   * Loại món trong danh mục ("Món nước", "Đồ uống", "Ăn vặt"…). Dùng để không xếp trà sữa vào
+   * bữa trưa — xem `isSuitableForMeal`. Không bắt buộc: thiếu thì món hợp mọi bữa.
+   */
+  category?: string
   aliases?: readonly string[]
   servingGrams?: number
   kcalPer100g: number
