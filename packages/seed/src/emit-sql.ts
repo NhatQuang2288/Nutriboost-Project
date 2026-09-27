@@ -131,10 +131,28 @@ export function emitDishComponentsSql(dataset: BuiltDataset): string {
 
   if (triples.length === 0) return '-- (không có thành phần nào)'
 
+  /*
+   * Xoá thành phần CŨ không còn trong định nghĩa món, rồi mới upsert.
+   *
+   * Chỉ upsert thì seed chạy lại trên CSDL đã có dữ liệu sẽ giữ nguyên thành phần bị bỏ. Đổi
+   * xôi gà từ gạo tẻ sang gạo nếp để lại cả HAI thứ gạo, và `recompute_dish_nutrients` tính
+   * calo gấp đôi — trên Supabase thật, nơi không ai `db reset`. Chỉ chạm các món có trong seed.
+   */
   return [
     'with component_seed (dish_slug, ingredient_slug, grams) as (',
     '  values',
     triples.join(',\n'),
+    '),',
+    'stale as (',
+    '  delete from public.dish_components dc',
+    '  using public.foods d, public.foods i',
+    '  where dc.dish_id = d.id',
+    '    and dc.ingredient_id = i.id',
+    '    and d.slug in (select dish_slug from component_seed)',
+    '    and not exists (',
+    '      select 1 from component_seed s',
+    '      where s.dish_slug = d.slug and s.ingredient_slug = i.slug',
+    '    )',
     ')',
     'insert into public.dish_components (dish_id, ingredient_id, grams)',
     'select d.id, i.id, s.grams',

@@ -79,7 +79,8 @@ describe('estimateMeal', () => {
   })
 
   it('ghi nhận món không khớp thay vì bỏ im lặng', () => {
-    const result = estimateMeal('mình ăn pizza hải sản')
+    // Ví dụ phải là món CHƯA có trong danh mục. Trước đây dùng "pizza hải sản" — nay pizza đã có.
+    const result = estimateMeal('mình ăn sushi')
     expect(result.unmatched.length).toBe(1)
     expect(result.items.some((item) => item.foodId === null)).toBe(true)
     expect(result.needsConfirmation).toBe(true)
@@ -125,5 +126,29 @@ describe('suggestFoods', () => {
 
   it('trả về rỗng khi không có gì để tìm', () => {
     expect(suggestFoods('')).toEqual([])
+  })
+
+  describe('món bổ sung vào danh mục', () => {
+    it.each([
+      ['trưa nay uống trà sữa', 'tra-sua-tran-chau'],
+      ['uống trà đào', 'tra-dao'],
+      ['ăn bún riêu', 'bun-rieu-cua'],
+      ['ăn bún riêu chay', 'bun-rieu-chay'],
+      ['ăn bún đậu mắm tôm', 'bun-dau-mam-tom'],
+      ['ăn mì tôm', 'mi-tom-trung'],
+      ['uống coca', 'nuoc-ngot'],
+      ['ăn hột vịt lộn', 'trung-vit-lon'],
+      ['ăn xôi', 'xoi-xeo'],
+      ['ăn cháo', 'chao-thit-bam'],
+    ])('"%s" → %s', (text, slug) => {
+      const result = estimateMeal(text)
+      expect(result.items.map((item) => item.foodId)).toEqual([slug])
+    })
+
+    it('nhân khẩu phần với món mới như món cũ', () => {
+      const one = estimateMeal('ăn 1 miếng pizza').total.kcal
+      const two = estimateMeal('ăn 2 miếng pizza').total.kcal
+      expect(two).toBe(one * 2)
+    })
   })
 })

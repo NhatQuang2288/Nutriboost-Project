@@ -2,7 +2,7 @@ import type { MealType } from '@nutriboost/db'
 import { normalizeVi, stripDiacritics } from '@nutriboost/nutrition'
 
 import type { MealCatalogueEntry } from './meal-estimator'
-import { MEAL_SHARE, scaleDishToTarget, type PlanItem } from './plan-builder'
+import { MEAL_SHARE, isSuitableForMeal, scaleDishToTarget, type PlanItem } from './plan-builder'
 
 /**
  * Gợi ý món cho MỘT bữa — TẤT ĐỊNH.
@@ -54,6 +54,8 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
     .filter((entry) => (entry.kind ?? 'dish') === 'dish')
     .filter((entry) => entry.kcalPer100g > 0)
     .filter((entry) => !avoided.has(entry.slug))
+    // "Bữa tối nhẹ 350 kcal" không được ra trà sữa trân châu chỉ vì nó cũng 330 kcal.
+    .filter((entry) => isSuitableForMeal(entry, input.mealType))
     .map((entry) => {
       const item = scaleDishToTarget(entry, budget, SUGGEST_BOUNDS[0], SUGGEST_BOUNDS[1])
       const gap = Math.abs(item.kcal - budget) / budget
