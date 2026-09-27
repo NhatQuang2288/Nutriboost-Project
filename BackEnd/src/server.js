@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser";
 import authRoute from "./routes/authRoute.js";
 import userRoute from "./routes/userRoute.js";
 import groupRoute from "./routes/groupRoute.js";
+import subcriptionRoutes from "./routes/subscriptionRoutes.js"
+import webhookRoute from "./routes/webhookRoute.js"
 dotenv.config();
 
 const app = express();
@@ -17,6 +19,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoute);
 app.use("/api/users", userRoute);
 app.use("/api/groups",groupRoute);
+app.use("/api/subscription",subcriptionRoutes);
+app.use("/api/webhook",webhookRoute)
 
 app.use((req, res) => {
     res.status(404).json({ message: "Khong tim thay endpoint" });

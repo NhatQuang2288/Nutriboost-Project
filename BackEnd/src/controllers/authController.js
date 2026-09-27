@@ -222,30 +222,81 @@ export const forgotPassword = async (req, res) => {
             .eq("email", email)
             .maybeSingle();
 
-        // Luôn trả về thành công dù email có tồn tại hay không,
-        // để tránh lộ thông tin email nào đã đăng ký (chống dò email)
         if (!user) {
-            return res.status(200).json({ message: "Neu email ton tai, link dat lai da duoc gui" });
+            return res.status(200).json({ message: "Neu email ton tai, ma OTP da duoc gui" });
         }
 
-        const resetToken = createRefreshToken(); // tái dùng hàm sinh token ngẫu nhiên có sẵn
-        const RESET_TOKEN_TTL = 30 * 60 * 1000; // 30 phút
+        const otp = generateOtp(); // mã 6 số, ví dụ "482913"
+        const OTP_TTL = 10 * 60 * 1000; // 10 phút
+
+        await supabase.from("password_resets").delete().eq("user_id", user.id);
 
         await supabase.from("password_resets").insert({
             user_id: user.id,
-            token_hash: hashToken(resetToken),
-            expires_at: new Date(Date.now() + RESET_TOKEN_TTL).toISOString(),
+            token_hash: hashToken(otp),
+            expires_at: new Date(Date.now() + OTP_TTL).toISOString(),
         });
 
-        // TODO: gửi email thật chứa link, ví dụ:
-        // const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-        // await sendEmail(email, "Đặt lại mật khẩu", resetLink);
+        console.log("OTP (dev only):", otp);
 
-        console.log("Reset link (dev only):", `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`);
-
-        return res.status(200).json({ message: "Neu email ton tai, link dat lai da duoc gui" });
+        return res.status(200).json({ message: "Neu email ton tai, ma OTP da duoc gui" });
     } catch (error) {
         console.error("Fail forgotPassword", error);
+        return res.status(500).json({ message: "System Error" });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ message: "Khong duoc de trong" });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: "Mat khau moi phai co it nhat 6 ky tu" });
+        }
+
+        const { data: user } = await supabase
+            .from("users")
+            .select("id")
+            .eq("email", email)
+            .maybeSingle();
+
+        if (!user) {
+            return res.status(400).json({ message: "Ma OTP khong hop le hoac da het han" });
+        }
+
+        const { data: resetRecord } = await supabase
+            .from("password_resets")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("token_hash", hashToken(otp))
+            .maybeSingle();
+
+        if (!resetRecord) {
+            return res.status(400).json({ message: "Ma OTP khong hop le hoac da het han" });
+        }
+
+        if (new Date(resetRecord.expires_at) < new Date()) {
+            await supabase.from("password_resets").delete().eq("id", resetRecord.id);
+            return res.status(400).json({ message: "Ma OTP da het han, vui long yeu cau lai" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        const { error: updateError } = await supabase
+            .from("users")
+            .update({ hashed_password: hashedPassword })
+            .eq("id", user.id);
+
+        if (updateError) throw updateError;
+
+        await supabase.from("password_resets").delete().eq("id", resetRecord.id);
+        await supabase.from("sessions").delete().eq("user_id", user.id);
+
+        return res.status(200).json({ message: "Dat lai mat khau thanh cong" });
+    } catch (error) {
+        console.error("Fail resetPassword", error);
         return res.status(500).json({ message: "System Error" });
     }
 };

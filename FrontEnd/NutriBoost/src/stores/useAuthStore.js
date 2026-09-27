@@ -75,5 +75,19 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  resetPassword: async (email, otp, newPassword) => {
+    try {
+      set({ loading: true });
+      const data = await authService.resetPassword(email, otp, newPassword);
+      toast.success(data.message);
+      return data;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Có lỗi xảy ra");
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
   setAccessToken: (token) => set({ accessToken: token }),
 }));
