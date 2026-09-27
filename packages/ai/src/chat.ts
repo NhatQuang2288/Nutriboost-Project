@@ -13,7 +13,7 @@ import {
 import { type AiEnv, readAiEnv } from './env'
 import type { GuardrailInstructions } from './guardrails'
 import { ASSISTANT } from './identity'
-import { DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_TEMPERATURE } from './gateway'
+import { DEFAULT_MAX_OUTPUT_TOKENS } from './gateway'
 import { buildChatSystemPrompt } from './prompts'
 import { TOOL_TO_COMPONENT, isToolRefusal, type AssistantToolName } from './tools'
 
@@ -48,7 +48,7 @@ export interface ChatStreamOptions {
   rollingSummary?: string | null
   /** Bộ công cụ của trợ lý. Có tool thì model mới tra cứu và ghi dữ liệu được. */
   tools?: ToolSet
-  /** Số vòng model được gọi tool rồi trả lời. Mặc định 4. */
+  /** Số vòng model được gọi tool rồi trả lời. Mặc định `DEFAULT_CHAT_MAX_STEPS`. */
   maxSteps?: number
   /** Ghi nhật ký sau khi stream xong. Lỗi ở đây không được làm hỏng stream. */
   onFinish?: (info: {
@@ -98,6 +98,43 @@ function describeError(error: unknown): string {
   }
 }
 
+/**
+ * Nhiệt độ cho hội thoại.
+ *
+ * Cao hơn `DEFAULT_TEMPERATURE` (0,2) của cổng JSON: 0,2 hợp cho trích xuất có cấu trúc, nhưng
+ * trong hội thoại nó làm Bơ trả lời khô và lặp y một khuôn. Con số không bị ảnh hưởng vì mọi
+ * con số đều đến từ công cụ, không từ lời văn.
+ */
+export const CHAT_TEMPERATURE = 0.5
+
+/**
+ * Số vòng tối đa model được gọi công cụ trong một lượt.
+ *
+ * 4 vòng không đủ cho câu như "gợi ý bữa tối rồi lên lịch tập luôn": hai công cụ, mỗi cái một
+ * vòng, cộng vòng trả lời — gặp thêm một lần tra món là hết lượt giữa chừng.
+ */
+export const DEFAULT_CHAT_MAX_STEPS = 6
+
+/**
+ * Bỏ các lời gọi công cụ chưa có kết quả khỏi lịch sử.
+ *
+ * `ask_user_choice` là công cụ phía client: nếu người dùng không bấm chip mà gõ câu khác,
+ * lời gọi đó nằm lại trong lịch sử KHÔNG có kết quả. DeepSeek từ chối lịch sử như vậy
+ * ("tool_calls must be followed by tool messages"), nên mọi lượt sau đều hỏng và route rơi
+ * về đường tất định — người dùng thấy Bơ "ngốc hẳn đi" mà không rõ vì sao.
+ */
+export function dropUnansweredToolCalls(messages: readonly UIMessage[]): UIMessage[] {
+  return messages.map((message) => {
+    if (message.role !== 'assistant') return message
+    const parts = message.parts.filter((part) => {
+      if (!part.type.startsWith('tool-') && part.type !== 'dynamic-tool') return true
+      const state = (part as { state?: string }).state
+      return state === 'output-available' || state === 'output-error'
+    })
+    return parts.length === message.parts.length ? message : { ...message, parts }
+  })
+}
+
 /** Cổng AI thật: stream văn bản từ DeepSeek. */
 export async function buildChatStreamResponse(options: ChatStreamOptions): Promise<Response> {
   const env = options.env ?? readAiEnv()
@@ -119,19 +156,22 @@ export async function buildChatStreamResponse(options: ChatStreamOptions): Promi
   })
 
   // `convertToModelMessages` là hàm bất đồng bộ ở AI SDK v7.
-  const modelMessages = await convertToModelMessages(options.messages)
+  const modelMessages = await convertToModelMessages(dropUnansweredToolCalls(options.messages))
 
   const result = streamText({
     model: provider(env.models.fast),
     system: `${prompt.system}\n\n${prompt.user}`,
     messages: modelMessages,
     maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: DEFAULT_TEMPERATURE,
+    temperature: CHAT_TEMPERATURE,
     // Có tool thì cho model gọi tool rồi trả lời, tối đa vài vòng. Nhờ vậy mọi con số
     // trong câu trả lời đều đến từ công cụ, không phải từ trí nhớ của model.
     ...(options.tools === undefined
       ? {}
-      : { tools: options.tools, stopWhen: stepCountIs(options.maxSteps ?? 4) }),
+      : {
+          tools: options.tools,
+          stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_CHAT_MAX_STEPS),
+        }),
     ...(options.signal === undefined ? {} : { abortSignal: options.signal }),
     onError: ({ error }) => {
       options.onError?.({ message: describeError(error), model: env.models.fast })

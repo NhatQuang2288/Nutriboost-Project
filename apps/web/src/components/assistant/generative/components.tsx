@@ -203,21 +203,242 @@ export function ProgressChartCard({ props }: { props: Props<'progress_chart_card
   )
 }
 
+const MEAL_LABELS_VI: Readonly<Record<Props<'meal_suggestions_card'>['mealType'], string>> = {
+  breakfast: 'Sáng',
+  lunch: 'Trưa',
+  dinner: 'Tối',
+  snack: 'Phụ',
+}
+
 export function PlanPreviewWeek({ props }: { props: Props<'plan_preview_week'> }) {
+  if (props.days.length === 0) {
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-4">
+        <p className="text-body text-ink">Chưa dựng được thực đơn</p>
+        {(props.notes ?? []).map((note) => (
+          <p key={note} className="text-caption text-ink-muted mt-1">
+            {note}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="border-line-subtle bg-surface rounded-lg border p-4">
-      <p className="text-caption text-ink-muted mb-3">Tuần bắt đầu {props.weekStart}</p>
-      <ul className="flex flex-col gap-2">
-        {props.days.map((day) => (
-          <li key={day.dayLabel} className="flex items-baseline justify-between gap-3">
-            <span className="text-body text-ink">{day.dayLabel}</span>
-            <span className="text-caption text-ink-faint">
-              {day.meals.map((meal) => meal.displayName).join(' · ')}
-            </span>
+    <div className="border-line-subtle bg-surface rounded-lg border">
+      <div className="border-line-subtle flex items-baseline justify-between gap-3 border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">Thực đơn đề xuất</p>
+        {props.targetKcal !== undefined ? (
+          <p className="text-caption text-ink-faint tabular-nums">
+            Mục tiêu {props.targetKcal} kcal/ngày
+          </p>
+        ) : null}
+      </div>
+
+      <ul className="divide-line-subtle flex flex-col divide-y">
+        {props.days.map((day, index) => (
+          <li key={`${day.dayLabel}-${index}`}>
+            {/* Mở sẵn ngày đầu: thực đơn một ngày thì người dùng thấy ngay, không phải bấm. */}
+            <details open={index === 0} className="group px-4 py-2.5">
+              <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3">
+                <span className="text-body text-ink">{day.dayLabel}</span>
+                <span className="text-caption text-ink-muted tabular-nums">
+                  {day.totalKcal !== undefined
+                    ? `${day.totalKcal} kcal`
+                    : `${day.meals.length} món`}
+                </span>
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1">
+                {day.meals.map((meal, mealIndex) => (
+                  <li
+                    key={`${meal.displayName}-${mealIndex}`}
+                    className="text-caption flex items-baseline justify-between gap-3"
+                  >
+                    <span className="text-ink-muted min-w-0 truncate">
+                      <span className="text-ink-faint">{MEAL_LABELS_VI[meal.mealType]} · </span>
+                      {meal.displayName}
+                    </span>
+                    <span className="text-ink-faint shrink-0 tabular-nums">{meal.kcal} kcal</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </li>
         ))}
       </ul>
+
+      <Notes notes={props.notes ?? []} />
     </div>
+  )
+}
+
+export function WorkoutPreviewWeek({ props }: { props: Props<'workout_preview_week'> }) {
+  return (
+    <div className="border-line-subtle bg-surface rounded-lg border">
+      <div className="border-line-subtle border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">Lịch tập đề xuất · {props.levelLabel}</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          {props.sessions.length} buổi · {props.weeklyMinutes} phút · khoảng {props.weeklyKcal}{' '}
+          kcal/tuần
+        </p>
+      </div>
+
+      <ul className="divide-line-subtle flex flex-col divide-y">
+        {props.sessions.map((session, index) => (
+          <li key={`${session.dayLabel}-${index}`}>
+            <details open={index === 0} className="px-4 py-2.5">
+              <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3">
+                <span className="text-body text-ink">
+                  {session.dayLabel} <span className="text-ink-muted">· {session.focus}</span>
+                </span>
+                <span className="text-caption text-ink-muted shrink-0 tabular-nums">
+                  {session.totalMinutes} phút · {session.estimatedKcal} kcal
+                </span>
+              </summary>
+              <ol className="mt-2 flex flex-col gap-1">
+                {session.blocks.map((block, blockIndex) => (
+                  <li
+                    key={`${block.nameVi}-${blockIndex}`}
+                    className="text-caption flex items-baseline justify-between gap-3"
+                  >
+                    <span className="text-ink-muted min-w-0 truncate">{block.nameVi}</span>
+                    <span className="text-ink-faint shrink-0 tabular-nums">{block.dose}</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          </li>
+        ))}
+      </ul>
+
+      <Notes notes={props.notes} />
+    </div>
+  )
+}
+
+export function MealSuggestionsCard({ props }: { props: Props<'meal_suggestions_card'> }) {
+  if (props.options.length === 0) {
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-4">
+        <p className="text-body text-ink">Chưa có món nào vừa {props.budgetKcal} kcal</p>
+        {props.note !== null ? (
+          <p className="text-caption text-ink-muted mt-1">{props.note}</p>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-line-subtle bg-surface rounded-lg border">
+      <div className="border-line-subtle flex items-baseline justify-between gap-3 border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">
+          Gợi ý bữa {MEAL_LABELS_VI[props.mealType].toLowerCase()}
+        </p>
+        <p className="text-caption text-ink-faint tabular-nums">≈ {props.budgetKcal} kcal</p>
+      </div>
+
+      <ul className="divide-line-subtle flex flex-col divide-y">
+        {props.options.map((option) => (
+          <SuggestionRow key={option.foodId} option={option} />
+        ))}
+      </ul>
+
+      {props.note !== null ? <Notes notes={[props.note]} /> : null}
+    </div>
+  )
+}
+
+/**
+ * Một món gợi ý, kèm nút lưu MỘT CHẠM.
+ *
+ * Số liệu trên thẻ đã do code tính từ danh mục, nên lưu thẳng qua `saveMealAction` — cùng đường
+ * với thẻ xác nhận bữa ăn. Chỉ hiện "Đã lưu" khi CSDL thật sự đã ghi.
+ */
+function SuggestionRow({ option }: { option: Props<'meal_suggestions_card'>['options'][number] }) {
+  const [result, setResult] = useState<ActionResult | null>(null)
+  const [pending, startTransition] = useTransition()
+  const saved = result?.ok === true
+
+  function save(): void {
+    startTransition(async () => {
+      setResult(
+        await saveMealAction({
+          rawInput: `${option.displayName} (${option.grams} g)`,
+          items: [
+            {
+              foodId: option.foodId,
+              displayName: option.displayName,
+              grams: option.grams,
+              kcal: option.kcal,
+              proteinG: option.proteinG,
+              carbG: option.carbG,
+              fatG: option.fatG,
+              confidence: 1,
+            },
+          ],
+        }),
+      )
+    })
+  }
+
+  return (
+    <li className="px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-body text-ink truncate">{option.displayName}</p>
+          <p className="text-caption text-ink-faint tabular-nums">
+            {option.grams} g · {option.kcal} kcal · đạm {option.proteinG} g
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={pending || saved}
+          onClick={save}
+          className="touch-target text-caption text-accent-text shrink-0 rounded-full border border-olive-200 bg-olive-100 px-3 font-semibold disabled:opacity-60"
+        >
+          {saved ? 'Đã lưu' : pending ? 'Đang lưu…' : 'Ăn món này'}
+        </button>
+      </div>
+      {result !== null && !result.ok ? (
+        <p className="text-caption text-warning-text mt-1 flex items-center gap-1.5">
+          <AlertIcon size={14} />
+          <span>{result.message}</span>
+        </p>
+      ) : null}
+    </li>
+  )
+}
+
+export function NutritionFactsCard({ props }: { props: Props<'nutrition_facts_card'> }) {
+  return (
+    <div className="border-line-subtle bg-surface rounded-lg border p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <p className="text-body text-ink min-w-0 truncate font-semibold">{props.nameVi}</p>
+        <p className="text-caption text-ink-faint shrink-0">{props.portionLabel}</p>
+      </div>
+      <dl className="flex flex-col gap-1.5">
+        <Row label="Năng lượng" value={`${props.kcal} kcal`} strong />
+        <Row label="Đạm" value={`${props.proteinG} g`} />
+        <Row label="Tinh bột" value={`${props.carbG} g`} />
+        <Row label="Chất béo" value={`${props.fatG} g`} />
+        <Row label="Chất xơ" value={`${props.fiberG} g`} />
+        <Row label="Natri" value={`${props.sodiumMg} mg`} />
+      </dl>
+    </div>
+  )
+}
+
+function Notes({ notes }: { notes: readonly string[] }) {
+  if (notes.length === 0) return null
+  return (
+    <ul className="border-line-subtle flex flex-col gap-1 border-t px-4 py-2.5">
+      {notes.map((note) => (
+        <li key={note} className="text-caption text-ink-muted flex gap-1.5">
+          <InfoIcon size={14} className="mt-0.5 shrink-0" />
+          <span>{note}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -244,8 +465,25 @@ export function SafetyNoticeCard({ props }: { props: Props<'safety_notice_card'>
   )
 }
 
-export function ChoiceChips({ props }: { props: Props<'choice_chips'> }) {
-  const [chosen, setChosen] = useState<string | null>(null)
+/**
+ * Chip lựa chọn cho công cụ phía client `ask_user_choice`.
+ *
+ * Trước đây chip chỉ đổi state cục bộ và không bao giờ trả kết quả về cho model — tệ hơn,
+ * thẻ không hề hiện ra vì công cụ phía client không có đầu ra để cầu nối dựng `data-*`.
+ * Nay `AssistantDock` dựng thẻ thẳng từ phần `tool-ask_user_choice` và `onPick` gọi
+ * `addToolOutput` (hợp đồng docs/ASSISTANT-UX.md §9.2).
+ */
+export function ChoiceChips({
+  props,
+  onPick,
+  chosen = null,
+}: {
+  props: Props<'choice_chips'>
+  onPick?: (option: { value: string; label: string }) => void
+  chosen?: string | null
+}) {
+  const [picked, setPicked] = useState<string | null>(chosen)
+  const current = chosen ?? picked
 
   return (
     <div className="border-line-subtle bg-surface rounded-lg border p-3">
@@ -255,11 +493,15 @@ export function ChoiceChips({ props }: { props: Props<'choice_chips'> }) {
           <button
             key={option.value}
             type="button"
-            onClick={() => setChosen(option.value)}
+            disabled={current !== null}
+            onClick={() => {
+              setPicked(option.value)
+              onPick?.(option)
+            }}
             className={`touch-target text-caption rounded-full border px-4 transition-colors duration-(--duration-fast) ${
-              chosen === option.value
+              current === option.value
                 ? 'border-forest-600 bg-forest-600 text-ink-inverse'
-                : 'text-accent-text border-olive-200 bg-olive-100'
+                : 'text-accent-text border-olive-200 bg-olive-100 disabled:opacity-50'
             }`}
           >
             {option.label}

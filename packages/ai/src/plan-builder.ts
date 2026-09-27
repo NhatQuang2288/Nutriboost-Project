@@ -135,6 +135,15 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
   // liền kề trong thực đơn không bao giờ trùng nhau.
   let picker = 0
 
+  /*
+   * Bước nhảy trong danh mục, nguyên tố cùng nhau với số món.
+   *
+   * Bản đầu lấy món liền kề theo thứ tự chữ cái, nên các món cùng tiền tố đứng cạnh nhau: một
+   * ngày ra "bánh mì cá, bánh mì thịt, bánh mì thịt nướng, bánh mì trứng". Nhảy cách quãng rải
+   * đều khắp danh mục, mà vẫn đi hết mọi món trước khi lặp lại (vì bước nguyên tố cùng nhau).
+   */
+  const stride = spreadStride(pool.length)
+
   for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
     const meals: PlanMeal[] = []
 
@@ -149,7 +158,7 @@ export function buildPlan(input: BuildPlanInput): BuiltPlan {
       for (let attempt = 0; attempt < MAX_DISHES_PER_MEAL; attempt += 1) {
         if (remaining <= mealTargetKcal * MEAL_TOLERANCE) break
 
-        const dish = pool[picker % pool.length]
+        const dish = pool[(picker * stride) % pool.length]
         picker += 1
         if (dish === undefined) break
 
@@ -235,6 +244,19 @@ export function scaleDishToTarget(
     carbG: round1(dish.carbG * factor),
     fatG: round1(dish.fatG * factor),
   }
+}
+
+/** Bước nhảy ≈ 38 % số món, nguyên tố cùng nhau với số món để đi hết danh mục. */
+export function spreadStride(size: number): number {
+  if (size <= 2) return 1
+  for (let step = Math.max(1, Math.round(size * 0.382)); step < size; step += 1) {
+    if (gcd(step, size) === 1) return step
+  }
+  return 1
+}
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b)
 }
 
 function sumShares(meals: readonly MealType[]): number {

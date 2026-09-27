@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
+import { resolveFoodIds } from '@/lib/ai/food-ids'
 import { localHourIn, mealTypeForHour } from '@/lib/ai/meal-time'
 import { DEFAULT_TIMEZONE, localDateIn } from '@/lib/date'
 import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
@@ -24,8 +25,20 @@ import type { ActionResult } from './types'
  * chạm, hỏi thêm một câu là phá mục tiêu đó.
  */
 
+/**
+ * Id món nhận cả UUID (khoá `foods.id`) lẫn slug của danh mục (`pho-bo`).
+ *
+ * Trước đây chỉ nhận UUID, trong khi thẻ xác nhận do công cụ `estimate_meal` của Bơ dựng lại
+ * mang slug — nên mọi thẻ đi qua DeepSeek bấm "Lưu bữa này" đều đổ lỗi zod "Invalid UUID",
+ * còn thẻ của đường tất định (id `null`) thì lưu được. Slug được đổi sang UUID trước khi ghi.
+ */
 const itemSchema = z.object({
-  foodId: z.string().uuid().nullable().optional(),
+  foodId: z
+    .string()
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9-]*$/i, 'Id món không hợp lệ.')
+    .nullable()
+    .optional(),
   displayName: z.string().trim().min(1, 'Món phải có tên.').max(160),
   grams: z.number().finite().min(0).max(5000),
   kcal: z.number().finite().min(0).max(10_000),
@@ -69,12 +82,17 @@ export async function saveMealAction(input: unknown): Promise<ActionResult> {
   const localDate = localDateIn(DEFAULT_TIMEZONE)
   const mealType = mealTypeForHour(localHourIn(DEFAULT_TIMEZONE))
 
+  const foodIds = await resolveFoodIds(
+    supabase,
+    parsed.data.items.map((item) => item.foodId ?? null),
+  )
+
   const { error } = await supabase.rpc('log_meal_with_items', {
     p_local_date: localDate,
     p_meal_type: mealType,
     p_raw_input: parsed.data.rawInput ?? '',
-    p_items: parsed.data.items.map((item) => ({
-      foodId: item.foodId ?? null,
+    p_items: parsed.data.items.map((item, index) => ({
+      foodId: foodIds[index] ?? null,
       displayName: item.displayName,
       grams: item.grams,
       kcal: item.kcal,

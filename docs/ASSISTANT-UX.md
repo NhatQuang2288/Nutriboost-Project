@@ -218,16 +218,19 @@ Model đóng vai người điều phối; tool giữ sự thật.
 Chỉ key có trong `generative/registry.ts` mới render được.
 **Không `eval`**, **không** dynamic import theo tên do model sinh.
 
-| Tool                         | Part type                 | Component                       | Tương tác                             |
-| ---------------------------- | ------------------------- | ------------------------------- | ------------------------------------- |
-| `search_food(query, limit)`  | `tool-search_food`        | `FoodCandidateChips`            | Chọn 1 món → gửi kết quả tool         |
-| `estimate_meal(text)`        | `tool-estimate_meal`      | `MealConfirmCard`               | Sửa gram → xác nhận → ghi `meal_logs` |
-| `log_meal(items)`            | `tool-log_meal`           | `MealLoggedReceipt`             | Hoàn tất                              |
-| `compute_targets()`          | `tool-compute_targets`    | `TargetSummaryCard`             | Giải thích BMR/TDEE/macro             |
-| `get_progress(range)`        | `tool-get_progress`       | `ProgressChartCard`             | Recharts, thu gọn được                |
-| `generate_plan(weekStart)`   | `tool-generate_plan`      | `PlanPreviewWeek`               | Duyệt / đổi món                       |
-| `show_safety_notice(reason)` | `tool-show_safety_notice` | `SafetyNoticeCard`              | Chuyển hướng chuyên gia               |
-| `ask_user_choice(options)`   | `tool-ask_user_choice`    | `ChoiceChips` + `addToolOutput` | Tool phía client                      |
+| Tool                                                                        | Part type                 | Component                       | Tương tác                             |
+| --------------------------------------------------------------------------- | ------------------------- | ------------------------------- | ------------------------------------- |
+| `search_food(query, limit)`                                                 | `tool-search_food`        | `FoodCandidateChips`            | Chọn 1 món → gửi kết quả tool         |
+| `estimate_meal(text)`                                                       | `tool-estimate_meal`      | `MealConfirmCard`               | Sửa gram → xác nhận → ghi `meal_logs` |
+| `log_meal(items)`                                                           | `tool-log_meal`           | `MealLoggedReceipt`             | Hoàn tất                              |
+| `compute_targets()`                                                         | `tool-compute_targets`    | `TargetSummaryCard`             | Giải thích BMR/TDEE/macro             |
+| `get_progress(range)`                                                       | `tool-get_progress`       | `ProgressChartCard`             | Recharts, thu gọn được                |
+| `generate_plan(weekStart, days, meals, avoid)`                              | `tool-generate_plan`      | `PlanPreviewWeek`               | Duyệt / đổi món                       |
+| `generate_workout(daysPerWeek, sessionMinutes, level, equipment, injuries)` | `tool-generate_workout`   | `WorkoutPreviewWeek`            | Xem buổi tập, kcal đốt theo MET       |
+| `suggest_meals(mealType, budgetKcal, avoid)`                                | `tool-suggest_meals`      | `MealSuggestionsCard`           | "Ăn món này" → lưu một chạm           |
+| `lookup_food(query, grams)`                                                 | `tool-lookup_food`        | `NutritionFactsCard`            | Chỉ xem, không ghi                    |
+| `show_safety_notice(reason)`                                                | `tool-show_safety_notice` | `SafetyNoticeCard`              | Chuyển hướng chuyên gia               |
+| `ask_user_choice(options)`                                                  | `tool-ask_user_choice`    | `ChoiceChips` + `addToolOutput` | Tool phía client                      |
 
 ### 9.3 Render theo `part.state` (API AI SDK v7)
 

@@ -4,7 +4,7 @@ import { useChat } from '@ai-sdk/react'
 import { ASSISTANT } from '@nutriboost/ai/identity'
 // `DefaultChatTransport` là transport giao diện, không phải SDK gọi model.
 // Quy tắc ESLint cấm `ai` ở tầng ứng dụng được nới riêng cho thư mục trợ lý — xem eslint.config.mjs.
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
 import { usePathname } from 'next/navigation'
 import {
   createContext,
@@ -41,6 +41,11 @@ export interface RenderablePart {
   type: string
   text?: string
   data?: unknown
+  /** Chỉ có ở phần `tool-*`. */
+  toolCallId?: string
+  state?: string
+  input?: unknown
+  output?: unknown
 }
 
 export interface RenderableMessage {
@@ -56,6 +61,8 @@ interface AssistantContextValue {
   newThread: () => void
   switchThread: (id: string) => void
   send: (text: string) => void
+  /** Trả lời công cụ phía client `ask_user_choice` bằng lựa chọn của người dùng. */
+  answerChoice: (toolCallId: string, option: { value: string; label: string }) => void
   /** Gửi một ảnh (đã thu nhỏ ở trình duyệt) kèm câu mô tả tuỳ chọn. */
   sendPhoto: (photo: { dataUrl: string; mediaType: string; note?: string }) => void
   stop: () => void
@@ -95,7 +102,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/ai/chat' }), [])
 
-  const { messages, sendMessage, setMessages, status, stop, error } = useChat({ transport })
+  const { messages, sendMessage, setMessages, status, stop, error, addToolOutput } = useChat({
+    transport,
+    // Người dùng bấm chip của `ask_user_choice` xong thì tự gửi tiếp để Bơ trả lời luôn —
+    // hợp đồng docs/ASSISTANT-UX.md §9.3.
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  })
 
   // Bản lưu hội thoại theo từng đoạn, để chuyển qua lại không mất nội dung.
   const messagesByThread = useRef(new Map<string, typeof messages>())
@@ -175,6 +187,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     [sendMessage],
   )
 
+  const answerChoice = useCallback(
+    (toolCallId: string, option: { value: string; label: string }) => {
+      void addToolOutput({
+        tool: 'ask_user_choice',
+        toolCallId,
+        output: { value: option.value, label: option.label },
+      })
+    },
+    [addToolOutput],
+  )
+
   const newThread = useCallback(() => {
     const id = createThreadId()
     messagesByThread.current.set(id, [])
@@ -249,6 +272,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       newThread,
       switchThread,
       send,
+      answerChoice,
       sendPhoto,
       stop: () => {
         stop()
@@ -263,6 +287,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       newThread,
       switchThread,
       send,
+      answerChoice,
       sendPhoto,
       stop,
       isStreaming,

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 import {
-  ASSISTANT,
   MEDICAL_REDIRECT_MESSAGE,
   MOCK_FALLBACK_TEXT,
   buildChatStreamResponse,
@@ -10,15 +9,20 @@ import {
   createAssistantTools,
   isOutOfScopeMedicalQuestion,
   readAiEnv,
+  type ToolContext,
 } from '@nutriboost/ai'
-import { assessSafety } from '@nutriboost/nutrition'
+import { EXERCISES } from '@nutriboost/seed'
 
+import { buildChatFacts } from '@/lib/ai/chat-facts'
 import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
+import { buildFallbackReply } from '@/lib/ai/fallback-reply'
+import { localHourIn } from '@/lib/ai/meal-time'
 import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { createSupabaseAiStore } from '@/lib/ai/store'
 import { inspectStreamHead } from '@/lib/ai/stream-guard'
 import { getTodayView } from '@/lib/data/today'
+import { DEFAULT_TIMEZONE } from '@/lib/date'
 import { createSupabaseServerClient, getSessionUser } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -117,12 +121,12 @@ export async function POST(request: Request): Promise<Response> {
   const screen = screenFromReferer(request.headers.get('referer'))
   const view = await getTodayView()
 
-  const safety = assessSafety({
-    bmi: view.bmi.bmi,
-    age: view.profile.age,
-    goal: view.profile.goal,
-    medicalFlags: [],
-  })
+  /*
+   * Dùng đánh giá an toàn ĐÃ có trong `view`. Trước đây route tự đánh giá lại với
+   * `medicalFlags: []`, nên cờ sức khoẻ người dùng khai lúc onboarding (tiểu đường, mang thai…)
+   * không bao giờ tới được guardrail của chat.
+   */
+  const safety = view.safety
   const guardrails = buildGuardrailInstructions(safety)
 
   // Guardrail tất định chạy TRƯỚC khi gọi model: câu hỏi thuộc phạm vi y khoa
@@ -136,44 +140,10 @@ export async function POST(request: Request): Promise<Response> {
 
   // Ước lượng bữa ăn bằng pipeline tất định — bước 1 và 2, không cần model.
   const estimate = estimateMeal(userText)
-  const matched = estimate.items.filter((item) => item.foodId !== null)
 
-  const facts = [
-    `Mục tiêu mỗi ngày: ${view.targets.targetKcal} kcal (đạm ${view.targets.proteinG} g)`,
-    `Đã nạp hôm nay: ${view.consumed.kcal} kcal (đạm ${view.consumed.proteinG} g)`,
-    `Còn lại: ${view.remainingKcal} kcal`,
-    `BMI: ${view.bmi.bmi} (${view.bmi.label})`,
-  ]
-
-  const dataParts =
-    matched.length > 0
-      ? [
-          {
-            name: 'meal_confirm_card',
-            data: {
-              title: 'Mình hiểu bữa ăn như sau',
-              rawInput: userText,
-              items: estimate.items.map((item) => ({
-                foodId: null,
-                displayName: item.displayName,
-                grams: item.grams,
-                kcal: item.nutrients.kcal,
-                proteinG: item.nutrients.proteinG,
-                carbG: item.nutrients.carbG,
-                fatG: item.nutrients.fatG,
-                confidence: item.confidence,
-              })),
-              total: {
-                kcal: estimate.total.kcal,
-                proteinG: estimate.total.proteinG,
-                carbG: estimate.total.carbG,
-                fatG: estimate.total.fatG,
-              },
-              needsConfirmation: estimate.needsConfirmation,
-            },
-          },
-        ]
-      : []
+  const now = new Date()
+  const clock = localClock(now)
+  const facts = buildChatFacts(view, clock)
 
   const env = readAiEnv()
 
@@ -231,6 +201,20 @@ export async function POST(request: Request): Promise<Response> {
           readProgress: createProgressReader({ supabase: sessionClient, userId: user.id }),
         }
 
+  // Cùng một bộ dữ kiện cho công cụ của model VÀ cho đường tất định, nên thực đơn hay lịch tập
+  // ở hai đường là một.
+  const toolContext: ToolContext = {
+    catalogue: MEAL_CATALOGUE,
+    estimator: mealEstimator,
+    targets: view.targets,
+    safety,
+    today: view.localDate,
+    remainingKcal: view.remainingKcal,
+    profile: { goal: view.profile.goal, weightKg: view.profile.weightKg },
+    exercises: EXERCISES,
+    ...healthTools,
+  }
+
   if (env.apiKey !== null && !env.killSwitch) {
     const allowance = await checkChatAllowance({
       store,
@@ -253,14 +237,7 @@ export async function POST(request: Request): Promise<Response> {
     try {
       // Bộ công cụ tra cùng danh mục và cùng mục tiêu với màn hình, nên con số trong
       // chat luôn khớp con số trên giao diện.
-      const tools = createAssistantTools({
-        catalogue: MEAL_CATALOGUE,
-        estimator: mealEstimator,
-        targets: view.targets,
-        safety,
-        today: view.localDate,
-        ...healthTools,
-      })
+      const tools = createAssistantTools(toolContext)
 
       const stream = await buildChatStreamResponse({
         messages: messages as never,
@@ -305,23 +282,30 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  const missing = estimate.unmatched
-  const text = [
-    matched.length > 0
-      ? `Mình nhận ra ${matched.length} món, tổng khoảng ${estimate.total.kcal} kcal.`
-      : 'Mình chưa nhận ra món nào trong câu này.',
-    missing.length > 0
-      ? `Còn ${missing.length} phần mình chưa chắc: ${missing.join(', ')}. Bạn chỉnh lại giúp mình nhé.`
-      : '',
-    `Hôm nay bạn còn ${view.remainingKcal} kcal.`,
-    ASSISTANT.signature,
-  ]
-    .filter((line) => line.length > 0)
-    .join(' ')
-
-  return buildMockChatStreamResponse({
-    text,
-    dataParts,
-    suggestions: ['Gợi ý bữa tối nhẹ', 'Hôm nay mình còn bao nhiêu calo?'],
+  const reply = buildFallbackReply({
+    userText,
+    estimate,
+    remainingKcal: view.remainingKcal,
+    localHour: clock.hour,
+    tools: toolContext,
   })
+
+  return buildMockChatStreamResponse(reply)
+}
+
+/** Thứ, giờ và phút theo giờ Việt Nam — để Bơ biết "tối nay" là bữa nào. */
+function localClock(now: Date): { weekday: string; time: string; hour: number } {
+  const parts = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: DEFAULT_TIMEZONE,
+    weekday: 'long',
+    minute: '2-digit',
+  }).formatToParts(now)
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  const hour = localHourIn(DEFAULT_TIMEZONE, now)
+  return {
+    weekday: pick('weekday').toLowerCase(),
+    time: `${String(hour).padStart(2, '0')}:${pick('minute').padStart(2, '0')}`,
+    hour,
+  }
 }

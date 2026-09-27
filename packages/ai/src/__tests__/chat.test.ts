@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { UIMessageChunk } from 'ai'
+import type { UIMessage, UIMessageChunk } from 'ai'
 
-import { bridgeToolOutputsToDataParts } from '../chat'
+import { bridgeToolOutputsToDataParts, dropUnansweredToolCalls } from '../chat'
+import { CHAT_SYSTEM_VERSION, buildChatSystemPrompt } from '../prompts'
 import { GENERATIVE_COMPONENTS } from '../schemas'
 import { ASSISTANT_TOOL_NAMES, TOOL_TO_COMPONENT, type AssistantToolName } from '../tools'
 
@@ -177,5 +178,77 @@ describe('bridgeToolOutputsToDataParts', () => {
     ] as UIMessageChunk[])
 
     expect(dataParts(output)).toEqual([])
+  })
+})
+
+describe('dropUnansweredToolCalls', () => {
+  const messages = [
+    { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Tối nay ăn gì?' }] },
+    {
+      id: 'a1',
+      role: 'assistant',
+      parts: [
+        { type: 'text', text: 'Bạn thích món nước hay món khô?' },
+        {
+          type: 'tool-ask_user_choice',
+          toolCallId: 'c1',
+          state: 'input-available',
+          input: { question: 'Món gì?', options: [] },
+        },
+        {
+          type: 'tool-suggest_meals',
+          toolCallId: 'c2',
+          state: 'output-available',
+          input: {},
+          output: {},
+        },
+      ],
+    },
+    { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Thôi, cho mình thực đơn tuần' }] },
+  ] as unknown as UIMessage[]
+
+  it('bỏ lời gọi công cụ chưa có kết quả — DeepSeek từ chối lịch sử như vậy', () => {
+    const cleaned = dropUnansweredToolCalls(messages)
+    const types = cleaned[1]?.parts.map((part) => part.type)
+    expect(types).toEqual(['text', 'tool-suggest_meals'])
+  })
+
+  it('giữ nguyên tin nhắn không có gì để bỏ', () => {
+    const cleaned = dropUnansweredToolCalls(messages)
+    expect(cleaned[0]).toBe(messages[0])
+    expect(cleaned[2]).toBe(messages[2])
+  })
+})
+
+describe('buildChatSystemPrompt', () => {
+  const prompt = buildChatSystemPrompt({
+    facts: ['Còn lại hôm nay: 800 kcal'],
+    guardrails: { systemFragment: 'QUY TẮC AN TOÀN', level: 'ok', mustRefer: false },
+    screen: '/hom-nay',
+    rollingSummary: null,
+  })
+
+  it('có phiên bản để đối chiếu chất lượng trong ai_calls', () => {
+    expect(prompt.version).toBe(CHAT_SYSTEM_VERSION)
+  })
+
+  it('chỉ dẫn model dùng mọi công cụ có trong sổ đăng ký', () => {
+    for (const name of ASSISTANT_TOOL_NAMES) {
+      expect(prompt.system, `prompt không nhắc tới ${name}`).toContain(`\`${name}\``)
+    }
+  })
+
+  it('có quy tắc đọc ảnh bữa ăn: nhận diện rồi đưa cho estimate_meal, không tự tính calo', () => {
+    expect(prompt.system).toMatch(/KHI NGƯỜI DÙNG GỬI ẢNH/)
+    expect(prompt.system).toMatch(/Không tự tính calo từ ảnh/)
+  })
+
+  it('giữ nguyên quy tắc không nói "đã ghi" khi chưa gọi log_meal', () => {
+    expect(prompt.system).toMatch(/Chỉ được nói "đã ghi"/)
+  })
+
+  it('đưa số liệu của người dùng vào ngữ cảnh', () => {
+    expect(prompt.user).toContain('Còn lại hôm nay: 800 kcal')
+    expect(prompt.user).toContain('/hom-nay')
   })
 })

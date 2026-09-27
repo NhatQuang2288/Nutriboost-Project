@@ -7,10 +7,13 @@ import {
   FoodCandidateChips,
   MealConfirmCard,
   MealLoggedReceipt,
+  MealSuggestionsCard,
+  NutritionFactsCard,
   PlanPreviewWeek,
   ProgressChartCard,
   SafetyNoticeCard,
   TargetSummaryCard,
+  WorkoutPreviewWeek,
 } from './components'
 
 /**
@@ -30,6 +33,9 @@ const REGISTRY = {
   target_summary_card: TargetSummaryCard,
   progress_chart_card: ProgressChartCard,
   plan_preview_week: PlanPreviewWeek,
+  workout_preview_week: WorkoutPreviewWeek,
+  meal_suggestions_card: MealSuggestionsCard,
+  nutrition_facts_card: NutritionFactsCard,
   safety_notice_card: SafetyNoticeCard,
   choice_chips: ChoiceChips,
 } as const
