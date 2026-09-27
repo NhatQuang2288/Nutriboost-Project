@@ -17,6 +17,7 @@ import {
   SendIcon,
 } from '@/components/icons'
 import { useAssistant, type RenderablePart } from '@/components/assistant/AssistantProvider'
+import { ChoiceChips } from '@/components/assistant/generative/components'
 import { GenerativePart, UnknownPart } from '@/components/assistant/generative/registry'
 import { suggestionsFor } from '@/components/assistant/suggestions'
 import { useAssistantStore } from '@/stores/assistant'
@@ -443,10 +444,11 @@ interface MessageBubbleProps {
 
 function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const { answerChoice } = useAssistant()
 
   const rendered = useMemo(
-    () => message.parts.map((part, index) => renderPart(part, index)),
-    [message.parts],
+    () => message.parts.map((part, index) => renderPart(part, index, answerChoice)),
+    [message.parts, answerChoice],
   )
 
   return (
@@ -498,7 +500,36 @@ const MARKDOWN_REHYPE_PLUGINS: NonNullable<StreamdownProps['rehypePlugins']> = [
   defaultRehypePlugins.harden,
 ].filter((plugin) => plugin !== undefined)
 
-function renderPart(part: RenderablePart, index: number): React.ReactNode {
+function renderPart(
+  part: RenderablePart,
+  index: number,
+  answerChoice: (toolCallId: string, option: { value: string; label: string }) => void,
+): React.ReactNode {
+  /*
+   * `ask_user_choice` là công cụ phía client: không có đầu ra từ máy chủ nên cầu nối không dựng
+   * `data-*` cho nó. Phải dựng thẳng từ phần `tool-*`, và bấm chip thì gọi `addToolOutput`.
+   */
+  if (part.type === 'tool-ask_user_choice' && part.toolCallId !== undefined) {
+    if (part.state === 'input-streaming') return null
+    const parsed = parseGenerativePayload('choice_chips', part.input)
+    if (!parsed.ok || parsed.payload.component !== 'choice_chips') {
+      return <UnknownPart key={index} name="choice_chips" />
+    }
+    const toolCallId = part.toolCallId
+    const chosen =
+      part.state === 'output-available'
+        ? (((part.output as { value?: unknown } | undefined)?.value as string | undefined) ?? null)
+        : null
+    return (
+      <ChoiceChips
+        key={index}
+        props={parsed.payload.props}
+        chosen={chosen}
+        onPick={(option) => answerChoice(toolCallId, option)}
+      />
+    )
+  }
+
   if (part.type === 'text') {
     const text = part.text ?? ''
 

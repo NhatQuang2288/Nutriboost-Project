@@ -12,8 +12,11 @@ const FOOD_B = '22222222-2222-4222-8222-222222222222'
 const FOOD_LA = '33333333-3333-4333-8333-333333333333'
 
 describe('sổ đăng ký generative UI', () => {
-  it('có đủ tám thành phần theo đặc tả trợ lý', () => {
-    expect(GENERATIVE_COMPONENT_NAMES).toHaveLength(8)
+  it('có đủ mười một thành phần theo đặc tả trợ lý', () => {
+    expect(GENERATIVE_COMPONENT_NAMES).toHaveLength(11)
+    expect(GENERATIVE_COMPONENT_NAMES).toContain('workout_preview_week')
+    expect(GENERATIVE_COMPONENT_NAMES).toContain('meal_suggestions_card')
+    expect(GENERATIVE_COMPONENT_NAMES).toContain('nutrition_facts_card')
     expect(GENERATIVE_COMPONENT_NAMES).toContain('meal_confirm_card')
     expect(GENERATIVE_COMPONENT_NAMES).toContain('safety_notice_card')
   })

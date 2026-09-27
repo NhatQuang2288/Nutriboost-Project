@@ -1,4 +1,4 @@
-import { InMemoryAiStore, gatewayMessage } from '@nutriboost/ai'
+import { CHAT_SYSTEM_VERSION, InMemoryAiStore, gatewayMessage } from '@nutriboost/ai'
 import { describe, expect, it } from 'vitest'
 
 import { checkChatAllowance, recordChatCall } from './chat-usage'
@@ -123,7 +123,8 @@ describe('recordChatCall', () => {
     expect(record?.purpose).toBe('chat')
     expect(record?.userId).toBe(USER)
     expect(record?.model).toBe('deepseek-flash')
-    expect(record?.promptVersion).toBe('chat-system@v1')
+    // Lấy từ hằng, không chép chuỗi: đổi prompt thì tăng phiên bản, test không phải sửa theo.
+    expect(record?.promptVersion).toBe(CHAT_SYSTEM_VERSION)
     expect(record?.usage).toEqual({ inputTokens: 1000, outputTokens: 500, cachedTokens: 0 })
     expect(record?.latencyMs).toBe(1234)
     expect(record?.status).toBe('ok')

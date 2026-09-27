@@ -2,6 +2,7 @@ import { type SafetyAssessment } from '@nutriboost/nutrition'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createMealEstimator, type MealCatalogueEntry } from '../meal-estimator'
+import type { WorkoutExerciseEntry } from '../workout-builder'
 import { parseGenerativePayload } from '../schemas'
 import {
   ASSISTANT_TOOL_NAMES,
@@ -50,6 +51,83 @@ const CATALOGUE: readonly MealCatalogueEntry[] = [
   },
 ]
 
+const EXERCISES: readonly WorkoutExerciseEntry[] = [
+  {
+    slug: 'squat-bodyweight',
+    nameVi: 'Squat không tạ',
+    muscleGroup: 'legs',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'reps',
+    met: 5,
+    contraindications: ['knee'],
+  },
+  {
+    slug: 'glute-bridge',
+    nameVi: 'Cầu mông',
+    muscleGroup: 'glutes',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'reps',
+    met: 3.5,
+  },
+  {
+    slug: 'push-up-knee',
+    nameVi: 'Hít đất chống gối',
+    muscleGroup: 'chest',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'reps',
+    met: 3.8,
+    contraindications: ['wrist'],
+  },
+  {
+    slug: 'superman',
+    nameVi: 'Superman',
+    muscleGroup: 'back',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'reps',
+    met: 3,
+  },
+  {
+    slug: 'dumbbell-row',
+    nameVi: 'Chèo tạ đơn',
+    muscleGroup: 'back',
+    equipment: 'dumbbell',
+    level: 'beginner',
+    measure: 'reps',
+    met: 5,
+  },
+  {
+    slug: 'plank',
+    nameVi: 'Plank',
+    muscleGroup: 'core',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'time',
+    met: 3.8,
+  },
+  {
+    slug: 'arm-circle',
+    nameVi: 'Xoay tay',
+    muscleGroup: 'mobility',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'time',
+    met: 2.3,
+  },
+  {
+    slug: 'hamstring-stretch',
+    nameVi: 'Giãn đùi sau',
+    muscleGroup: 'mobility',
+    equipment: 'bodyweight',
+    level: 'beginner',
+    measure: 'time',
+    met: 2.3,
+  },
+]
+
 const SAFETY_OK: SafetyAssessment = { level: 'ok', reasons: [], blockWeightLoss: false }
 const SAFETY_REFER: SafetyAssessment = {
   level: 'refer',
@@ -72,6 +150,9 @@ function makeContext(overrides: Record<string, unknown> = {}) {
     },
     safety: SAFETY_OK,
     today: '2026-09-21',
+    remainingKcal: 900,
+    profile: { goal: 'lose' as const, weightKg: 60 },
+    exercises: EXERCISES,
     ...overrides,
   }
 }
@@ -87,10 +168,10 @@ async function run(tool: unknown, input: unknown): Promise<unknown> {
 }
 
 describe('bộ công cụ', () => {
-  it('có đủ tám công cụ, tên khớp bảng ánh xạ component', () => {
+  it('có đủ mười một công cụ, tên khớp bảng ánh xạ component', () => {
     const tools = createAssistantTools(makeContext())
     expect(Object.keys(tools).sort()).toEqual([...ASSISTANT_TOOL_NAMES].sort())
-    expect(ASSISTANT_TOOL_NAMES).toHaveLength(8)
+    expect(ASSISTANT_TOOL_NAMES).toHaveLength(11)
   })
 
   it('mọi đầu ra đều dựng được thành giao diện', async () => {
@@ -105,6 +186,9 @@ describe('bộ công cụ', () => {
       ['compute_targets', {}],
       ['get_progress', {}],
       ['generate_plan', {}],
+      ['generate_workout', {}],
+      ['suggest_meals', { mealType: 'dinner' }],
+      ['lookup_food', { query: 'phở bò' }],
       ['show_safety_notice', {}],
     ]
 
@@ -335,6 +419,186 @@ describe('generate_plan', () => {
     const tools = createAssistantTools(makeContext())
     const output = (await run(tools.generate_plan, {})) as { weekStart: string }
     expect(output.weekStart).toBe('2026-09-21')
+  })
+})
+
+describe('generate_plan — tham số model chọn', () => {
+  it('dựng thực đơn một ngày khi được yêu cầu', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.generate_plan, { days: 1 })) as {
+      days: { totalKcal: number }[]
+      targetKcal: number
+    }
+    expect(output.days).toHaveLength(1)
+    expect(output.targetKcal).toBe(2010)
+    // Tổng kcal của ngày do code tính, thẻ hiển thị được luôn.
+    expect(output.days[0]?.totalKcal).toBeGreaterThan(0)
+  })
+
+  it('chỉ dựng những bữa được yêu cầu', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.generate_plan, { days: 2, meals: ['lunch', 'dinner'] })) as {
+      days: { meals: { mealType: string }[] }[]
+    }
+    const types = new Set(output.days.flatMap((day) => day.meals.map((meal) => meal.mealType)))
+    expect([...types].sort()).toEqual(['dinner', 'lunch'])
+  })
+
+  it('loại món người dùng muốn tránh, và nói ra điều đó', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.generate_plan, { avoid: ['phở'] })) as {
+      days: { meals: { displayName: string }[] }[]
+      notes: string[]
+    }
+    const names = output.days.flatMap((day) => day.meals.map((meal) => meal.displayName))
+    expect(names).not.toContain('Phở bò')
+    expect(output.notes[0]).toMatch(/Đã bỏ 1 món/)
+  })
+})
+
+describe('generate_workout', () => {
+  it('dựng lịch tập mặc định 3 buổi, có kcal đốt tính bằng MET', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.generate_workout, {})) as {
+      sessions: { dayLabel: string; estimatedKcal: number; blocks: { dose: string }[] }[]
+      weeklyKcal: number
+      levelLabel: string
+    }
+    expect(output.sessions).toHaveLength(3)
+    expect(output.levelLabel).toBe('Người mới tập')
+    // 21/09/2026 là thứ Hai — buổi đầu rơi vào hôm nay.
+    expect(output.sessions[0]?.dayLabel).toBe('Thứ hai')
+    expect(output.weeklyKcal).toBe(
+      output.sessions.reduce((sum, session) => sum + session.estimatedKcal, 0),
+    )
+    expect(output.sessions[0]?.blocks[0]?.dose).toBe('2 phút')
+  })
+
+  it('không bao giờ xếp bài chống chỉ định với chấn thương đã khai', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.generate_workout, { injuries: ['knee', 'wrist'] })) as {
+      sessions: { blocks: { nameVi: string }[] }[]
+    }
+    const names = output.sessions.flatMap((session) => session.blocks.map((block) => block.nameVi))
+    expect(names).not.toContain('Squat không tạ')
+    expect(names).not.toContain('Hít đất chống gối')
+  })
+
+  it('chỉ dùng tạ khi người dùng nói có tạ', async () => {
+    const tools = createAssistantTools(makeContext())
+    const atHome = (await run(tools.generate_workout, { daysPerWeek: 2 })) as {
+      sessions: { blocks: { nameVi: string }[] }[]
+    }
+    const names = atHome.sessions.flatMap((session) => session.blocks.map((block) => block.nameVi))
+    expect(names).not.toContain('Chèo tạ đơn')
+  })
+
+  it('từ chối, nói rõ lý do, khi chưa có danh mục bài tập', async () => {
+    const tools = createAssistantTools(makeContext({ exercises: undefined }))
+    const output = (await run(tools.generate_workout, {})) as ToolRefusal
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/chưa nạp danh mục bài tập/)
+  })
+
+  it('từ chối khi chưa có hồ sơ, vì không tính được kcal đốt', async () => {
+    const tools = createAssistantTools(makeContext({ profile: undefined }))
+    const output = (await run(tools.generate_workout, {})) as ToolRefusal
+    expect(output.refused).toBe(true)
+  })
+})
+
+describe('suggest_meals', () => {
+  it('không gợi ý bữa vượt quá số kcal còn lại', async () => {
+    const tools = createAssistantTools(makeContext({ remainingKcal: 300 }))
+    const output = (await run(tools.suggest_meals, { mealType: 'dinner' })) as {
+      budgetKcal: number
+      options: { kcal: number }[]
+    }
+    // Phần bữa tối là 30 % × 2010 = 603 kcal, nhưng chỉ còn 300 kcal.
+    expect(output.budgetKcal).toBe(300)
+    for (const option of output.options) {
+      expect(option.kcal).toBeLessThanOrEqual(300 * 1.35)
+    }
+  })
+
+  it('tôn trọng ngân sách model đặt khi người dùng nói "nhẹ"', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.suggest_meals, { mealType: 'dinner', budgetKcal: 350 })) as {
+      budgetKcal: number
+    }
+    expect(output.budgetKcal).toBe(350)
+  })
+
+  it('bỏ món cần tránh', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.suggest_meals, {
+      mealType: 'lunch',
+      avoid: ['phở bò'],
+      count: 5,
+    })) as { options: { foodId: string }[]; note: string | null }
+    expect(output.options.map((option) => option.foodId)).not.toContain('pho-bo')
+    expect(output.note).toMatch(/Đã bỏ 1 món/)
+  })
+})
+
+describe('lookup_food', () => {
+  it('tính dinh dưỡng cho một khẩu phần chuẩn từ danh mục', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.lookup_food, { query: 'phở bò' })) as {
+      foodId: string
+      grams: number
+      kcal: number
+      portionLabel: string
+      sodiumMg: number
+    }
+    expect(output.foodId).toBe('pho-bo')
+    expect(output.grams).toBe(353)
+    expect(output.kcal).toBe(Math.round(137 * 3.53))
+    expect(output.sodiumMg).toBe(Math.round(420 * 3.53))
+    expect(output.portionLabel).toBe('1 khẩu phần (353 g)')
+  })
+
+  it('dùng số gram người dùng nói', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.lookup_food, { query: 'gỏi cuốn', grams: 100 })) as {
+      kcal: number
+    }
+    expect(output.kcal).toBe(98)
+  })
+
+  it('bỏ qua số lượng và đơn vị trong câu hỏi', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.lookup_food, { query: '1 tô phở bò' })) as { foodId: string }
+    expect(output.foodId).toBe('pho-bo')
+  })
+
+  it('không nhận món gần đúng nhưng khác — "trà sữa" không phải "sữa chua"', async () => {
+    const catalogue: readonly MealCatalogueEntry[] = [
+      ...CATALOGUE,
+      {
+        slug: 'sua-chua-trai-cay',
+        nameVi: 'Sữa chua trái cây',
+        kind: 'dish',
+        servingGrams: 150,
+        kcalPer100g: 95,
+        proteinG: 3,
+        carbG: 16,
+        fatG: 2,
+      },
+    ]
+    const tools = createAssistantTools(
+      makeContext({ catalogue, estimator: createMealEstimator(catalogue) }),
+    )
+    const output = (await run(tools.lookup_food, { query: 'trà sữa' })) as ToolRefusal
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/KHÔNG tự đưa ra con số calo/)
+  })
+
+  it('từ chối thay vì bịa khi danh mục không có món', async () => {
+    const tools = createAssistantTools(makeContext())
+    const output = (await run(tools.lookup_food, { query: 'pizza hải sản' })) as ToolRefusal
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/KHÔNG tự đưa ra con số calo/)
   })
 })
 

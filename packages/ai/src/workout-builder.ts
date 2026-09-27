@@ -230,11 +230,17 @@ export function buildWorkoutPlan(input: BuildWorkoutInput): BuiltWorkoutPlan {
       blocks.push(makeBlock(warmup, 1, prescription, 'warmup', input.weightKg))
     }
 
-    // Bài chính
+    // Bài chính — không lặp một bài hai lần trong cùng buổi.
+    //
+    // Bản đầu chỉ lọc theo nhóm cơ, nên nhóm ít bài thì một buổi ra "Squat, Lunge, Squat,
+    // Lunge". Hết bài đúng nhóm thì lấy bài nhóm khác; hết hẳn thì buổi ngắn lại, không lặp.
+    const inSession = new Set<string>()
     for (let index = 0; index < mainCount; index += 1) {
-      const candidates = main.filter((exercise) => groups.includes(exercise.muscleGroup))
-      const chosen = pickFrom(candidates.length > 0 ? candidates : main, picker++, used)
-      if (chosen === null) continue
+      const fresh = main.filter((exercise) => !inSession.has(exercise.slug))
+      const focused = fresh.filter((exercise) => groups.includes(exercise.muscleGroup))
+      const chosen = pickFrom(focused.length > 0 ? focused : fresh, picker++, used)
+      if (chosen === null) break
+      inSession.add(chosen.slug)
       blocks.push(makeBlock(chosen, sets, prescription, 'main', input.weightKg))
     }
 

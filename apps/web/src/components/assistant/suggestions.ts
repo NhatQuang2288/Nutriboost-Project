@@ -14,8 +14,8 @@ export interface Suggestion {
 
 export const DEFAULT_SUGGESTIONS: readonly Suggestion[] = [
   { label: 'Hôm nay tôi ăn gì?', message: 'Hôm nay tôi nên ăn gì?' },
-  { label: 'Phân tích bữa gần nhất', message: 'Phân tích giúp mình bữa ăn gần nhất' },
-  { label: 'Mình còn bao nhiêu calo?', message: 'Hôm nay mình còn bao nhiêu calo?' },
+  { label: 'Lên thực đơn tuần', message: 'Lên thực đơn cả tuần cho mình' },
+  { label: 'Lịch tập tại nhà', message: 'Lên lịch tập tại nhà cho mình' },
 ]
 
 const BY_ROUTE: Readonly<Record<string, readonly Suggestion[]>> = {
@@ -33,8 +33,14 @@ const BY_ROUTE: Readonly<Record<string, readonly Suggestion[]>> = {
     { label: 'Thêm một ly sữa chua', message: 'Thêm cho mình một hộp sữa chua' },
   ],
   '/ke-hoach': [
+    { label: 'Thực đơn không hải sản', message: 'Lên thực đơn tuần này không có hải sản' },
     { label: 'Đổi món tối thứ 4', message: 'Đổi món tối thứ tư sang món ít béo hơn' },
     { label: 'Kế hoạch này đủ đạm chưa?', message: 'Kế hoạch này đã đủ đạm chưa?' },
+  ],
+  '/lich-tap': [
+    { label: 'Mình có tạ đơn', message: 'Lên lịch tập 4 buổi mỗi tuần, mình có tạ đơn' },
+    { label: 'Buổi 30 phút thôi', message: 'Lên lịch tập mỗi buổi 30 phút cho mình' },
+    { label: 'Mình hay đau gối', message: 'Lên lịch tập tránh đau gối cho mình' },
   ],
   '/tien-do': [
     { label: 'Vì sao cân tuần này tăng?', message: 'Vì sao cân nặng tuần này lại tăng?' },

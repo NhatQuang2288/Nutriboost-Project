@@ -1,10 +1,23 @@
-import { type SafetyAssessment } from '@nutriboost/nutrition'
+import type { MealType } from '@nutriboost/db'
+import {
+  type Goal,
+  type SafetyAssessment,
+  foodNameTokens,
+  normalizeVi,
+} from '@nutriboost/nutrition'
 import { tool } from 'ai'
 import { z } from 'zod'
 
 import { type MealCatalogueEntry, type MealEstimator } from '../meal-estimator'
-import { buildPlan } from '../plan-builder'
+import { defaultMealBudget, findAvoidedSlugs, suggestMeals } from '../meal-suggester'
+import { DEFAULT_MEALS_PER_DAY, buildPlan } from '../plan-builder'
 import { GENERATIVE_COMPONENTS } from '../schemas'
+import {
+  buildWorkoutPlan,
+  type WorkoutBlock,
+  type WorkoutExerciseEntry,
+  type WorkoutLevel,
+} from '../workout-builder'
 
 /**
  * Bộ công cụ của trợ lý Bơ.
@@ -77,6 +90,12 @@ export interface ToolContext {
   logMeal?: (request: LoggedMealRequest) => Promise<LoggedMealResult>
   /** Đọc dữ liệu tiến độ. Bỏ trống khi chưa nối CSDL. */
   readProgress?: (days: number) => Promise<ProgressPoint[]>
+  /** Số kcal còn lại hôm nay, đã tính sẵn. Dùng làm trần ngân sách khi gợi ý bữa. */
+  remainingKcal?: number
+  /** Hồ sơ tối thiểu để dựng lịch tập: mục tiêu và cân nặng (tính kcal đốt). */
+  profile?: { goal: Goal; weightKg: number }
+  /** Danh mục bài tập. Bỏ trống thì `generate_workout` từ chối, nói rõ lý do. */
+  exercises?: readonly WorkoutExerciseEntry[]
 }
 
 /** Tên component generative UI mà mỗi tool dựng ra. */
@@ -87,6 +106,9 @@ export const TOOL_TO_COMPONENT = {
   compute_targets: 'target_summary_card',
   get_progress: 'progress_chart_card',
   generate_plan: 'plan_preview_week',
+  generate_workout: 'workout_preview_week',
+  suggest_meals: 'meal_suggestions_card',
+  lookup_food: 'nutrition_facts_card',
   show_safety_notice: 'safety_notice_card',
   ask_user_choice: 'choice_chips',
 } as const
@@ -360,40 +382,51 @@ export function createAssistantTools(context: ToolContext) {
     }),
 
     /* ---------------------------------------------------------------------
-     * Kế hoạch tuần — dựng tất định, không cần model
+     * Thực đơn — dựng tất định, model chỉ chọn tham số
      * ------------------------------------------------------------------- */
     generate_plan: tool({
       description:
-        'Dựng thực đơn 7 ngày từ danh mục và mục tiêu năng lượng. ' +
-        'Kế hoạch được tính bằng code, không phải do model tự nghĩ ra.',
-      inputSchema: z.object({
-        weekStart: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional()
-          .describe('Ngày bắt đầu tuần, mặc định là hôm nay'),
-      }),
-      execute: async ({ weekStart }) => {
-        const plan = buildPlan({
-          weekStart: weekStart ?? context.today,
-          targets: context.targets,
-          catalogue: context.catalogue,
-        })
+        'Dựng thực đơn 1–7 ngày khớp mục tiêu kcal và đạm của người dùng. ' +
+        'Dùng khi người dùng xin thực đơn, kế hoạch ăn, "tuần này ăn gì". ' +
+        'Món và calo được tính bằng code; bạn chỉ chọn số ngày, các bữa và món cần tránh.',
+      inputSchema: planInputSchema,
+      execute: async (input) => buildPlanCard(context, input),
+    }),
 
-        return GENERATIVE_COMPONENTS.plan_preview_week.parse({
-          weekStart: plan.weekStart,
-          days: plan.days.map((day) => ({
-            dayLabel: weekdayLabelVi(day.date),
-            meals: day.meals.flatMap((meal) =>
-              meal.items.map((item) => ({
-                mealType: meal.mealType,
-                displayName: item.nameVi,
-                kcal: item.kcal,
-              })),
-            ),
-          })),
-        })
-      },
+    /* ---------------------------------------------------------------------
+     * Lịch tập — dựng tất định từ danh mục bài tập có MET
+     * ------------------------------------------------------------------- */
+    generate_workout: tool({
+      description:
+        'Dựng lịch tập tuần theo mục tiêu của người dùng, kèm kcal đốt ước tính (theo MET). ' +
+        'Dùng khi người dùng xin lịch tập, bài tập, "tập gì để giảm mỡ". Nếu người dùng chưa nói ' +
+        'số buổi, thời lượng hay dụng cụ thì cứ dùng mặc định và nói rõ là có thể chỉnh.',
+      inputSchema: workoutInputSchema,
+      execute: async (input) => buildWorkoutCard(context, input),
+    }),
+
+    /* ---------------------------------------------------------------------
+     * Gợi ý món cho một bữa — "tối nay ăn gì?"
+     * ------------------------------------------------------------------- */
+    suggest_meals: tool({
+      description:
+        'Gợi ý 1–5 món cho MỘT bữa, vừa ngân sách kcal còn lại của người dùng và ưu tiên món giàu đạm. ' +
+        'Dùng khi người dùng hỏi "ăn gì", "gợi ý bữa tối", "bữa nhẹ". Bỏ trống `budgetKcal` để hệ ' +
+        'thống tự tính theo số kcal còn lại; chỉ đặt khi người dùng nói rõ ("dưới 400 kcal", "nhẹ").',
+      inputSchema: suggestInputSchema,
+      execute: async (input) => buildMealSuggestionsCard(context, input),
+    }),
+
+    /* ---------------------------------------------------------------------
+     * Tra dinh dưỡng một món — "phở bao nhiêu calo?"
+     * ------------------------------------------------------------------- */
+    lookup_food: tool({
+      description:
+        'Tra calo và đa lượng của MỘT món cho một khẩu phần (hoặc số gram cho trước). ' +
+        'Dùng khi người dùng hỏi "X bao nhiêu calo", "X có nhiều đạm không" mà KHÔNG kể là đã ăn. ' +
+        'Đã ăn rồi thì dùng estimate_meal.',
+      inputSchema: lookupInputSchema,
+      execute: async (input) => buildNutritionFactsCard(context, input),
     }),
 
     /* ---------------------------------------------------------------------
@@ -447,6 +480,286 @@ export function createAssistantTools(context: ToolContext) {
 }
 
 export type AssistantTools = ReturnType<typeof createAssistantTools>
+
+/* ===========================================================================
+ * Dựng thẻ — hàm thuần, dùng chung cho công cụ và cho đường dự phòng không có AI
+ *
+ * Tách ra khỏi `execute` để route chat gọi thẳng được khi DeepSeek không trả lời: người dùng
+ * xin thực đơn thì vẫn phải nhận thực đơn, dù model có hỏng.
+ * ========================================================================= */
+
+export const planInputSchema = z.object({
+  weekStart: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('Ngày bắt đầu, `YYYY-MM-DD`. Mặc định là hôm nay'),
+  days: z.number().int().min(1).max(7).optional().describe('Số ngày, mặc định 7'),
+  meals: z
+    .array(mealTypeSchema)
+    .min(1)
+    .max(4)
+    .optional()
+    .describe('Các bữa mỗi ngày. Mặc định sáng, trưa, tối, phụ'),
+  avoid: z
+    .array(z.string().min(1).max(40))
+    .max(10)
+    .optional()
+    .describe('Món, nguyên liệu hoặc nhóm cần tránh, ví dụ "hải sản", "thịt bò", "đồ chiên"'),
+})
+
+export type PlanToolInput = z.infer<typeof planInputSchema>
+
+export function buildPlanCard(context: ToolContext, input: PlanToolInput) {
+  const excluded = findAvoidedSlugs(context.catalogue, input.avoid ?? [])
+  const plan = buildPlan({
+    weekStart: input.weekStart ?? context.today,
+    targets: context.targets,
+    catalogue: context.catalogue,
+    mealsPerDay: input.meals ?? DEFAULT_MEALS_PER_DAY,
+    excludedSlugs: [...excluded],
+    days: input.days ?? 7,
+  })
+
+  const notes = [...plan.notes]
+  if (excluded.size > 0) {
+    notes.unshift(`Đã bỏ ${excluded.size} món trùng với yêu cầu tránh của bạn.`)
+  }
+
+  return GENERATIVE_COMPONENTS.plan_preview_week.parse({
+    weekStart: plan.weekStart,
+    targetKcal: context.targets.targetKcal,
+    days: plan.days.map((day) => ({
+      dayLabel: weekdayLabelVi(day.date),
+      totalKcal: day.totalKcal,
+      meals: day.meals.flatMap((meal) =>
+        meal.items.map((item) => ({
+          mealType: meal.mealType,
+          displayName: item.nameVi,
+          kcal: item.kcal,
+        })),
+      ),
+    })),
+    notes: notes.slice(0, 6),
+  })
+}
+
+const LEVEL_LABELS: Readonly<Record<WorkoutLevel, string>> = {
+  beginner: 'Người mới tập',
+  intermediate: 'Trung cấp',
+  advanced: 'Nâng cao',
+}
+
+export const workoutInputSchema = z.object({
+  daysPerWeek: z.number().int().min(2).max(6).optional().describe('Số buổi mỗi tuần, mặc định 3'),
+  sessionMinutes: z
+    .number()
+    .int()
+    .min(15)
+    .max(120)
+    .optional()
+    .describe('Thời lượng mỗi buổi, phút. Mặc định 45'),
+  level: z
+    .enum(['beginner', 'intermediate', 'advanced'])
+    .optional()
+    .describe('Trình độ. Mặc định người mới tập'),
+  equipment: z
+    .array(z.enum(['dumbbell', 'barbell', 'machine', 'band', 'cardio_machine']))
+    .max(5)
+    .optional()
+    .describe('Dụng cụ có sẵn. Bỏ trống = chỉ tập với trọng lượng cơ thể, tại nhà'),
+  injuries: z
+    .array(z.enum(['knee', 'lower_back', 'shoulder', 'wrist', 'ankle']))
+    .max(5)
+    .optional()
+    .describe('Vùng đang đau hoặc chấn thương cần tránh'),
+  weekStart: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+})
+
+export type WorkoutToolInput = z.infer<typeof workoutInputSchema>
+
+export function buildWorkoutCard(context: ToolContext, input: WorkoutToolInput) {
+  if (context.exercises === undefined || context.exercises.length === 0) {
+    return toolRefusal(
+      'CHƯA dựng được lịch tập: bản này chưa nạp danh mục bài tập. Hãy nói thật với người dùng ' +
+        'và gợi ý họ mở màn Lịch tập. Đừng tự liệt kê bài tập kèm số calo.',
+    )
+  }
+  if (context.profile === undefined) {
+    return toolRefusal(
+      'CHƯA dựng được lịch tập: chưa có cân nặng và mục tiêu của người dùng nên không tính được ' +
+        'kcal đốt. Hãy mời người dùng hoàn tất hồ sơ trước.',
+    )
+  }
+
+  const level = input.level ?? 'beginner'
+  const plan = buildWorkoutPlan({
+    weekStart: input.weekStart ?? context.today,
+    goal: context.profile.goal,
+    level,
+    daysPerWeek: input.daysPerWeek ?? 3,
+    sessionMinutes: input.sessionMinutes ?? 45,
+    weightKg: context.profile.weightKg,
+    equipment: input.equipment ?? [],
+    injuries: input.injuries ?? [],
+    exercises: context.exercises,
+  })
+
+  if (plan.sessions.length === 0) {
+    return toolRefusal(
+      `CHƯA dựng được lịch tập: ${plan.notes.join(' ')} Hãy nói lại đúng lý do này với người dùng.`,
+    )
+  }
+
+  return GENERATIVE_COMPONENTS.workout_preview_week.parse({
+    weekStart: plan.weekStart,
+    levelLabel: LEVEL_LABELS[level],
+    sessions: plan.sessions.map((session) => ({
+      dayLabel: weekdayLabelVi(session.date),
+      focus: session.focus,
+      totalMinutes: session.totalMinutes,
+      estimatedKcal: session.estimatedKcal,
+      blocks: session.blocks.slice(0, 12).map((block) => ({
+        nameVi: block.nameVi,
+        dose: describeDose(block),
+      })),
+    })),
+    weeklyKcal: plan.weeklyKcal,
+    weeklyMinutes: plan.weeklyMinutes,
+    notes: plan.notes.slice(0, 6),
+  })
+}
+
+/** Chuỗi liều tập để hiển thị: `3 × 12–15`, `3 × 40 giây`, `2 phút`. */
+export function describeDose(block: WorkoutBlock): string {
+  if (block.sets <= 1 && block.seconds !== null) {
+    return block.seconds % 60 === 0 ? `${block.seconds / 60} phút` : `${block.seconds} giây`
+  }
+  if (block.reps !== null) return `${block.sets} × ${block.reps}`
+  if (block.seconds !== null) return `${block.sets} × ${block.seconds} giây`
+  return `${block.sets} hiệp`
+}
+
+export const suggestInputSchema = z.object({
+  mealType: mealTypeSchema.describe('Bữa cần gợi ý'),
+  budgetKcal: z
+    .number()
+    .int()
+    .min(100)
+    .max(1500)
+    .optional()
+    .describe('Ngân sách kcal cho bữa. Bỏ trống để hệ thống tự tính theo số kcal còn lại'),
+  count: z.number().int().min(1).max(5).optional(),
+  avoid: z.array(z.string().min(1).max(40)).max(10).optional(),
+})
+
+export type SuggestToolInput = z.infer<typeof suggestInputSchema>
+
+export function buildMealSuggestionsCard(context: ToolContext, input: SuggestToolInput) {
+  const mealType: MealType = input.mealType
+  const budgetKcal =
+    input.budgetKcal ??
+    defaultMealBudget(mealType, context.targets.targetKcal, context.remainingKcal ?? null)
+
+  const { options, excludedCount } = suggestMeals({
+    catalogue: context.catalogue,
+    mealType,
+    budgetKcal,
+    count: input.count ?? 3,
+    avoid: input.avoid ?? [],
+    seed: `${context.today}:${mealType}`,
+  })
+
+  const notes: string[] = []
+  if (excludedCount > 0) notes.push(`Đã bỏ ${excludedCount} món trùng với yêu cầu tránh.`)
+  if (options.length === 0) notes.push('Không có món nào trong danh mục vừa ngân sách này.')
+  if (context.remainingKcal !== undefined && context.remainingKcal < 150) {
+    notes.push('Hôm nay bạn đã gần chạm mục tiêu, nên chọn món nhẹ và nhiều rau.')
+  }
+
+  return GENERATIVE_COMPONENTS.meal_suggestions_card.parse({
+    mealType,
+    budgetKcal,
+    options: options.map((item) => ({
+      foodId: item.slug,
+      displayName: item.nameVi,
+      grams: item.grams,
+      kcal: item.kcal,
+      proteinG: item.proteinG,
+      carbG: item.carbG,
+      fatG: item.fatG,
+    })),
+    note: notes.length === 0 ? null : notes.join(' '),
+  })
+}
+
+export const lookupInputSchema = z.object({
+  query: z.string().min(1).max(120).describe('Tên món, ví dụ "phở bò", "bánh mì thịt"'),
+  grams: z
+    .number()
+    .min(1)
+    .max(3000)
+    .optional()
+    .describe('Số gram nếu người dùng nói rõ; bỏ trống để dùng một khẩu phần chuẩn'),
+})
+
+export type LookupToolInput = z.infer<typeof lookupInputSchema>
+
+export function buildNutritionFactsCard(context: ToolContext, input: LookupToolInput) {
+  const [food] = context.estimator.suggest(input.query, 1)
+  if (food === undefined) {
+    return toolRefusal(
+      `Không tìm thấy món nào khớp "${input.query}" trong danh mục. Hãy nói thật là danh mục ` +
+        'chưa có món này và KHÔNG tự đưa ra con số calo.',
+    )
+  }
+
+  /*
+   * Tra gần đúng luôn trả về MỘT món nào đó — "trà sữa" ra "Sữa chua trái cây". Trả thẻ đó thì
+   * Bơ khẳng định sai một con số calo. Nên chỉ nhận khi mọi từ trong câu hỏi có mặt trong tên.
+   */
+  if (!namesContainAllTokens(input.query, food)) {
+    return toolRefusal(
+      `Danh mục chưa có đúng món "${input.query}"; món gần nhất là "${food.nameVi}" nhưng đó là ` +
+        'món khác. Hãy nói thật là chưa có số liệu cho món này, có thể hỏi người dùng có phải ' +
+        `ý họ là "${food.nameVi}" không. KHÔNG tự đưa ra con số calo.`,
+    )
+  }
+
+  const grams = Math.round(input.grams ?? food.servingGrams ?? 100)
+  const factor = grams / 100
+  const portionLabel =
+    input.grams === undefined && food.servingGrams !== undefined
+      ? `1 khẩu phần (${grams} g)`
+      : `${grams} g`
+
+  return GENERATIVE_COMPONENTS.nutrition_facts_card.parse({
+    foodId: food.slug,
+    nameVi: food.nameVi,
+    grams,
+    portionLabel,
+    kcal: Math.round(food.kcalPer100g * factor),
+    proteinG: round1(food.proteinG * factor),
+    carbG: round1(food.carbG * factor),
+    fatG: round1(food.fatG * factor),
+    fiberG: round1((food.fiberG ?? 0) * factor),
+    sodiumMg: Math.round((food.sodiumMg ?? 0) * factor),
+  })
+}
+
+/** Mọi từ tên món (đã chuẩn hoá) trong câu hỏi đều có trong tên hoặc bí danh của món. */
+function namesContainAllTokens(query: string, food: MealCatalogueEntry): boolean {
+  // Bỏ số lượng và đơn vị ("1 tô phở" → "phở") trước khi so, giống bộ ước lượng bữa ăn.
+  const tokens = foodNameTokens(query)
+  if (tokens.length === 0) return false
+  return [food.nameVi, ...(food.aliases ?? [])].some((name) => {
+    const nameTokens = new Set(normalizeVi(name).split(' '))
+    return tokens.every((token) => nameTokens.has(token))
+  })
+}
 
 /** Câu giải thích vì sao mục tiêu bị điều chỉnh, dùng cho thẻ mục tiêu. */
 function explainTargets(floorsApplied: readonly string[]): string {

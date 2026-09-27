@@ -205,6 +205,8 @@ export const GENERATIVE_COMPONENTS = {
       .array(
         z.object({
           dayLabel: z.string().max(20),
+          /** Tổng kcal của ngày — tuỳ chọn để thẻ cũ vẫn hợp lệ. */
+          totalKcal: z.number().min(0).optional(),
           meals: z
             .array(
               z.object({
@@ -213,10 +215,75 @@ export const GENERATIVE_COMPONENTS = {
                 kcal: z.number().min(0),
               }),
             )
-            .max(6),
+            // Mỗi bữa ghép tối đa 3 món (MAX_DISHES_PER_MEAL) × 4 bữa.
+            .max(12),
         }),
       )
       .max(7),
+    targetKcal: z.number().min(0).optional(),
+    /** Chỗ kế hoạch chưa đạt mục tiêu, nói thẳng cho người dùng. */
+    notes: z.array(z.string().max(200)).max(6).optional(),
+  }),
+
+  workout_preview_week: z.object({
+    weekStart: z.string().max(10),
+    levelLabel: z.string().max(40),
+    sessions: z
+      .array(
+        z.object({
+          dayLabel: z.string().max(20),
+          focus: z.string().max(40),
+          totalMinutes: z.number().min(0),
+          estimatedKcal: z.number().min(0),
+          blocks: z
+            .array(
+              z.object({
+                nameVi: z.string().max(80),
+                /** Chuỗi hiển thị sẵn, ví dụ `3 × 12–15` hoặc `3 × 40 giây`. */
+                dose: z.string().max(40),
+              }),
+            )
+            .max(12),
+        }),
+      )
+      .max(6),
+    weeklyKcal: z.number().min(0),
+    weeklyMinutes: z.number().min(0),
+    notes: z.array(z.string().max(200)).max(6),
+  }),
+
+  meal_suggestions_card: z.object({
+    mealType,
+    budgetKcal: z.number().min(0),
+    options: z
+      .array(
+        z.object({
+          foodId: foodRef,
+          displayName: z.string().max(120),
+          grams: z.number().min(1).max(3000),
+          kcal: z.number().min(0),
+          proteinG: z.number().min(0),
+          // Đủ đa lượng để nút "Ăn món này" lưu thẳng, không phải ước lượng lại từ câu chữ.
+          carbG: z.number().min(0),
+          fatG: z.number().min(0),
+        }),
+      )
+      .max(5),
+    note: z.string().max(200).nullable(),
+  }),
+
+  nutrition_facts_card: z.object({
+    foodId: foodRef,
+    nameVi: z.string().max(120),
+    grams: z.number().min(1).max(3000),
+    /** Nhãn khẩu phần, ví dụ `1 khẩu phần (353 g)`. */
+    portionLabel: z.string().max(60),
+    kcal: z.number().min(0),
+    proteinG: z.number().min(0),
+    carbG: z.number().min(0),
+    fatG: z.number().min(0),
+    fiberG: z.number().min(0),
+    sodiumMg: z.number().min(0),
   }),
 
   safety_notice_card: z.object({
