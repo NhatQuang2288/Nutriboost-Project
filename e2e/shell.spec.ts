@@ -49,16 +49,18 @@ test.describe('màn Hôm nay', () => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/hom-nay')
 
-    const energy = page.getByRole('heading', { name: 'Năng lượng' })
+    const workout = page.getByRole('heading', { name: 'Buổi tập hôm nay' })
     const meals = page.getByRole('heading', { name: 'Bữa ăn hôm nay' })
-    await expect(energy).toBeVisible()
+    await expect(workout).toBeVisible()
     await expect(meals).toBeVisible()
 
-    // Hai thẻ nằm ở hai cột: cùng hàng trên, lệch nhau theo chiều ngang.
-    const energyBox = (await energy.boundingBox())!
+    // Buổi tập đứng đầu cột trái, bữa ăn đứng đầu cột phải: lệch nhau theo chiều ngang.
+    const workoutBox = (await workout.boundingBox())!
     const mealsBox = (await meals.boundingBox())!
-    expect(mealsBox.x).toBeGreaterThan(energyBox.x + 200)
+    expect(mealsBox.x).toBeGreaterThan(workoutBox.x + 200)
 
+    // Năng lượng, đa lượng và chỉ số cơ thể gộp chung một thẻ ở cột phải.
+    await expect(page.getByRole('heading', { name: 'Năng lượng và cơ thể' })).toBeVisible()
     for (const label of ['Mục tiêu', 'Đã nạp', 'Đã đốt', 'Đạm', 'Tinh bột', 'Chất béo']) {
       await expect(page.getByText(label, { exact: true })).toBeVisible()
     }

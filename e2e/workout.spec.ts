@@ -58,7 +58,8 @@ test.describe('lịch tập', () => {
 
   test('đi được từ màn Hôm nay sang lịch tập', async ({ page }) => {
     await page.goto('/hom-nay')
-    await page.getByRole('link', { name: /Lịch tập tuần này/ }).click()
+    // Link nằm trong thẻ "Buổi tập hôm nay".
+    await page.getByRole('link', { name: 'Xem cả tuần' }).click()
     await expect(page).toHaveURL(/\/lich-tap$/)
   })
 
