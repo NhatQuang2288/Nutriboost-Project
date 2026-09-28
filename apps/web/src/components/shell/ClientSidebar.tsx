@@ -5,13 +5,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useId } from 'react'
 
+import { usePhotoMealCapture } from '@/components/assistant/PhotoMealButton'
 import {
   BoIcon,
   CalendarIcon,
+  CameraIcon,
   ChartIcon,
   FlameIcon,
   HomeIcon,
-  PlusIcon,
   UserIcon,
 } from '@/components/icons'
 
@@ -22,6 +23,8 @@ interface Tab {
   label: string
   description: string
   Icon: typeof HomeIcon
+  /** `photo`: bấm vào mở camera ghi bữa ăn ngay, không chuyển trang. */
+  action?: 'photo'
 }
 
 const TABS: readonly Tab[] = [
@@ -29,14 +32,107 @@ const TABS: readonly Tab[] = [
   {
     href: '/ghi-nhan',
     label: 'Ghi bữa ăn',
-    description: 'Kể một câu, Bơ ghi giúp',
-    Icon: PlusIcon,
+    description: 'Chụp ảnh, Bơ ghi giúp',
+    Icon: CameraIcon,
+    action: 'photo',
   },
   { href: '/ke-hoach', label: 'Kế hoạch', description: 'Thực đơn 7 ngày', Icon: CalendarIcon },
   { href: '/lich-tap', label: 'Lịch tập', description: 'Buổi tập và kcal đốt', Icon: FlameIcon },
   { href: '/tien-do', label: 'Tiến độ', description: 'Cân nặng và xu hướng', Icon: ChartIcon },
   { href: '/toi', label: 'Tôi', description: 'Hồ sơ và mục tiêu', Icon: UserIcon },
 ]
+
+function tabClassName(active: boolean): string {
+  return [
+    'group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left',
+    'transition-all duration-200',
+    active
+      ? 'bg-forest-600 text-white shadow-sm'
+      : 'text-ink-muted hover:text-forest-700 hover:bg-olive-50',
+  ].join(' ')
+}
+
+/** Phần bên trong một mục: ô icon + nhãn + dòng mô tả. Dùng chung cho link và nút. */
+function TabContent({
+  Icon,
+  label,
+  description,
+  descriptionId,
+  active,
+}: {
+  Icon: typeof HomeIcon
+  label: string
+  description: string
+  descriptionId: string
+  active: boolean
+}) {
+  return (
+    <>
+      <span
+        className={[
+          'flex size-9 shrink-0 items-center justify-center rounded-xl',
+          active ? 'bg-white/15' : 'bg-olive-50 group-hover:bg-white',
+        ].join(' ')}
+      >
+        <Icon size={18} />
+      </span>
+
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span
+          id={descriptionId}
+          className={[
+            'mt-0.5 block truncate text-[11px]',
+            active ? 'text-white/70' : 'text-ink-faint',
+          ].join(' ')}
+        >
+          {description}
+        </span>
+      </span>
+    </>
+  )
+}
+
+/**
+ * Mục "Ghi bữa ăn": bấm là mở camera (trên máy tính là hộp chọn ảnh), ảnh được thu nhỏ rồi gửi
+ * cho Bơ; thẻ xác nhận hiện ở lớp trợ lý, người dùng ở nguyên trang đang xem.
+ */
+function PhotoTab({
+  tab,
+  descriptionId,
+  active,
+}: {
+  tab: Tab
+  descriptionId: string
+  active: boolean
+}) {
+  const { inputs, openCamera, busy, error } = usePhotoMealCapture()
+
+  return (
+    <>
+      {inputs}
+      <button
+        type="button"
+        onClick={openCamera}
+        disabled={busy}
+        aria-label={tab.label}
+        aria-describedby={descriptionId}
+        className={`${tabClassName(active)} disabled:cursor-wait disabled:opacity-70`}
+      >
+        <TabContent
+          Icon={tab.Icon}
+          label={tab.label}
+          description={busy ? 'Đang xử lý ảnh…' : tab.description}
+          descriptionId={descriptionId}
+          active={active}
+        />
+      </button>
+      {error !== null ? (
+        <p className="text-warning-text mt-1 px-3 text-[11px] leading-snug">{error}</p>
+      ) : null}
+    </>
+  )
+}
 
 /**
  * Sidebar của khách hàng ở màn hình lớn — cùng dáng với `PtTabs` của console PT.
@@ -70,8 +166,18 @@ export function ClientSidebar() {
 
       <nav aria-label="Điều hướng ứng dụng">
         <ul className="space-y-1.5">
-          {TABS.map(({ href, label, description, Icon }) => {
+          {TABS.map((tab) => {
+            const { href, label, description, Icon } = tab
             const active = pathname === href || pathname.startsWith(`${href}/`)
+            const descriptionId = `${descriptionIdPrefix}${href}`
+
+            if (tab.action === 'photo') {
+              return (
+                <li key={href}>
+                  <PhotoTab tab={tab} descriptionId={descriptionId} active={active} />
+                </li>
+              )
+            }
 
             return (
               <li key={href}>
@@ -80,37 +186,17 @@ export function ClientSidebar() {
                   // Tên link chỉ là nhãn; dòng mô tả đọc riêng qua `aria-describedby`, để trình đọc
                   // màn hình không đọc "Kế hoạch Thực đơn 7 ngày" như một cái tên.
                   aria-label={label}
-                  aria-describedby={`${descriptionIdPrefix}${href}`}
+                  aria-describedby={descriptionId}
                   aria-current={active ? 'page' : undefined}
-                  className={[
-                    'group flex items-center gap-3 rounded-2xl px-3 py-3',
-                    'transition-all duration-200',
-                    active
-                      ? 'bg-forest-600 text-white shadow-sm'
-                      : 'text-ink-muted hover:text-forest-700 hover:bg-olive-50',
-                  ].join(' ')}
+                  className={tabClassName(active)}
                 >
-                  <span
-                    className={[
-                      'flex size-9 shrink-0 items-center justify-center rounded-xl',
-                      active ? 'bg-white/15' : 'bg-olive-50 group-hover:bg-white',
-                    ].join(' ')}
-                  >
-                    <Icon size={18} />
-                  </span>
-
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{label}</span>
-                    <span
-                      id={`${descriptionIdPrefix}${href}`}
-                      className={[
-                        'mt-0.5 block truncate text-[11px]',
-                        active ? 'text-white/70' : 'text-ink-faint',
-                      ].join(' ')}
-                    >
-                      {description}
-                    </span>
-                  </span>
+                  <TabContent
+                    Icon={Icon}
+                    label={label}
+                    description={description}
+                    descriptionId={descriptionId}
+                    active={active}
+                  />
                 </Link>
               </li>
             )

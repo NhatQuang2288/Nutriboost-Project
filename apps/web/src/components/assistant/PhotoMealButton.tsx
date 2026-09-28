@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 import { CameraIcon } from '@/components/icons'
 
@@ -19,6 +19,9 @@ import { useAssistant } from './AssistantProvider'
  *      ô nhập không `capture` cho ảnh trong máy.
  *   3. **Không có bước tải tệp lên máy chủ.** Ảnh đi thẳng trong tin nhắn dưới dạng data URL,
  *      nên không cần kho lưu trữ, và ảnh không nằm lại ở đâu ngoài hội thoại.
+ *
+ * Logic nằm trong `usePhotoMealCapture` để nơi khác (mục "Ghi bữa ăn" ở sidebar) dùng lại mà
+ * giữ giao diện riêng của mình.
  */
 
 /** Cạnh dài nhất sau khi thu nhỏ. */
@@ -55,7 +58,17 @@ async function shrinkToJpeg(file: File): Promise<{ dataUrl: string; mediaType: s
   }
 }
 
-export function PhotoMealButton() {
+export interface PhotoMealCapture {
+  /** Hai ô nhập tệp ẩn. Phải được render ở đâu đó thì `openCamera`/`openLibrary` mới chạy. */
+  inputs: ReactNode
+  openCamera: () => void
+  openLibrary: () => void
+  busy: boolean
+  error: string | null
+}
+
+/** Toàn bộ luồng chụp → thu nhỏ → gửi cho Bơ, không kèm giao diện nút. */
+export function usePhotoMealCapture(): PhotoMealCapture {
   const { sendPhoto } = useAssistant()
   const cameraRef = useRef<HTMLInputElement>(null)
   const libraryRef = useRef<HTMLInputElement>(null)
@@ -89,14 +102,16 @@ export function PhotoMealButton() {
     }
   }
 
-  return (
-    <div className="flex flex-col gap-1">
+  const inputs = (
+    <>
       <input
         ref={cameraRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
         data-testid="photo-camera-input"
         onChange={(event) => {
           void handleFile(event.target.files?.[0])
@@ -107,16 +122,73 @@ export function PhotoMealButton() {
         type="file"
         accept="image/*"
         className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
         data-testid="photo-library-input"
         onChange={(event) => {
           void handleFile(event.target.files?.[0])
         }}
       />
+      <span className="sr-only" aria-live="polite">
+        {busy ? 'Đang xử lý ảnh bữa ăn' : ''}
+      </span>
+    </>
+  )
+
+  return {
+    inputs,
+    openCamera: () => cameraRef.current?.click(),
+    openLibrary: () => libraryRef.current?.click(),
+    busy,
+    error,
+  }
+}
+
+/**
+ * Nút chụp ảnh bữa ăn.
+ *
+ * - `tile` (mặc định): ô vuông trong lưới "Lối vào nhanh" của trang Ghi bữa ăn.
+ * - `compact`: một hàng gọn, dùng trong thẻ "Bữa ăn hôm nay" ở trang Hôm nay.
+ */
+export function PhotoMealButton({ variant = 'tile' }: { variant?: 'tile' | 'compact' }) {
+  const { inputs, openCamera, openLibrary, busy, error } = usePhotoMealCapture()
+
+  if (variant === 'compact') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {inputs}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={openCamera}
+            className="bg-forest-600 hover:bg-forest-700 flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold text-white transition-colors duration-(--duration-fast) disabled:cursor-wait disabled:opacity-60"
+          >
+            <CameraIcon size={15} />
+            {busy ? 'Đang xử lý ảnh…' : 'Chụp ảnh bữa ăn'}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={openLibrary}
+            className="text-ink-muted text-[12px] underline disabled:opacity-60"
+          >
+            Chọn ảnh có sẵn
+          </button>
+        </div>
+        {error !== null ? <p className="text-micro text-warning-text">{error}</p> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {inputs}
 
       <button
         type="button"
         disabled={busy}
-        onClick={() => cameraRef.current?.click()}
+        onClick={openCamera}
         className="touch-target border-line bg-surface-sunken flex w-full flex-col items-start gap-2 rounded-lg border p-3 text-left transition-colors duration-(--duration-fast) disabled:cursor-wait disabled:opacity-60"
       >
         <span className="text-forest-600">
@@ -130,17 +202,13 @@ export function PhotoMealButton() {
       <button
         type="button"
         disabled={busy}
-        onClick={() => libraryRef.current?.click()}
+        onClick={openLibrary}
         className="text-micro text-ink-faint self-start underline disabled:opacity-60"
       >
         Chọn ảnh có sẵn
       </button>
 
       {error !== null ? <p className="text-micro text-warning-text">{error}</p> : null}
-
-      <span className="sr-only" aria-live="polite">
-        {busy ? 'Đang xử lý ảnh bữa ăn' : ''}
-      </span>
     </div>
   )
 }
