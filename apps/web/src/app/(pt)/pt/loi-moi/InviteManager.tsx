@@ -25,12 +25,24 @@ export function InviteManager({ context, origin }: { context: InviteContext; ori
   function run(
     action: (formData: FormData) => Promise<{ ok: boolean; message: string }>,
     form: FormData,
+    onSuccess?: () => void,
   ) {
     startTransition(async () => {
-      const result = await action(form)
-      setNotice({ ok: result.ok, text: result.message })
-      if (result.ok) router.refresh()
+      try {
+        const result = await action(form)
+        setNotice({ ok: result.ok, text: result.message })
+        if (result.ok) {
+          onSuccess?.()
+          router.refresh()
+        }
+      } catch {
+        setNotice({ ok: false, text: 'Mất kết nối. Bạn thử lại nhé.' })
+      }
     })
+  }
+  function handleCopied(code: string) {
+    setCopied(code)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   if (context.state === 'demo') {
@@ -52,20 +64,29 @@ export function InviteManager({ context, origin }: { context: InviteContext; ori
     )
   }
 
+  if (context.state === 'error') {
+    return (
+      <Notice tone="danger" title="Không tải được dữ liệu">
+        Có lỗi khi đọc mã mời. Bạn tải lại trang sau ít phút nhé.
+      </Notice>
+    )
+  }
+
   return (
     <>
-      {notice === null ? null : (
-        <p
-          role="status"
-          className={`text-caption rounded-lg border px-3 py-2 ${
-            notice.ok
-              ? 'border-success/30 bg-success-surface text-success-text'
-              : 'border-danger/30 bg-danger-surface text-danger-text'
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
+      <div role="status" aria-live="polite">
+        {notice !== null && (
+          <p
+            className={`text-caption rounded-lg border px-3 py-2 ${
+              notice.ok
+                ? 'border-success/30 bg-success-surface text-success-text'
+                : 'border-danger/30 bg-danger-surface text-danger-text'
+            }`}
+          >
+            {notice.text}
+          </p>
+        )}
+      </div>
 
       {context.plan === null ? (
         <Notice tone="danger" title="Chưa có gói đang hiệu lực">
@@ -78,7 +99,7 @@ export function InviteManager({ context, origin }: { context: InviteContext; ori
           <dl className="flex flex-col">
             <Row
               label="Khách đang theo"
-              value={`${context.plan.clientLimit - context.plan.remainingSlots}/${context.plan.clientLimit}`}
+              value={`${context.plan.clientCount}/${context.plan.clientLimit}`}
               strong
             />
             <Row label="Còn mời được" value={`${context.plan.remainingSlots} khách`} />
@@ -93,9 +114,8 @@ export function InviteManager({ context, origin }: { context: InviteContext; ori
           className="flex flex-col gap-3"
           onSubmit={(event) => {
             event.preventDefault()
-            const form = new FormData(event.currentTarget)
-            event.currentTarget.reset()
-            run(createInviteAction, form)
+            const formEl = event.currentTarget
+            run(createInviteAction, new FormData(formEl), () => formEl.reset())
           }}
         >
           <Field
@@ -149,14 +169,18 @@ export function InviteManager({ context, origin }: { context: InviteContext; ori
             <InviteRow
               key={invite.id}
               invite={invite}
-              link={`${origin}/tham-gia?ma=${invite.code}`}
+              link={`${origin}/tham-gia?ma=${encodeURIComponent(invite.code)}`}
               copied={copied}
-              onCopy={setCopied}
+              onCopy={handleCopied}
               pending={pending}
               onRevoke={() => {
+                if (!window.confirm('Thu hồi mã này? Không thể hoàn tác.')) return
                 const form = new FormData()
                 form.set('id', invite.id)
                 run(revokeInviteAction, form)
+              }}
+              onCopyFail={function (): void {
+                throw new Error('Function not implemented.')
               }}
             />
           ))
@@ -179,6 +203,7 @@ function InviteRow({
   copied: string | null
   onCopy: (code: string) => void
   onRevoke: () => void
+  onCopyFail: () => void
   pending: boolean
 }) {
   return (

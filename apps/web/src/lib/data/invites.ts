@@ -57,16 +57,17 @@ export async function getInviteContext(): Promise<InviteContext> {
   // toàn bộ mã của người gọi kèm trạng thái đã tính sẵn.
   const { data, error } = await supabase.rpc('invite_code_status')
   if (error !== null) {
-    return { state: 'ready', codes: [], plan: null }
+    console.error('invite_code_status lỗi:', error.message)
+    return { state: 'error', codes: [], plan: null }
   }
 
   const rows = (data ?? []) as InviteStatusRow[]
-  const remainingSlots = rows[0]?.remaining_slots ?? 0
+  // const remainingSlots = rows[0]?.remaining_slots ?? 0
 
   return {
     state: 'ready',
     codes: rows.map(toView),
-    plan: await readPlan(supabase, remainingSlots),
+    plan: await readPlan(supabase, user.id),
   }
 }
 
@@ -94,7 +95,7 @@ function toView(row: InviteStatusRow): InviteCodeView {
  */
 async function readPlan(
   supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
-  remainingSlots: number,
+  userId: string,
 ): Promise<PtPlanView | null> {
   const { data, error } = await supabase
     .from('subscriptions')
@@ -106,12 +107,19 @@ async function readPlan(
 
   if (error !== null || data === null) return null
 
+  const { count } = await supabase
+    .from('pt_clients')
+    .select('client_id', { count: 'exact', head: true })
+    .eq('pt_id', userId)
+
   const row = data as { tier: string; client_limit: number; current_period_end: string }
+  const clientCount = count ?? 0
 
   return {
     tierLabel: TIER_LABELS[row.tier as keyof typeof TIER_LABELS] ?? row.tier,
     clientLimit: row.client_limit,
-    remainingSlots,
+    clientCount,
+    remainingSlots: Math.max(row.client_limit - clientCount, 0),
     renewsOn: row.current_period_end,
   }
 }
