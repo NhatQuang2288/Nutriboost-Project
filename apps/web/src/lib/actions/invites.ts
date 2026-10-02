@@ -94,7 +94,8 @@ export async function createInviteAction(formData: FormData): Promise<ActionResu
   })
 
   if (inserted.error !== null) {
-    return { ok: false, message: `Không tạo được mã: ${inserted.error.message}` }
+    console.error('insert invite_codes:', inserted.error)
+    return { ok: false, message: 'Không tạo được mã. Bạn thử lại nhé.' }
   }
 
   revalidatePath('/pt/loi-moi')
@@ -105,10 +106,11 @@ export async function revokeInviteAction(formData: FormData): Promise<ActionResu
   const auth = await requirePt()
   if (!auth.ok) return auth.result
 
-  const id = String(formData.get('id') ?? '')
-  if (id.length === 0) {
-    return { ok: false, message: 'Thiếu mã cần thu hồi.' }
+  const parsedId = z.string().uuid().safeParse(formData.get('id'))
+  if (!parsedId.success) {
+    return { ok: false, message: 'Mã cần thu hồi không hợp lệ.' }
   }
+  const id = parsedId.data
 
   const supabase = await createSupabaseServerClient()
   if (supabase === null) {
@@ -131,7 +133,8 @@ export async function revokeInviteAction(formData: FormData): Promise<ActionResu
     .select('id')
 
   if (updated.error !== null) {
-    return { ok: false, message: `Không thu hồi được mã: ${updated.error.message}` }
+    console.error('revoke invite_codes:', updated.error)
+    return { ok: false, message: 'Không thu hồi được mã. Bạn thử lại nhé.' }
   }
   if ((updated.data ?? []).length === 0) {
     return { ok: false, message: 'Không tìm thấy mã này, hoặc mã đã bị thu hồi trước đó.' }

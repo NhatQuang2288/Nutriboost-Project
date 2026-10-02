@@ -69,6 +69,7 @@ export interface InviteCodeView {
 export interface PtPlanView {
   tierLabel: string
   clientLimit: number
+  clientCount: number
   remainingSlots: number
   renewsOn: string
 }
@@ -79,7 +80,7 @@ export interface InviteContext {
    * `not_pt` — đã đăng nhập nhưng tài khoản không có vai trò PT.
    * `ready` — có dữ liệu thật.
    */
-  state: 'demo' | 'not_pt' | 'ready'
+  state: 'demo' | 'not_pt' | 'error' | 'ready'
   codes: InviteCodeView[]
   plan: PtPlanView | null
 }
