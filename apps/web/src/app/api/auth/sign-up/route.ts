@@ -2,9 +2,9 @@ import { isSupabaseConfigured } from '@nutriboost/db'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-import { authErrorMessage, nextPathAfterSignUp, signUpSchema } from '@/lib/auth/credentials'
+import { nextPathAfterSignUp, signUpSchema } from '@/lib/auth/credentials'
 import { NEXT_COOKIE } from '@/lib/auth/redirect'
-import { errorResponse, notConfiguredResponse, parseBody } from '@/lib/auth/route-helpers'
+import { authFailureResponse, notConfiguredResponse, parseBody } from '@/lib/auth/route-helpers'
 import { destinationAfterSignIn, rememberNextPath } from '@/lib/auth/session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -52,7 +52,7 @@ export async function POST(request: Request): Promise<Response> {
   })
 
   if (error !== null) {
-    return errorResponse(authErrorMessage(error.code), error.status === 429 ? 429 : 400)
+    return authFailureResponse('sign-up', error)
   }
 
   if (data.session === null) {

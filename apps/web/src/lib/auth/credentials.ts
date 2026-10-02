@@ -152,6 +152,9 @@ const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   signup_disabled: 'Hiện chưa mở đăng ký tài khoản mới.',
   email_provider_disabled: 'Hiện chưa bật đăng nhập bằng email.',
   email_address_invalid: 'Email không hợp lệ.',
+  // Supabase không tạo được người dùng (thường do trigger `handle_new_user` hoặc migration chưa chạy).
+  unexpected_failure:
+    'Máy chủ tài khoản đang gặp sự cố khi tạo tài khoản. Bạn thử lại sau, nếu vẫn lỗi hãy báo đội NutriBoost.',
   session_not_found:
     'Phiên đặt lại mật khẩu đã hết hạn. Bạn yêu cầu một liên kết mới ở trang "Quên mật khẩu" nhé.',
 }

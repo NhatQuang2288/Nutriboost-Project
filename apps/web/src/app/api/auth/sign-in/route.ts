@@ -1,9 +1,9 @@
 import { isSupabaseConfigured } from '@nutriboost/db'
 import { NextResponse } from 'next/server'
 
-import { authErrorMessage, signInSchema } from '@/lib/auth/credentials'
+import { signInSchema } from '@/lib/auth/credentials'
 import { safeNextPath } from '@/lib/auth/redirect'
-import { errorResponse, notConfiguredResponse, parseBody } from '@/lib/auth/route-helpers'
+import { authFailureResponse, notConfiguredResponse, parseBody } from '@/lib/auth/route-helpers'
 import { destinationAfterSignIn } from '@/lib/auth/session'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -27,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error !== null) {
-    return errorResponse(authErrorMessage(error.code), error.status === 429 ? 429 : 400)
+    return authFailureResponse('sign-in', error)
   }
 
   const next = safeNextPath(parsed.data.next)
