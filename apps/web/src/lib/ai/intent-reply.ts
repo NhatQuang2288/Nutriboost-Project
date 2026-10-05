@@ -120,3 +120,57 @@ export function buildIntentReply(
 
   return null
 }
+
+/** Câu dài thường là một câu hỏi hay trò chuyện; gợi ý "có phải món X" chỉ hợp với tên món ngắn. */
+const MAX_WORDS_FOR_CANDIDATES = 5
+
+/**
+ * Trả lời khi câu được coi là kể bữa ăn nhưng không khớp món nào.
+ *
+ * Trước đây chỉ nói "mình chưa nhận ra món nào" rồi bỏ khách đó. Nay có tên món gần đúng thì đưa
+ * ra để khách chọn ("Cá bống" → "Cá bống kho tiêu"); không có thì nói rõ Bơ làm được những gì để
+ * khách biết gõ gì tiếp, thay vì chỉ bảo "bạn chỉnh lại giúp mình".
+ */
+export function buildUnmatchedReply(
+  text: string,
+  candidates: readonly MealCatalogueEntry[],
+  remainingKcal: number,
+): IntentReply {
+  const wordCount = text.trim().split(/\s+/).length
+  const shown = wordCount <= MAX_WORDS_FOR_CANDIDATES ? candidates.slice(0, 4) : []
+
+  if (shown.length > 0) {
+    return {
+      text: finish(
+        `Mình chưa chắc bạn nói món nào. Có phải: ${shown.map((item) => item.nameVi).join(', ')}? ` +
+          'Bạn chọn hoặc gõ rõ tên món giúp mình nhé.',
+      ),
+      dataParts: [
+        {
+          name: 'food_candidate_chips',
+          data: {
+            candidates: shown.map((item) => ({
+              foodId: item.slug,
+              nameVi: item.nameVi,
+              servingName: item.servingName ?? null,
+              servingGrams: item.servingGrams ?? null,
+              kcalPer100g: item.kcalPer100g,
+            })),
+            promptText: 'Bạn ăn món nào?',
+          },
+        },
+      ],
+      suggestions: ['Gợi ý bữa tối nhẹ', 'Hôm nay mình còn bao nhiêu calo?'],
+    }
+  }
+
+  return {
+    text: finish(
+      'Mình chưa hiểu câu này. Bạn có thể kể bữa ăn (“trưa nay mình ăn cơm tấm sườn”), ' +
+        'nhờ gợi ý (“gợi ý món nhiều đạm”, “hôm nay muốn ăn thịt”) hoặc hỏi thành phần ' +
+        `(“phở bò gồm nguyên liệu gì”). Hôm nay bạn còn ${remainingKcal} kcal.`,
+    ),
+    dataParts: [],
+    suggestions: ['Gợi ý bữa tối nhẹ', 'Gợi ý món nhiều đạm'],
+  }
+}

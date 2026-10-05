@@ -39,6 +39,51 @@ const SUGGEST_TRIGGERS = [
   'cho toi mon',
 ]
 
+/**
+ * Câu nói ý MUỐN ăn ("nay tôi muốn ăn thịt") — nhờ tư vấn chứ không phải kể một bữa đã ăn.
+ * Phần đứng sau cụm này là thứ khách đang thèm, và thành bộ lọc cho gợi ý.
+ *
+ * Không đưa "thêm" vào: "thêm cơm" là ghi bữa ăn. Không có "thèm" không dấu vì trùng "thêm".
+ */
+const DESIRE_LEAD = /(?:^|\s)(?:muon an|thich an|them an|dinh an|can an|hay la an)(?:\s+(.*))?$/
+
+/** Món khách thèm theo nhóm chứ không theo tên: ánh xạ sang nhóm món trong danh mục. */
+const CRAVING_CATEGORIES: Readonly<Record<string, readonly string[]>> = {
+  'do ngot': ['trang mieng', 'an vat', 'che'],
+  'do an vat': ['an vat'],
+  'trang mieng': ['trang mieng'],
+  'mon nuoc': ['bun', 'pho', 'canh', 'chao', 'mien', 'hu tieu', 'lau'],
+  'do nuoc': ['bun', 'pho', 'canh', 'chao', 'mien', 'hu tieu', 'lau'],
+  'mon kho': ['kho'],
+}
+
+const DESIRE_STOPWORDS = new Set([
+  'nay',
+  'hom',
+  'toi',
+  'mon',
+  'gi',
+  'nao',
+  'nhe',
+  'nha',
+  'nhi',
+  'di',
+  'mot',
+  'chut',
+  'it',
+  'nua',
+  'that',
+  'la',
+  'khong',
+  'duoc',
+  'qua',
+  'lam',
+  'luon',
+  'ngay',
+  'bay',
+  'gio',
+])
+
 const DETAIL_TRIGGERS = [
   'nguyen lieu',
   'thanh phan',
@@ -230,6 +275,50 @@ function stripDetailWords(folded: string): string {
     .join(' ')
 }
 
+/**
+ * Đọc thứ khách muốn ăn thành bộ lọc: "thịt" → phải có thịt; "phở bò" → phải có phở bò;
+ * "thịt hoặc cá" → một trong hai nhóm; "đồ ngọt" → nhóm tráng miệng, ăn vặt.
+ */
+function parseDesire(folded: string): SuggestFilters | null {
+  const lead = DESIRE_LEAD.exec(folded)
+  if (lead === null) return null
+
+  const rest = lead[1] ?? ''
+  const end = EXCLUDE_END.exec(rest)
+  const phrase = end === null ? rest : rest.slice(0, end.index)
+  const cleaned = ` ${phrase} `
+    .replace(/\s+(?:hom nay|toi nay|bua nay)\s+/g, ' ')
+    .split(' ')
+    .filter((word) => word.length > 0 && !DESIRE_STOPWORDS.has(word))
+    .join(' ')
+    .trim()
+
+  const filters: SuggestFilters = {}
+  if (cleaned.length === 0) return filters
+
+  const craving = CRAVING_CATEGORIES[cleaned]
+  if (craving !== undefined) {
+    filters.categories = [...craving]
+    return filters
+  }
+
+  const alternatives = cleaned
+    .split(/\s+hoac\s+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+  if (alternatives.length > 1) {
+    filters.categories = alternatives.slice(0, 4)
+    return filters
+  }
+
+  const required = cleaned
+    .split(/\s+va\s+|,/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && part.length <= 30)
+  if (required.length > 0) filters.include = required.slice(0, 3)
+  return filters
+}
+
 function parseGrams(folded: string): number | undefined {
   const kg = /(\d+(?:[.,]\d+)?)\s*kg\b/.exec(folded)
   if (kg?.[1] !== undefined) {
@@ -247,8 +336,14 @@ function parseGrams(folded: string): number | undefined {
 export function classifyIntent(text: string, estimator: MealEstimator): ChatIntent {
   const folded = foldText(text)
 
-  if (SUGGEST_TRIGGERS.some((trigger) => hasPhrase(folded, trigger))) {
+  const desire = parseDesire(folded)
+
+  if (desire !== null || SUGGEST_TRIGGERS.some((trigger) => hasPhrase(folded, trigger))) {
     const filters = parseSuggestFilters(text, folded)
+    if (desire?.include !== undefined) filters.include = desire.include
+    if (desire?.categories !== undefined) {
+      filters.categories = [...new Set([...(filters.categories ?? []), ...desire.categories])]
+    }
     const { goal, light } = parseGoal(folded)
     if (light && filters.maxKcal === undefined) filters.maxKcal = 450
     const mealType = parseMealType(text, folded)

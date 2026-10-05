@@ -16,7 +16,7 @@ import { assessSafety } from '@nutriboost/nutrition'
 
 import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
 import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
-import { buildIntentReply } from '@/lib/ai/intent-reply'
+import { buildIntentReply, buildUnmatchedReply } from '@/lib/ai/intent-reply'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { createSupabaseAiStore } from '@/lib/ai/store'
 import { inspectStreamHead } from '@/lib/ai/stream-guard'
@@ -332,11 +332,24 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
+  // Không khớp được món nào: đưa tên món gần đúng hoặc nói rõ Bơ làm được gì, đừng chỉ bảo
+  // khách "chỉnh lại".
+  if (matched.length === 0) {
+    const reply = buildUnmatchedReply(
+      userText,
+      mealEstimator.suggest(userText, 4),
+      view.remainingKcal,
+    )
+    return buildMockChatStreamResponse({
+      text: reply.text,
+      dataParts: reply.dataParts,
+      suggestions: reply.suggestions,
+    })
+  }
+
   const missing = estimate.unmatched
   const text = [
-    matched.length > 0
-      ? `Mình nhận ra ${matched.length} món, tổng khoảng ${estimate.total.kcal} kcal.`
-      : 'Mình chưa nhận ra món nào trong câu này.',
+    `Mình nhận ra ${matched.length} món, tổng khoảng ${estimate.total.kcal} kcal.`,
     missing.length > 0
       ? `Còn ${missing.length} phần mình chưa chắc: ${missing.join(', ')}. Bạn chỉnh lại giúp mình nhé.`
       : '',

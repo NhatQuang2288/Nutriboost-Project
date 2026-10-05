@@ -58,6 +58,50 @@ describe('classifyIntent — gợi ý món', () => {
   })
 })
 
+describe('classifyIntent — nói ý muốn ăn', () => {
+  it('"nay tôi muốn ăn thịt" là nhờ tư vấn chứ không phải kể bữa ăn', () => {
+    expect(intent('Nay tôi muốn ăn thịt')).toEqual({
+      kind: 'suggest',
+      filters: { include: ['thit'] },
+    })
+  })
+
+  it('lấy thứ khách muốn thành bộ lọc "phải có"', () => {
+    expect(intent('hôm nay mình muốn ăn phở bò nhé')).toMatchObject({
+      kind: 'suggest',
+      filters: { include: ['pho bo'] },
+    })
+    expect(intent('tôi muốn ăn cá và rau')).toMatchObject({ filters: { include: ['ca', 'rau'] } })
+  })
+
+  it('"hoặc" nghĩa là một trong các nhóm, không phải tất cả', () => {
+    expect(intent('muốn ăn thịt hoặc cá')).toMatchObject({
+      filters: { categories: ['thit', 'ca'] },
+    })
+  })
+
+  it('thèm theo nhóm thì ánh xạ sang nhóm món, không dò chữ ("đồ ngọt" không phải "cải ngọt")', () => {
+    expect(intent('hôm nay muốn ăn đồ ngọt')).toMatchObject({
+      filters: { categories: ['trang mieng', 'an vat', 'che'] },
+    })
+  })
+
+  it('chỉ nói "muốn ăn" thì gợi ý chung', () => {
+    expect(intent('hôm nay tôi muốn ăn')).toEqual({ kind: 'suggest', filters: {} })
+  })
+
+  it('"thêm cơm" vẫn là ghi bữa ăn, không bị hiểu là muốn ăn', () => {
+    expect(intent('mình ăn thêm một bát cơm trắng').kind).toBe('meal')
+  })
+
+  it('kết hợp được với yêu cầu loại trừ và mục tiêu', () => {
+    expect(intent('muốn ăn thịt nhưng không ăn bò, để giảm cân')).toMatchObject({
+      goal: 'lose',
+      filters: { include: ['thit'], exclude: ['bo'] },
+    })
+  })
+})
+
 describe('classifyIntent — hỏi chi tiết món', () => {
   it('nhận câu hỏi nguyên liệu và dinh dưỡng của một món có trong danh mục', () => {
     expect(intent('phở bò chín gồm nguyên liệu gì')).toEqual({

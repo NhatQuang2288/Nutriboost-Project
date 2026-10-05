@@ -104,6 +104,11 @@ describe('suggestMeals', () => {
       expect(result.notes.join(' ')).toMatch(/nới/)
     })
 
+    it('nhãn bộ lọc luôn có dấu dù từ khoá đã bỏ dấu', () => {
+      const result = run({ filters: { include: ['trung'], categories: ['bun'] }, limit: 8 })
+      expect(result.appliedFilters).toEqual(expect.arrayContaining(['có trứng', 'nhóm bún']))
+    })
+
     it('liệt kê bộ lọc đã áp dụng để khách kiểm tra lại', () => {
       const result = run({ filters: { exclude: ['hải sản'], maxKcal: 500 } })
       expect(result.appliedFilters).toEqual(

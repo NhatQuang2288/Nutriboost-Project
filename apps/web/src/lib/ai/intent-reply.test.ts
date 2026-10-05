@@ -1,7 +1,7 @@
 import { classifyIntent, parseGenerativePayload } from '@nutriboost/ai'
 import { describe, expect, it } from 'vitest'
 
-import { buildIntentReply, type IntentReplyContext } from './intent-reply'
+import { buildIntentReply, buildUnmatchedReply, type IntentReplyContext } from './intent-reply'
 import { MEAL_CATALOGUE, mealEstimator } from './meal-estimator'
 
 /**
@@ -111,5 +111,57 @@ describe('kể bữa ăn không bị ảnh hưởng', () => {
     expect(
       buildIntentReply(classifyIntent('sáng nay mình ăn phở bò', mealEstimator), context),
     ).toBeNull()
+  })
+})
+
+describe('đường dự phòng — câu hỏi từng không được đáp ứng', () => {
+  it('"Nay tôi muốn ăn thịt" nhận về món có thịt, không phải "chưa nhận ra món nào"', () => {
+    const result = reply('Nay tôi muốn ăn thịt')
+    expect(result.text).toMatch(/Mình gợi ý \d món/)
+    const card = result.dataParts[0]?.data as {
+      suggestions: { foodId: string; nameVi: string }[]
+      appliedFilters: string[]
+    }
+    expect(card.appliedFilters).toContain('có thịt')
+    expect(card.suggestions.length).toBeGreaterThan(0)
+    const bySlug = new Map(MEAL_CATALOGUE.map((item) => [item.slug, item]))
+    for (const item of card.suggestions) {
+      const entry = bySlug.get(item.foodId)!
+      const text = [
+        entry.nameVi,
+        entry.category ?? '',
+        ...(entry.components ?? []).map((c) => c.name),
+      ]
+        .join(' ')
+        .toLowerCase()
+      expect(text, item.nameVi).toMatch(
+        /thịt|bò|heo|lợn|gà|vịt|ngan|sườn|giò|chả|nem|lòng|xá xíu|lạp xưởng|ba chỉ|ba rọi|mọc|nạm|chân giò|bì\b/,
+      )
+    }
+  })
+
+  it('"muốn ăn đồ ngọt" cho món tráng miệng, không cho cải ngọt', () => {
+    const card = reply('hôm nay muốn ăn đồ ngọt').dataParts[0]?.data as {
+      suggestions: { nameVi: string }[]
+    }
+    expect(card.suggestions.length).toBeGreaterThan(0)
+    expect(card.suggestions.map((item) => item.nameVi)).not.toContain('Cải ngọt')
+  })
+})
+
+describe('buildUnmatchedReply', () => {
+  it('"Cá bống" chưa đủ tên món thì đưa tên gần đúng để khách chọn', () => {
+    const result = buildUnmatchedReply('Cá bống', mealEstimator.suggest('Cá bống', 4), 667)
+    expect(result.text).toMatch(/Có phải: Cá bống kho tiêu/)
+    expect(result.dataParts[0]?.name).toBe('food_candidate_chips')
+    expect(parseGenerativePayload('food_candidate_chips', result.dataParts[0]?.data).ok).toBe(true)
+  })
+
+  it('câu dài không phải tên món thì không đoán, và nói rõ Bơ làm được gì', () => {
+    const text = 'thịt gà có tốt cho người đang tập gym buổi tối không nhỉ'
+    const result = buildUnmatchedReply(text, mealEstimator.suggest(text, 4), 667)
+    expect(result.dataParts).toEqual([])
+    expect(result.text).toMatch(/gợi ý món/)
+    expect(result.text).toMatch(/còn 667 kcal/)
   })
 })

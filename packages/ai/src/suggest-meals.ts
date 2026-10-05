@@ -188,6 +188,53 @@ const KEYWORD_GROUPS: Readonly<Record<string, readonly string[]>> = {
   mam: FERMENTED_FISH,
 }
 
+/** Nhãn hiển thị có dấu cho từ khoá đã bỏ dấu ("thit" → "thịt"), để thẻ gợi ý không hiện chữ cụt. */
+const KEYWORD_LABELS: Readonly<Record<string, string>> = {
+  'hai san': 'hải sản',
+  ca: 'cá',
+  tom: 'tôm',
+  cua: 'cua',
+  muc: 'mực',
+  oc: 'ốc',
+  thit: 'thịt',
+  bo: 'bò',
+  'thit bo': 'thịt bò',
+  heo: 'heo',
+  'thit heo': 'thịt heo',
+  lon: 'lợn',
+  'thit lon': 'thịt lợn',
+  ga: 'gà',
+  'thit ga': 'thịt gà',
+  vit: 'vịt',
+  trung: 'trứng',
+  sua: 'sữa',
+  lac: 'lạc',
+  'dau phong': 'đậu phộng',
+  'dau hu': 'đậu hũ',
+  mam: 'mắm',
+  bun: 'bún',
+  pho: 'phở',
+  'pho bo': 'phở bò',
+  chao: 'cháo',
+  com: 'cơm',
+  xoi: 'xôi',
+  lau: 'lẩu',
+  canh: 'canh',
+  rau: 'rau',
+  mien: 'miến',
+  'hu tieu': 'hủ tiếu',
+  cuon: 'cuốn',
+  goi: 'gỏi',
+  che: 'chè',
+  kho: 'kho',
+  'trang mieng': 'tráng miệng',
+  'an vat': 'ăn vặt',
+}
+
+function label(keyword: string): string {
+  return KEYWORD_LABELS[fold(keyword)] ?? keyword
+}
+
 function fold(value: string): string {
   return value
     .normalize('NFD')
@@ -304,9 +351,9 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
       'Lọc món chay dựa trên tên và nguyên liệu trong danh mục; một số món có thể dùng nước mắm hoặc nước dùng xương.',
     )
   }
-  for (const word of filters.exclude ?? []) applied.push(`không có ${word}`)
-  for (const word of filters.include ?? []) applied.push(`có ${word}`)
-  for (const word of filters.categories ?? []) applied.push(`nhóm ${word}`)
+  for (const word of filters.exclude ?? []) applied.push(`không có ${label(word)}`)
+  for (const word of filters.include ?? []) applied.push(`có ${label(word)}`)
+  for (const word of filters.categories ?? []) applied.push(`nhóm ${label(word)}`)
   if (filters.maxKcal !== undefined) applied.push(`tối đa ${filters.maxKcal} kcal`)
   if (filters.minProteinG !== undefined) applied.push(`đạm từ ${filters.minProteinG} g`)
   if (filters.maxFatG !== undefined) applied.push(`béo tối đa ${filters.maxFatG} g`)
