@@ -18,9 +18,42 @@ describe('bảng VDD', () => {
     expect(new Set(slugs).size).toBe(slugs.length)
   })
 
-  it('món cũ được ưu tiên khi trùng tên với món VDD', () => {
-    expect(dataset.all.some((food) => food.slug === 'pho-bo')).toBe(true)
-    expect(dataset.vddDuplicates.map((item) => item.name)).toContain('Bún bò Huế')
+  it('bảng VDD thắng khi trùng TÊN: món cũ bị thay bằng món VDD cùng slug', () => {
+    expect(dataset.replacedDishSlugs).toEqual(
+      expect.arrayContaining(['bun-bo-hue', 'rau-muong-xao-toi', 'goi-cuon-tom-thit']),
+    )
+    for (const slug of dataset.replacedDishSlugs) {
+      const food = dataset.all.find((item) => item.slug === slug)
+      // Cùng slug: CSDL đã có hàng đó thì seed cập nhật tại chỗ thay vì để lại món cũ.
+      expect(food?.sourceRef, slug).toContain('VDD')
+      expect(dataset.breakdowns.get(slug)?.estimated, slug).toBe(true)
+      // Thành phần cũ không còn trong seed, nếu không CSDL sẽ tính lại và ghi đè số VDD.
+      expect(
+        dataset.components.some((dish) => dish.dishSlug === slug),
+        slug,
+      ).toBe(false)
+    }
+    // Bún bò Huế mang số của bảng VDD: 478 kcal cho 500 g.
+    const bun = dataset.all.find((item) => item.slug === 'bun-bo-hue')
+    expect(bun?.servingGrams).toBe(500)
+    expect(Math.round(((bun?.kcalPer100g ?? 0) * 500) / 100)).toBe(478)
+  })
+
+  it('chỉ trùng BÍ DANH thì món VDD vẫn vào, món cũ giữ lại nhưng mất bí danh đó', () => {
+    // Trước đây "phở bò tái" bị bí danh của "Phở bò" nuốt mất nên ra số liệu cũ.
+    const tai = dataset.all.find((item) => item.nameVi === 'Phở bò tái')
+    expect(tai?.sourceRef).toContain('VDD')
+    expect(tai?.servingGrams).toBe(450)
+    expect(Math.round(((tai?.kcalPer100g ?? 0) * 450) / 100)).toBe(420)
+
+    const generic = dataset.all.find((item) => item.slug === 'pho-bo')
+    expect(generic?.sourceRef).not.toContain('VDD')
+    expect(generic?.aliases ?? []).not.toContain('pho bo tai')
+    expect(dataset.breakdowns.get('pho-bo')?.estimated).toBe(false)
+  })
+
+  it('không còn dòng VDD nào bị bỏ ngoài trường hợp trùng nguyên liệu', () => {
+    expect(dataset.vddDuplicates).toEqual([])
   })
 
   it('đổi khẩu phần sang trên 100 g đúng công thức giá trị × 100 / khối lượng', () => {
@@ -97,8 +130,9 @@ describe('bảng VDD', () => {
     }
     // Bỏ địa danh cuối tên: giữ khi duy nhất, bỏ khi mơ hồ.
     expect(dataset.all.find((food) => food.slug === 'cao-lau-hoi-an')?.aliases).toContain('Cao lầu')
-    expect(dataset.all.find((food) => food.slug === 'bun-bo-hue')?.aliases ?? []).not.toContain(
-      'Bún bò',
+    // "Bún chả" đã là tên một món cũ khác, nên không được thành bí danh của "Bún chả Hà Nội".
+    expect(dataset.all.find((food) => food.slug === 'bun-cha-ha-noi')?.aliases ?? []).not.toContain(
+      'Bún chả',
     )
   })
 

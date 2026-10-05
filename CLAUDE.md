@@ -249,7 +249,9 @@ Nâng lên TypeScript 7 sẽ phá toolchain lint. Chỉ nâng khi `typescript-es
 Danh mục gồm hai nguồn, gộp trong `buildDataset()` (`packages/seed/src/index.ts`):
 
 - **Món cũ** (`data/ingredients.ts`, `data/dishes.ts`): định nghĩa bằng thành phần × gram thật, số liệu
-  của món tính ra từ đó. Khi trùng tên với món VDD, **món cũ được ưu tiên**.
+  của món tính ra từ đó. Khi trùng với món VDD thì **bảng VDD thắng**: trùng tên thì món cũ bị thay
+  (cùng slug; seed xoá `dish_components` cũ của nó), chỉ trùng bí danh thì món cũ giữ lại nhưng mất
+  bí danh đó để tên đúng của món VDD khớp trước. Xem `planVddOverrides` trong `data/vdd.ts`.
 - **Bảng VDD** (`source/vdd-tong-hop.xlsx` → `data/vdd.generated.ts`): 376 món. Số dinh dưỡng là của
   **cả khẩu phần** ghi ở cột "Khối lượng", đổi sang trên 100 g bằng `giá trị × 100 / khối lượng`.
   Gram từng nguyên liệu là số **ước tính**; giao diện phải ghi "ước tính".

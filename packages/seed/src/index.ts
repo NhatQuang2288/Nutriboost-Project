@@ -2,7 +2,12 @@ import { normalizeVi } from '@nutriboost/nutrition'
 
 import { DISHES, toDishFoodRecord } from './data/dishes'
 import { INGREDIENTS } from './data/ingredients'
-import { type DishComponentEstimate, buildVddDishes } from './data/vdd'
+import {
+  type DishComponentEstimate,
+  type VddOverride,
+  buildVddDishes,
+  planVddOverrides,
+} from './data/vdd'
 import {
   type DatasetValidationReport,
   type DishRecord,
@@ -45,8 +50,12 @@ export interface BuiltDataset {
   components: readonly DishRecord[]
   /** Thành phần hiển thị theo slug món, gồm cả món VDD (gram ước tính). */
   breakdowns: ReadonlyMap<string, DishBreakdown>
-  /** Món trong bảng VDD bị bỏ vì trùng tên với món đã có — để người duyệt xem lại. */
+  /** Món trong bảng VDD bị bỏ vì trùng tên với một NGUYÊN LIỆU — để người duyệt xem lại. */
   vddDuplicates: readonly { name: string; existingSlug: string }[]
+  /** Món cũ mà bảng VDD đè lên (bảng VDD thắng). */
+  vddOverrides: readonly VddOverride[]
+  /** Slug món cũ bị thay hẳn bằng món VDD cùng tên. Cần xoá `dish_components` cũ của chúng. */
+  replacedDishSlugs: readonly string[]
 }
 
 /**
@@ -75,7 +84,31 @@ export function buildDataset(): BuiltDataset {
     }
   }
 
-  // Món cũ có gram thật nên được ưu tiên; món VDD trùng tên bị bỏ và được liệt kê lại.
+  // Bảng VDD thắng khi trùng: món cũ cùng tên bị thay, món cũ chỉ trùng bí danh mất bí danh đó.
+  const overrides = planVddOverrides(dishes)
+  const replaced = new Set(
+    overrides.filter((item) => item.mode === 'name').map((item) => item.oldSlug),
+  )
+  const freedAliases = new Set(
+    overrides.filter((item) => item.mode === 'alias').map((item) => normalizeVi(item.vddName)),
+  )
+
+  for (let index = dishes.length - 1; index >= 0; index -= 1) {
+    const dish = dishes[index]
+    if (dish === undefined) continue
+    if (replaced.has(dish.slug)) {
+      dishes.splice(index, 1)
+      breakdowns.delete(dish.slug)
+      continue
+    }
+    if (dish.aliases?.some((alias) => freedAliases.has(normalizeVi(alias))) === true) {
+      dishes[index] = {
+        ...dish,
+        aliases: dish.aliases.filter((alias) => !freedAliases.has(normalizeVi(alias))),
+      }
+    }
+  }
+
   const known = [...INGREDIENTS, ...dishes]
   const ingredientByName = new Map<string, string>()
   for (const item of INGREDIENTS) {
@@ -95,9 +128,11 @@ export function buildDataset(): BuiltDataset {
     ingredients,
     dishes,
     all: [...ingredients, ...dishes],
-    components: DISHES,
+    components: DISHES.filter((dish) => !replaced.has(dish.dishSlug)),
     breakdowns,
     vddDuplicates: vdd.duplicates,
+    vddOverrides: overrides,
+    replacedDishSlugs: [...replaced],
   }
 }
 

@@ -138,6 +138,24 @@ export const EVAL_CASES: readonly EvalCase[] = [
   { text: 'mình ăn canh chua cá lóc', expected: ['canh-chua-ca-loc'], note: 'món VDD, bốn từ' },
   { text: 'mình ăn gà nướng', expected: ['ga-nuong'], note: 'món VDD, hai từ' },
 
+  // --- Bảng VDD thắng khi trùng: tên đúng của món VDD không bị món cũ nuốt mất ---
+  {
+    text: 'mình ăn phở bò tái',
+    expected: ['pho-bo-tai'],
+    note: 'từng ra món cũ "Phở bò" vì trùng bí danh',
+  },
+  {
+    text: 'ăn cháo gà ta',
+    expected: ['chao-ga-ta'],
+    note: 'từng ra món cũ "Cháo gà" vì trùng bí danh',
+  },
+  {
+    text: 'ăn bún chả hà nội',
+    expected: ['bun-cha-ha-noi'],
+    note: 'phân biệt với "Bún chả" của món cũ',
+  },
+  { text: 'mình ăn phở bò', expected: ['pho-bo'], note: 'tên chung vẫn là món cũ "Phở bò"' },
+
   // --- Viết tắt thường gặp ---
   { text: 'mình uống cf sữa', expected: ['ca-phe-sua-da'], note: 'viết tắt "cf"' },
   { text: 'mình ăn 2 quả trứng', expected: ['trung-ga'], note: 'bí danh "trứng" gắn với trứng gà' },

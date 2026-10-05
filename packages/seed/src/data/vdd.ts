@@ -66,6 +66,51 @@ export interface VddDish {
   components: readonly DishComponentEstimate[]
 }
 
+export interface VddOverride {
+  /** Tên món trong bảng VDD. */
+  vddName: string
+  /** Món cũ bị ảnh hưởng. */
+  oldSlug: string
+  /**
+   * `name`: trùng tên → món cũ bị THAY bằng món VDD.
+   * `alias`: chỉ trùng bí danh → món cũ giữ lại nhưng mất bí danh đó, để tên đúng của món VDD
+   * khớp trước ("phở bò tái" là món VDD, "phở bò" vẫn là món cũ).
+   */
+  mode: 'name' | 'alias'
+}
+
+/**
+ * Tìm những món cũ mà bảng VDD đè lên. Bảng VDD thắng: đó là nguồn người dùng cung cấp, và để
+ * món cũ thắng thì gõ "phở bò tái" vẫn ra số liệu cũ dù bảng mới có đúng món đó.
+ *
+ * Chỉ xét món cũ là MÓN. Trùng với một nguyên liệu thì giữ nguyên liệu và bỏ dòng VDD, vì món cũ
+ * nào cũng đang tham chiếu nguyên liệu qua `dish_components`.
+ */
+export function planVddOverrides(
+  oldDishes: readonly Pick<FoodRecord, 'slug' | 'nameVi' | 'aliases'>[],
+): VddOverride[] {
+  const byName = new Map(oldDishes.map((dish) => [normalizeVi(dish.nameVi), dish.slug]))
+  const byAlias = new Map<string, string>()
+  for (const dish of oldDishes) {
+    for (const alias of dish.aliases ?? []) byAlias.set(normalizeVi(alias), dish.slug)
+  }
+
+  const overrides: VddOverride[] = []
+  for (const row of VDD_ROWS) {
+    const key = normalizeVi(row.name)
+    const nameOwner = byName.get(key)
+    if (nameOwner !== undefined) {
+      overrides.push({ vddName: row.name, oldSlug: nameOwner, mode: 'name' })
+      continue
+    }
+    const aliasOwner = byAlias.get(key)
+    if (aliasOwner !== undefined) {
+      overrides.push({ vddName: row.name, oldSlug: aliasOwner, mode: 'alias' })
+    }
+  }
+  return overrides
+}
+
 export interface VddBuildResult {
   /** Bản ghi mới đưa vào danh mục (đã bỏ món trùng với danh mục cũ). */
   dishes: readonly VddDish[]
