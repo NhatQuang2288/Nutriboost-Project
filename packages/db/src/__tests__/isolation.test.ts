@@ -191,6 +191,57 @@ describe('quyền gọi hàm — các hàm security definer nhận tham số tu�
   })
 })
 
+describe('thành phần của món (foods.components)', () => {
+  it('người dùng đã đăng nhập đọc được thành phần và cờ ước tính của món VDD', async () => {
+    const result = await asUser(db, USERS.client2, async () =>
+      db.query<{
+        components: { name: string; grams: number }[] | null
+        components_estimated: boolean
+      }>(`select components, components_estimated from public.foods where slug = 'pho-bo-chin'`),
+    )
+
+    const row = firstRow(result)
+    expect(row.components_estimated).toBe(true)
+    expect(row.components?.map((item) => item.name)).toEqual(
+      expect.arrayContaining(['Bánh phở', 'Thịt bò chín']),
+    )
+  })
+
+  it('món cũ có gram thật không bị đánh dấu ước tính', async () => {
+    const row = firstRow(
+      await db.query<{ components_estimated: boolean }>(
+        `select components_estimated from public.foods where slug = 'pho-bo'`,
+      ),
+    )
+    expect(row.components_estimated).toBe(false)
+  })
+
+  it('người dùng thường không sửa được thành phần của danh mục chung', async () => {
+    const before = firstRow(
+      await db.query<{ components: unknown }>(
+        `select components from public.foods where slug = 'pho-bo-chin'`,
+      ),
+    )
+
+    await asUser(db, USERS.client2, async () =>
+      db.query(`update public.foods set components = '[]'::jsonb where slug = 'pho-bo-chin'`),
+    ).catch(() => undefined)
+
+    const after = firstRow(
+      await db.query<{ components: unknown }>(
+        `select components from public.foods where slug = 'pho-bo-chin'`,
+      ),
+    )
+    expect(after.components).toEqual(before.components)
+  })
+
+  it('cột chỉ nhận mảng JSON', async () => {
+    await expect(
+      db.query(`update public.foods set components = '{"a":1}'::jsonb where slug = 'pho-bo-chin'`),
+    ).rejects.toThrow(/foods_components_is_array/)
+  })
+})
+
 describe('quyền gọi hàm — những hàm cố tình để mở', () => {
   it('search_foods vẫn gọi được: danh mục thực phẩm là dữ liệu dùng chung', async () => {
     const result = await asUser(db, USERS.client2, async () =>

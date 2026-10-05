@@ -17,7 +17,7 @@ import { assessSafety } from '@nutriboost/nutrition'
 import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
 import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
 import { buildIntentReply, buildUnmatchedReply } from '@/lib/ai/intent-reply'
-import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
+import { loadCatalogue } from '@/lib/ai/catalogue'
 import { createSupabaseAiStore } from '@/lib/ai/store'
 import { inspectStreamHead } from '@/lib/ai/stream-guard'
 import { getTodayView } from '@/lib/data/today'
@@ -136,11 +136,16 @@ export async function POST(request: Request): Promise<Response> {
     })
   }
 
+  // Danh mục món lấy từ Supabase (dữ liệu mới nạp từ bảng VDD); chỉ rơi về danh mục trong mã khi
+  // chưa có Supabase hoặc CSDL chưa được nạp lại seed. Xem `lib/ai/catalogue.ts`.
+  const sessionClient = await createSupabaseServerClient()
+  const { catalogue, estimator } = await loadCatalogue(sessionClient)
+
   // Ý định của câu: kể bữa ăn, xin gợi ý, hỏi thành phần món, hay hỏi còn bao nhiêu kcal.
-  const intent = classifyIntent(userText, mealEstimator)
+  const intent = classifyIntent(userText, estimator)
 
   // Ước lượng bữa ăn bằng pipeline tất định — bước 1 và 2, không cần model.
-  const estimate = estimateMeal(userText)
+  const estimate = estimator.estimate(userText)
   const matched = estimate.items.filter((item) => item.foodId !== null)
 
   const facts = [
@@ -211,7 +216,6 @@ export async function POST(request: Request): Promise<Response> {
    */
   const user = await getSessionUser()
   const store = createSupabaseAiStore()
-  const sessionClient = await createSupabaseServerClient()
 
   /*
    * Hai công cụ chạm dữ liệu chỉ tồn tại khi biết người dùng là ai. Thiếu chúng thì `log_meal`
@@ -259,8 +263,8 @@ export async function POST(request: Request): Promise<Response> {
       // Bộ công cụ tra cùng danh mục và cùng mục tiêu với màn hình, nên con số trong
       // chat luôn khớp con số trên giao diện.
       const tools = createAssistantTools({
-        catalogue: MEAL_CATALOGUE,
-        estimator: mealEstimator,
+        catalogue,
+        estimator,
         targets: view.targets,
         safety,
         today: view.localDate,
@@ -316,7 +320,7 @@ export async function POST(request: Request): Promise<Response> {
   // tất định nên vẫn trả lời được. Chỉ câu kể bữa ăn mới rơi xuống bộ ước lượng bên dưới.
   if (intent.kind !== 'meal') {
     const reply = buildIntentReply(intent, {
-      catalogue: MEAL_CATALOGUE,
+      catalogue,
       goal: view.profile.goal,
       safety,
       targetKcal: view.targets.targetKcal,
@@ -335,11 +339,7 @@ export async function POST(request: Request): Promise<Response> {
   // Không khớp được món nào: đưa tên món gần đúng hoặc nói rõ Bơ làm được gì, đừng chỉ bảo
   // khách "chỉnh lại".
   if (matched.length === 0) {
-    const reply = buildUnmatchedReply(
-      userText,
-      mealEstimator.suggest(userText, 4),
-      view.remainingKcal,
-    )
+    const reply = buildUnmatchedReply(userText, estimator.suggest(userText, 4), view.remainingKcal)
     return buildMockChatStreamResponse({
       text: reply.text,
       dataParts: reply.dataParts,

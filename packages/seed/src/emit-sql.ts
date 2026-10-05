@@ -35,6 +35,10 @@ function sqlNullableNumber(value: number | undefined): string {
   return value === undefined || !Number.isFinite(value) ? 'null' : String(value)
 }
 
+function sqlNullableJson(value: unknown): string {
+  return value === undefined ? 'null' : `${sqlString(JSON.stringify(value))}::jsonb`
+}
+
 function sqlNumber(value: number | undefined): string {
   return value === undefined || !Number.isFinite(value) ? '0' : String(value)
 }
@@ -55,10 +59,13 @@ export function emitFoodsSql(dataset: BuiltDataset): string {
     'sugar_g',
     'sodium_mg',
     'source_ref',
+    'components',
+    'components_estimated',
   ]
 
-  const values = dataset.all.map((food) =>
-    [
+  const values = dataset.all.map((food) => {
+    const breakdown = dataset.breakdowns.get(food.slug)
+    return [
       sqlString(food.slug),
       sqlString(food.nameVi),
       sqlString(food.kind),
@@ -73,8 +80,10 @@ export function emitFoodsSql(dataset: BuiltDataset): string {
       sqlNumber(food.sugarG),
       sqlNumber(food.sodiumMg),
       sqlString(food.sourceRef),
-    ].join(', '),
-  )
+      sqlNullableJson(breakdown?.components),
+      breakdown?.estimated === true ? 'true' : 'false',
+    ].join(', ')
+  })
 
   const updates = columns
     .filter((column) => column !== 'slug')

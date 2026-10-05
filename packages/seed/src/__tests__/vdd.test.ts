@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { VDD_ROWS } from '../data/vdd.generated'
+import { emitFoodsSql } from '../emit-sql'
 import { buildDataset, validateFullDataset } from '../index'
 
 describe('bảng VDD', () => {
@@ -134,6 +135,18 @@ describe('bảng VDD', () => {
     expect(dataset.all.find((food) => food.slug === 'bun-cha-ha-noi')?.aliases ?? []).not.toContain(
       'Bún chả',
     )
+  })
+
+  it('seed ghi thành phần và cờ ước tính vào foods để AI đọc từ CSDL', () => {
+    const sql = emitFoodsSql(dataset)
+    expect(sql).toContain('components, components_estimated')
+    // Mỗi món có thành phần thì có một giá trị jsonb.
+    const dishCount = [...dataset.breakdowns.keys()].length
+    expect(sql.match(/::jsonb/g)?.length).toBe(dishCount)
+    // Phở bò chín (VDD) mang cờ ước tính, kèm đúng tên nguyên liệu.
+    const line = sql.split('\n').find((row) => row.includes("'pho-bo-chin'"))
+    expect(line).toContain('"name":"Bánh phở"')
+    expect(line?.trimEnd().replace(/\),?$/, '')).toMatch(/, true$/)
   })
 
   it('không có lỗi số liệu vật lý nào', () => {

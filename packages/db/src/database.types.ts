@@ -139,6 +139,10 @@ export interface FoodsRow {
   source_ref: string | null
   verified: boolean
   verified_by: string | null
+  /** Thành phần để hiển thị: `[{ name, grams, ingredientSlug? }]`, gram theo khẩu phần tham khảo. */
+  components: Json | null
+  /** `true` khi gram từng thành phần là số ước tính (món lấy từ bảng VDD). */
+  components_estimated: boolean
   name_key: string
   created_at: string
   updated_at: string
@@ -409,7 +413,10 @@ export interface Database {
       >
       foods: TableDefinition<
         FoodsRow,
-        Omit<FoodsRow, 'id' | 'created_at' | 'updated_at' | 'name_key'> & { id?: string },
+        Omit<
+          FoodsRow,
+          'id' | 'created_at' | 'updated_at' | 'name_key' | 'components' | 'components_estimated'
+        > & { id?: string; components?: Json | null; components_estimated?: boolean },
         Partial<FoodsRow>
       >
       food_aliases: TableDefinition<

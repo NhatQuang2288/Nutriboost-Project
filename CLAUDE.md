@@ -263,6 +263,12 @@ Khẩu phần trong danh mục chỉ là **tham khảo**. Khách cung cấp kh�
 `buildDishDetail` (`packages/ai/src/dish-math.ts`). Chỉnh gram một nguyên liệu chỉ tính được khi
 nguyên liệu đó có số trên 100 g; nếu không thì trả `toolRefusal`, không đoán.
 
+**AI đọc danh mục từ Supabase**, không phải từ mã: `apps/web/src/lib/ai/catalogue.ts` đọc bảng `foods`
+(kèm `food_aliases`, cột `components`) và giữ trong bộ nhớ 5 phút. Danh mục trong mã chỉ là dự phòng, và
+được dùng khi (a) chưa có Supabase hoặc lỗi đọc, (b) CSDL có **ít** thực phẩm hơn danh mục trong mã,
+nghĩa là chưa nạp lại seed — khi đó nó ghi `[ai/catalogue]` ra log kèm lệnh `npm run db:reset`. Sửa
+món trong CSDL thì AI thấy sau tối đa 5 phút; sửa trong `packages/seed` thì phải sinh lại seed và nạp.
+
 Gợi ý món (`packages/ai/src/suggest-meals.ts`) và nhận diện ý định (`intents.ts`) đều tất định. Đường
 dự phòng của route chat dùng chúng nên vẫn tư vấn được khi chưa có khoá AI.
 
