@@ -101,7 +101,7 @@ function signedScale(entry: MealCatalogueEntry, gramsDelta: number): ScaledNutri
   }
 }
 
-function findComponent(
+export function findComponent(
   components: readonly CatalogueComponent[],
   name: string,
 ): CatalogueComponent | undefined {
@@ -278,4 +278,121 @@ export function toDishDetailCard(detail: DishDetail) {
     estimated: detail.estimated,
     customised: detail.customised,
   }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Đọc gram từng nguyên liệu từ câu khách nói                                   */
+/* ------------------------------------------------------------------------- */
+
+const GRAM_UNIT = /(\d+(?:[.,]\d+)?)\s*(kg|gram|gam|gr|g)\b/gi
+
+/** Từ nối giữa tên nguyên liệu và con số: "bún là 250g", "thịt bò bằng 120 g", "tăng bún lên 250g". */
+const LINKER_WORDS = new Set([
+  'la',
+  'bang',
+  'voi',
+  'co',
+  'chi',
+  'len',
+  'xuong',
+  'tang',
+  'giam',
+  'doi',
+  'chinh',
+  'sua',
+  'thanh',
+  'nang',
+  'lay',
+  'dung',
+  'an',
+  'cho',
+  'minh',
+  'toi',
+  'khoang',
+  'tam',
+  'hon',
+])
+
+const MAX_PHRASE_WORDS = 3
+const MARKER = '|'
+
+/**
+ * Đọc "bún 250g", "250 g thịt bò", "thịt bò là 120g" thành gram từng nguyên liệu của món.
+ *
+ * Trả về khoá là TÊN NGUYÊN LIỆU TRONG MÓN (không phải chữ khách gõ), để đưa thẳng vào
+ * `buildDishDetail`. Chỉ nhận cụm từ khớp một nguyên liệu của chính món này; con số không dính
+ * nguyên liệu nào ("phở bò chín 300g") bị bỏ qua — đó là khối lượng cả món.
+ *
+ * Tên món phải được cắt khỏi câu trước: "bún thang 300g" mà không cắt thì cụm "bún thang" chứa
+ * chữ "bún" và bị nhận nhầm là nguyên liệu "Bún".
+ */
+export function parseComponentGrams(
+  text: string,
+  components: readonly CatalogueComponent[],
+  dishName: string,
+): Record<string, number> {
+  if (components.length === 0) return {}
+
+  const words = text
+    .toLowerCase()
+    .replace(
+      GRAM_UNIT,
+      // Đổi dấu phẩy thập phân thành dấu chấm trước khi tách từ, không thì "0,3kg" bị cắt làm đôi.
+      (_match, amount: string, unit: string) =>
+        ` ${amount.replace(',', '.')}${unit === 'kg' ? 'kg' : 'g'} `,
+    )
+    .split(/[\s,;:=()]+/)
+    .filter((word) => word.length > 0)
+
+  // Cắt tên món khỏi câu, thay bằng dấu ngăn để cụm từ không vắt qua chỗ đó.
+  const dishWords = normalizeName(dishName).split(' ')
+  const folded = words.map((word) => (/^\d/.test(word) ? word : normalizeName(word)))
+  for (let start = 0; start + dishWords.length <= folded.length; start += 1) {
+    if (dishWords.every((word, offset) => folded[start + offset] === word)) {
+      for (let offset = 0; offset < dishWords.length; offset += 1) folded[start + offset] = MARKER
+      start += dishWords.length - 1
+    }
+  }
+
+  const isNumber = (word: string): boolean => /^\d+(?:[.,]\d+)?(?:kg|g)$/.test(word)
+  const isLinker = (word: string): boolean => LINKER_WORDS.has(word)
+  const usable = (word: string | undefined): word is string =>
+    word !== undefined && word !== MARKER && !isNumber(word) && !isLinker(word)
+
+  const result: Record<string, number> = {}
+
+  folded.forEach((word, index) => {
+    const parsed = /^(\d+(?:[.,]\d+)?)(kg|g)$/.exec(word)
+    if (parsed === null) return
+    const amount = Number((parsed[1] ?? '0').replace(',', '.')) * (parsed[2] === 'kg' ? 1000 : 1)
+    if (!Number.isFinite(amount) || amount < 0) return
+
+    // Từ ngay TRƯỚC con số (bỏ từ nối): "bún 250g", "bún là 250g".
+    let end = index - 1
+    while (end >= 0 && isLinker(folded[end] ?? '')) end -= 1
+    for (let size = MAX_PHRASE_WORDS; size >= 1; size -= 1) {
+      const slice = folded.slice(end - size + 1, end + 1)
+      if (end - size + 1 < 0 || !slice.every(usable)) continue
+      const found = findComponent(components, slice.join(' '))
+      if (found !== undefined) {
+        result[found.name] = amount
+        return
+      }
+    }
+
+    // Từ ngay SAU con số: "250g bún".
+    let begin = index + 1
+    while (begin < folded.length && isLinker(folded[begin] ?? '')) begin += 1
+    for (let size = MAX_PHRASE_WORDS; size >= 1; size -= 1) {
+      const slice = folded.slice(begin, begin + size)
+      if (slice.length < size || !slice.every(usable)) continue
+      const found = findComponent(components, slice.join(' '))
+      if (found !== undefined) {
+        result[found.name] = amount
+        return
+      }
+    }
+  })
+
+  return result
 }

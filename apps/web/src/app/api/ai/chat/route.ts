@@ -321,6 +321,7 @@ export async function POST(request: Request): Promise<Response> {
   if (intent.kind !== 'meal') {
     const reply = buildIntentReply(intent, {
       catalogue,
+      userText,
       goal: view.profile.goal,
       safety,
       targetKcal: view.targets.targetKcal,

@@ -273,6 +273,13 @@ export interface MealEstimator {
   estimate: (text: string) => MealEstimate
   /** Gợi ý ứng viên cho một đoạn văn bản, dùng cho thẻ chọn món trong chat. */
   suggest: (text: string, limit?: number) => MealCatalogueEntry[]
+  /**
+   * Món (không phải nguyên liệu) có tên nằm NGUYÊN VẸN trong câu; tên dài nhất thắng.
+   *
+   * Cần khi câu còn nhiều chữ khác ngoài tên món ("bún thang bún tươi 250g"): trộn cả câu vào
+   * so khớp mờ sẽ trượt sang nguyên liệu "bún tươi" thay vì món "bún thang".
+   */
+  findMentioned: (text: string) => MealCatalogueEntry | undefined
   /** Số mục trong danh mục đang dùng. */
   size: () => number
 }
@@ -439,5 +446,15 @@ export function createMealEstimator(catalogue: readonly MealCatalogueEntry[]): M
       .filter((food): food is MealCatalogueEntry => food !== undefined)
   }
 
-  return { estimate, suggest, size: () => catalogue.length }
+  const dishesByNameLength = nameKeys
+    .filter(({ item }) => (item.kind ?? 'dish') === 'dish')
+    .sort((a, b) => b.key.length - a.key.length)
+
+  function findMentioned(text: string): MealCatalogueEntry | undefined {
+    const haystack = ` ${normalizeVi(text)} `
+    return dishesByNameLength.find(({ key }) => key.length > 0 && haystack.includes(` ${key} `))
+      ?.item
+  }
+
+  return { estimate, suggest, findMentioned, size: () => catalogue.length }
 }

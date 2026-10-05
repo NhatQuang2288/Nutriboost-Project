@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildDishDetail, sumKnownItems } from '../dish-math'
+import { buildDishDetail, parseComponentGrams, sumKnownItems } from '../dish-math'
 import { FIXTURE_CATALOGUE } from './fixtures'
 
 const entry = (slug: string) => FIXTURE_CATALOGUE.find((item) => item.slug === slug)!
@@ -110,5 +110,45 @@ describe('buildDishDetail — chỉnh từng nguyên liệu', () => {
     })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toMatch(/khối lượng cả món/)
+  })
+})
+
+describe('parseComponentGrams — đọc gram từng nguyên liệu từ câu khách nói', () => {
+  const pho = entry('pho-bo')
+  const parse = (text: string, target = pho) =>
+    parseComponentGrams(text, target.components ?? [], target.nameVi)
+
+  it('"thịt bò 120g" thành gram của nguyên liệu trong món, khoá là tên nguyên liệu của món', () => {
+    expect(parse('phở bò thịt bò 120g')).toEqual({ 'Thịt bò nạc': 120 })
+    expect(parse('120 g thịt bò')).toEqual({ 'Thịt bò nạc': 120 })
+    expect(parse('thịt bò là 120g')).toEqual({ 'Thịt bò nạc': 120 })
+  })
+
+  it('đọc được nhiều nguyên liệu, số thập phân và kg', () => {
+    expect(parse('thịt bò 120g, bánh phở 300 g')).toEqual({
+      'Thịt bò nạc': 120,
+      'Bánh phở tươi': 300,
+    })
+    expect(parse('bánh phở 0,3kg')).toEqual({ 'Bánh phở tươi': 300 })
+  })
+
+  it('con số đứng cạnh TÊN MÓN là khối lượng cả món, không phải nguyên liệu', () => {
+    expect(parse('phở bò 400g')).toEqual({})
+    // Món "Phở bò chín" có nguyên liệu "Bánh phở": tên món không được bị hiểu thành nguyên liệu.
+    const chin = entry('pho-bo-chin')
+    expect(parse('phở bò chín 450g', chin)).toEqual({})
+  })
+
+  it('nguyên liệu không có trong món thì bỏ qua, không đoán', () => {
+    expect(parse('cá hồi 100g')).toEqual({})
+    expect(parse('gợi ý món 300g')).toEqual({})
+  })
+
+  it('câu không có con số thì không có gì', () => {
+    expect(parse('thịt bò nhiều hơn một chút')).toEqual({})
+  })
+
+  it('món không có danh sách nguyên liệu thì không đọc được gì', () => {
+    expect(parseComponentGrams('thịt bò 100g', [], 'Phở bò')).toEqual({})
   })
 })

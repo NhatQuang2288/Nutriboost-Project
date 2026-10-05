@@ -108,6 +108,37 @@ describe('đường dự phòng — nguyên liệu nền có kcal riêng', () =>
   })
 })
 
+describe('đường dự phòng — khách nêu gram từng nguyên liệu', () => {
+  const run = (text: string) => reply(text, { userText: text })
+
+  it('"bún thang bún 250g" chỉnh bún, không phải cả món', () => {
+    const result = run('bún thang bún tươi 250g bao nhiêu calo')
+    const card = result.dataParts[0]?.data as {
+      grams: number
+      customised: boolean
+      items: { name: string; grams: number; adjusted: boolean }[]
+    }
+    const bun = card.items.find((item) => item.name === 'Bún tươi')
+
+    expect(bun).toMatchObject({ grams: 250, adjusted: true })
+    // Khối lượng cả món là tổng đã tính lại, không phải 250.
+    expect(card.grams).toBeGreaterThan(250)
+    expect(card.customised).toBe(true)
+    expect(result.text).toMatch(/tính lại theo gram bạn nêu cho từng nguyên liệu/)
+  })
+
+  it('con số đứng cạnh tên món vẫn là khối lượng cả món', () => {
+    const card = run('bún thang 300g bao nhiêu calo').dataParts[0]?.data as { grams: number }
+    expect(card.grams).toBe(300)
+  })
+
+  it('nguyên liệu chưa có số liệu thì nói thẳng, không tính bừa', () => {
+    const result = run('bún thang giò lụa 50g bao nhiêu calo')
+    expect(result.dataParts).toEqual([])
+    expect(result.text).toMatch(/Chưa có số dinh dưỡng riêng/)
+  })
+})
+
 describe('đường dự phòng — còn bao nhiêu kcal', () => {
   it('trả lời bằng số thật, không coi là bữa ăn', () => {
     const result = reply('Hôm nay mình còn bao nhiêu calo?')

@@ -85,6 +85,11 @@ const DESIRE_STOPWORDS = new Set([
 ])
 
 const DETAIL_TRIGGERS = [
+  'chinh luong',
+  'chinh khoi luong',
+  'doi luong',
+  'doi khoi luong',
+  'thay doi luong',
   'nguyen lieu',
   'thanh phan',
   'gom gi',
@@ -408,8 +413,10 @@ export function classifyIntent(text: string, estimator: MealEstimator): ChatInte
   }
 
   if (DETAIL_TRIGGERS.some((trigger) => hasPhrase(folded, trigger))) {
-    const estimate = estimator.estimate(stripDetailWords(folded))
-    const slug = estimate.items.find((item) => item.foodId !== null)?.foodId
+    const slug =
+      estimator.findMentioned(folded)?.slug ??
+      estimator.estimate(stripDetailWords(folded)).items.find((item) => item.foodId !== null)
+        ?.foodId
     if (slug !== null && slug !== undefined) {
       // Đọc từ câu gốc: `normalizeVi` đổi "kg" thành "khong" (teencode) và bỏ dấu phẩy thập phân.
       const grams = parseGrams(text.toLowerCase())

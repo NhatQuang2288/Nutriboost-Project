@@ -7,6 +7,7 @@ import type { z } from 'zod'
 import type { GENERATIVE_COMPONENTS } from '@nutriboost/ai/schemas'
 
 import { AlertIcon, CheckIcon, InfoIcon } from '@/components/icons'
+import { recomputeDishAction } from '@/lib/actions/dish-detail'
 import { saveMealAction } from '@/lib/actions/meals'
 import type { ActionResult } from '@/lib/actions/types'
 
@@ -108,59 +109,215 @@ export function MealSuggestionCard({ props }: { props: Props<'meal_suggestion_ca
 }
 
 export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) {
-  const hasUnmatched = props.items.some((item) => item.kcal === null)
+  /*
+   * Thẻ cho khách SỬA khối lượng, nhưng KHÔNG tự tính: mỗi lần sửa gọi Server Action để máy chủ
+   * tính lại bằng đúng hàm mà trợ lý dùng, rồi thẻ vẽ lại theo kết quả. Nhờ vậy số trên thẻ luôn
+   * khớp số Bơ nói trong chat, và quy tắc "model/giao diện không tự tính dinh dưỡng" còn nguyên.
+   *
+   * Hai cách sửa loại trừ nhau (xem `buildDishDetail`): đổi khối lượng CẢ MÓN, hoặc đổi gram TỪNG
+   * NGUYÊN LIỆU. Chỉ nguyên liệu có số trên 100 g mới sửa được — những dòng "—" không có số để
+   * tính, nên chỉ hiện chứ không cho nhập.
+   */
+  const [card, setCard] = useState(props)
+  const [overrides, setOverrides] = useState<Record<string, number>>({})
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [wholeDraft, setWholeDraft] = useState(String(props.grams))
+  const [message, setMessage] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const hasUnmatched = card.items.some((item) => item.kcal === null)
+
+  function apply(
+    request: { grams: number } | { componentGrams: Record<string, number> } | null,
+    onDone: (next: Props<'dish_detail_card'>) => void,
+  ): void {
+    setMessage(null)
+    startTransition(async () => {
+      const result = await recomputeDishAction({ foodId: props.foodId, ...(request ?? {}) })
+      if (result.ok) {
+        setCard(result.card)
+        onDone(result.card)
+      } else {
+        setMessage(result.message)
+      }
+    })
+  }
+
+  function changeWhole(): void {
+    const grams = Number(wholeDraft.replace(',', '.'))
+    if (!Number.isFinite(grams) || grams <= 0) {
+      setMessage('Khối lượng phải là số lớn hơn 0.')
+      return
+    }
+    apply({ grams }, (next) => {
+      setOverrides({})
+      setDrafts({})
+      setWholeDraft(String(next.grams))
+    })
+  }
+
+  function changeItem(name: string): void {
+    const raw = drafts[name]
+    if (raw === undefined) return
+    const grams = Number(raw.replace(',', '.'))
+    if (!Number.isFinite(grams) || grams < 0) {
+      setMessage('Khối lượng nguyên liệu phải là số không âm.')
+      return
+    }
+    const next = { ...overrides, [name]: grams }
+    apply({ componentGrams: next }, (updated) => {
+      setOverrides(next)
+      setDrafts({})
+      setWholeDraft(String(updated.grams))
+    })
+  }
+
+  function reset(): void {
+    apply(null, (next) => {
+      setOverrides({})
+      setDrafts({})
+      setWholeDraft(String(next.grams))
+    })
+  }
+
+  const inputClass =
+    'border-line-strong bg-surface text-ink text-caption w-20 rounded-md border px-2 py-1 text-right tabular-nums disabled:opacity-60'
 
   return (
     <div className="border-line bg-surface rounded-lg border shadow-sm">
       <div className="border-line-subtle border-b px-4 py-3">
-        <p className="text-body text-ink font-semibold">{props.nameVi}</p>
+        <p className="text-body text-ink font-semibold">{card.nameVi}</p>
         <p className="text-caption text-ink-faint tabular-nums">
-          {props.grams} g
-          {props.customised
+          {card.grams} g
+          {card.customised
             ? ' · theo khối lượng bạn cung cấp'
-            : ` · khẩu phần tham khảo${props.servingName === null ? '' : ` (1 ${props.servingName})`}`}
+            : ` · khẩu phần tham khảo${card.servingName === null ? '' : ` (1 ${card.servingName})`}`}
         </p>
+
+        <form
+          noValidate
+          className="mt-2 flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            changeWhole()
+          }}
+        >
+          <label className="text-caption text-ink-muted" htmlFor={`whole-${card.foodId}`}>
+            Cả món
+          </label>
+          <input
+            id={`whole-${card.foodId}`}
+            type="number"
+            inputMode="decimal"
+            min={1}
+            step="any"
+            value={wholeDraft}
+            onChange={(event) => setWholeDraft(event.target.value)}
+            disabled={pending}
+            className={inputClass}
+            aria-label="Khối lượng cả món (g)"
+          />
+          <span className="text-caption text-ink-faint">g</span>
+          <button
+            type="submit"
+            disabled={pending}
+            className="touch-target text-caption text-accent-text rounded-full border border-olive-200 bg-olive-100 px-3 disabled:opacity-60"
+          >
+            {pending ? 'Đang tính…' : 'Tính lại'}
+          </button>
+          {card.customised ? (
+            <button
+              type="button"
+              onClick={reset}
+              disabled={pending}
+              className="text-caption text-ink-muted underline disabled:opacity-60"
+            >
+              Về khẩu phần mẫu
+            </button>
+          ) : null}
+        </form>
       </div>
 
-      {props.items.length === 0 ? (
+      {card.items.length === 0 ? (
         <p className="text-caption text-ink-muted px-4 py-3">
           Món này chưa có danh sách nguyên liệu. Số dinh dưỡng bên dưới là của cả món.
         </p>
       ) : (
         <ul className="divide-line-subtle flex flex-col divide-y">
-          {props.items.map((item, index) => (
-            <li
-              key={`${item.name}-${index}`}
-              className="flex items-baseline justify-between gap-3 px-4 py-2"
-            >
-              <div className="min-w-0">
-                <p className="text-body text-ink truncate">{item.name}</p>
-                <p className="text-caption text-ink-faint tabular-nums">
-                  {item.grams} g{props.estimated ? ' · ước tính' : ''}
-                  {item.adjusted ? ' · bạn đã chỉnh' : ''}
-                </p>
-              </div>
-              <span className="text-caption text-ink-muted shrink-0 tabular-nums">
-                {item.kcal === null ? '—' : `${item.kcal} kcal`}
-              </span>
-            </li>
-          ))}
+          {card.items.map((item, index) => {
+            const editable = item.kcal !== null
+            return (
+              <li
+                key={`${item.name}-${index}`}
+                className="flex items-center justify-between gap-3 px-4 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-body text-ink truncate">{item.name}</p>
+                  <p className="text-caption text-ink-faint">
+                    {card.estimated ? 'ước tính' : 'gram gốc'}
+                    {item.adjusted ? ' · bạn đã chỉnh' : ''}
+                    {editable ? '' : ' · chưa có số để chỉnh'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {editable ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="any"
+                      value={drafts[item.name] ?? String(item.grams)}
+                      onChange={(event) =>
+                        setDrafts((current) => ({ ...current, [item.name]: event.target.value }))
+                      }
+                      onBlur={() => changeItem(item.name)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          changeItem(item.name)
+                        }
+                      }}
+                      disabled={pending}
+                      className={inputClass}
+                      aria-label={`Khối lượng ${item.name} (g)`}
+                    />
+                  ) : (
+                    <span className="text-caption text-ink-muted tabular-nums">{item.grams}</span>
+                  )}
+                  <span className="text-caption text-ink-faint">g</span>
+                  <span className="text-caption text-ink-muted w-16 text-right tabular-nums">
+                    {item.kcal === null ? '—' : `${item.kcal} kcal`}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
 
+      {message !== null ? (
+        <p
+          role="alert"
+          className="border-line-subtle text-caption text-warning-text flex items-center gap-1.5 border-t px-4 py-2"
+        >
+          <AlertIcon size={14} />
+          <span>{message}</span>
+        </p>
+      ) : null}
+
       <div className="border-line-subtle border-t px-4 py-3">
-        <p className="text-body text-ink font-semibold tabular-nums">{props.total.kcal} kcal</p>
+        <p className="text-body text-ink font-semibold tabular-nums">{card.total.kcal} kcal</p>
         <p className="text-caption text-ink-faint tabular-nums">
-          Đạm {props.total.proteinG} g · Tinh bột {props.total.carbG} g · Béo {props.total.fatG} g ·
-          Xơ {props.total.fiberG} g · Natri {props.total.sodiumMg} mg
+          Đạm {card.total.proteinG} g · Tinh bột {card.total.carbG} g · Béo {card.total.fatG} g · Xơ{' '}
+          {card.total.fiberG} g · Natri {card.total.sodiumMg} mg
         </p>
         {hasUnmatched ? (
           <p className="text-caption text-ink-faint mt-1">
-            Dấu “—” nghĩa là chưa có số dinh dưỡng riêng cho nguyên liệu đó; tổng của món vẫn là số
-            của cả món.
+            Dấu “—” nghĩa là chưa có số dinh dưỡng riêng cho nguyên liệu đó, nên chưa sửa được từng
+            phần; tổng của món vẫn là số của cả món. Bạn vẫn đổi được khối lượng cả món.
           </p>
         ) : null}
-        {props.estimated ? (
+        {card.estimated ? (
           <p className="text-caption text-ink-faint mt-1">
             Gram từng nguyên liệu là số ước tính, chưa đối chiếu nguồn gốc.
           </p>

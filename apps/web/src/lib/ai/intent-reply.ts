@@ -4,6 +4,7 @@ import {
   type MealCatalogueEntry,
   type SuggestGoal,
   buildDishDetail,
+  parseComponentGrams,
   mealBudgetKcal,
   resolveSuggestGoal,
   suggestMeals,
@@ -21,6 +22,8 @@ import type { SafetyAssessment } from '@nutriboost/nutrition'
  */
 
 export interface IntentReplyContext {
+  /** Nguyên văn câu của khách, để đọc gram từng nguyên liệu ("bún 250g"). */
+  userText?: string
   catalogue: readonly MealCatalogueEntry[]
   goal: SuggestGoal
   safety: Pick<SafetyAssessment, 'blockWeightLoss'>
@@ -97,8 +100,18 @@ export function buildIntentReply(
     const entry = context.catalogue.find((item) => item.slug === intent.slug)
     if (entry === undefined) return null
 
+    // Khách nêu gram một nguyên liệu ("bún 250g") thì chỉnh từng phần; không thì mới tới khối
+    // lượng cả món. Hai kiểu loại trừ nhau, nên con số đứng cạnh nguyên liệu không bị hiểu là cả món.
+    const componentGrams = parseComponentGrams(
+      context.userText ?? '',
+      entry.components ?? [],
+      entry.nameVi,
+    )
+    const hasComponents = Object.keys(componentGrams).length > 0
+
     const result = buildDishDetail(entry, context.catalogue, {
-      ...(intent.grams === undefined ? {} : { grams: intent.grams }),
+      ...(hasComponents ? { componentGrams } : {}),
+      ...(!hasComponents && intent.grams !== undefined ? { grams: intent.grams } : {}),
     })
     if (!result.ok) {
       return { text: finish(result.reason), dataParts: [], suggestions: ['Gợi ý bữa tối nhẹ'] }
@@ -107,6 +120,9 @@ export function buildIntentReply(
     const { detail } = result
     const parts = [`${detail.nameVi}: khoảng ${detail.total.kcal} kcal cho ${detail.grams} g.`]
     if (detail.estimated) parts.push('Gram từng nguyên liệu là số ước tính.')
+    if (detail.items.some((item) => item.adjusted)) {
+      parts.push('Mình đã tính lại theo gram bạn nêu cho từng nguyên liệu.')
+    }
     if (!detail.customised) {
       parts.push('Khẩu phần này chỉ để tham khảo; bạn nói khối lượng thật, mình tính lại nhé.')
     }
