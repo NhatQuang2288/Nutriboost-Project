@@ -4,9 +4,11 @@ import { GENERATIVE_COMPONENTS, type GenerativePayload } from '@nutriboost/ai/sc
 
 import {
   ChoiceChips,
+  DishDetailCard,
   FoodCandidateChips,
   MealConfirmCard,
   MealLoggedReceipt,
+  MealSuggestionCard,
   PlanPreviewWeek,
   ProgressChartCard,
   SafetyNoticeCard,
@@ -25,6 +27,8 @@ import {
 
 const REGISTRY = {
   food_candidate_chips: FoodCandidateChips,
+  meal_suggestion_card: MealSuggestionCard,
+  dish_detail_card: DishDetailCard,
   meal_confirm_card: MealConfirmCard,
   meal_logged_receipt: MealLoggedReceipt,
   target_summary_card: TargetSummaryCard,

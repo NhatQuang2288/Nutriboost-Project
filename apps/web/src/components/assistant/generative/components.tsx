@@ -51,6 +51,125 @@ export function FoodCandidateChips({ props }: { props: Props<'food_candidate_chi
   )
 }
 
+export function MealSuggestionCard({ props }: { props: Props<'meal_suggestion_card'> }) {
+  if (props.suggestions.length === 0) {
+    // Trạng thái rỗng là bắt buộc: không có món khớp thì phải nói, không được biến mất im lặng.
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-4">
+        <p className="text-body text-ink">Chưa có món nào khớp</p>
+        {props.notes.map((note) => (
+          <p key={note} className="text-caption text-ink-muted mt-1">
+            {note}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-line bg-surface rounded-lg border shadow-sm">
+      <div className="border-line-subtle border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">{props.title}</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          Khoảng {props.budgetKcal} kcal cho một bữa
+          {props.appliedFilters.length > 0 ? ` · ${props.appliedFilters.join(', ')}` : ''}
+        </p>
+      </div>
+
+      <ul className="divide-line-subtle flex flex-col divide-y">
+        {props.suggestions.map((item) => (
+          <li key={item.foodId} className="px-4 py-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-body text-ink min-w-0 truncate">{item.nameVi}</p>
+              <span className="text-caption text-ink-muted shrink-0 tabular-nums">
+                {item.kcal} kcal
+              </span>
+            </div>
+            <p className="text-caption text-ink-faint tabular-nums">
+              {item.grams} g · Đạm {item.proteinG} g · Tinh bột {item.carbG} g · Béo {item.fatG} g
+            </p>
+            <p className="text-caption text-ink-muted mt-0.5">{item.reason}</p>
+          </li>
+        ))}
+      </ul>
+
+      <div className="border-line-subtle border-t px-4 py-2.5">
+        <p className="text-caption text-ink-faint">
+          Khẩu phần chỉ để tham khảo. Bạn nói khối lượng thật để Bơ tính lại cho chính xác.
+        </p>
+        {props.notes.map((note) => (
+          <p key={note} className="text-caption text-warning-text mt-1">
+            {note}
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) {
+  const hasUnmatched = props.items.some((item) => item.kcal === null)
+
+  return (
+    <div className="border-line bg-surface rounded-lg border shadow-sm">
+      <div className="border-line-subtle border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">{props.nameVi}</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          {props.grams} g
+          {props.customised
+            ? ' · theo khối lượng bạn cung cấp'
+            : ` · khẩu phần tham khảo${props.servingName === null ? '' : ` (1 ${props.servingName})`}`}
+        </p>
+      </div>
+
+      {props.items.length === 0 ? (
+        <p className="text-caption text-ink-muted px-4 py-3">
+          Món này chưa có danh sách nguyên liệu. Số dinh dưỡng bên dưới là của cả món.
+        </p>
+      ) : (
+        <ul className="divide-line-subtle flex flex-col divide-y">
+          {props.items.map((item, index) => (
+            <li
+              key={`${item.name}-${index}`}
+              className="flex items-baseline justify-between gap-3 px-4 py-2"
+            >
+              <div className="min-w-0">
+                <p className="text-body text-ink truncate">{item.name}</p>
+                <p className="text-caption text-ink-faint tabular-nums">
+                  {item.grams} g{props.estimated ? ' · ước tính' : ''}
+                  {item.adjusted ? ' · bạn đã chỉnh' : ''}
+                </p>
+              </div>
+              <span className="text-caption text-ink-muted shrink-0 tabular-nums">
+                {item.kcal === null ? '—' : `${item.kcal} kcal`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="border-line-subtle border-t px-4 py-3">
+        <p className="text-body text-ink font-semibold tabular-nums">{props.total.kcal} kcal</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          Đạm {props.total.proteinG} g · Tinh bột {props.total.carbG} g · Béo {props.total.fatG} g ·
+          Xơ {props.total.fiberG} g · Natri {props.total.sodiumMg} mg
+        </p>
+        {hasUnmatched ? (
+          <p className="text-caption text-ink-faint mt-1">
+            Dấu “—” nghĩa là chưa có số dinh dưỡng riêng cho nguyên liệu đó; tổng của món vẫn là số
+            của cả món.
+          </p>
+        ) : null}
+        {props.estimated ? (
+          <p className="text-caption text-ink-faint mt-1">
+            Gram từng nguyên liệu là số ước tính, chưa đối chiếu nguồn gốc.
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 export function MealConfirmCard({ props }: { props: Props<'meal_confirm_card'> }) {
   /*
    * Kết quả lấy từ Server Action, KHÔNG phải state cục bộ.

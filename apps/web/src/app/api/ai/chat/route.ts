@@ -7,6 +7,7 @@ import {
   buildChatStreamResponse,
   buildGuardrailInstructions,
   buildMockChatStreamResponse,
+  classifyIntent,
   createAssistantTools,
   isOutOfScopeMedicalQuestion,
   readAiEnv,
@@ -15,6 +16,7 @@ import { assessSafety } from '@nutriboost/nutrition'
 
 import { checkChatAllowance, recordChatCall } from '@/lib/ai/chat-usage'
 import { createMealLogger, createProgressReader } from '@/lib/ai/health-tools'
+import { buildIntentReply } from '@/lib/ai/intent-reply'
 import { MEAL_CATALOGUE, estimateMeal, mealEstimator } from '@/lib/ai/meal-estimator'
 import { createSupabaseAiStore } from '@/lib/ai/store'
 import { inspectStreamHead } from '@/lib/ai/stream-guard'
@@ -133,6 +135,9 @@ export async function POST(request: Request): Promise<Response> {
       suggestions: ['Gợi ý bữa tối nhẹ', 'Hôm nay mình còn bao nhiêu calo?'],
     })
   }
+
+  // Ý định của câu: kể bữa ăn, xin gợi ý, hỏi thành phần món, hay hỏi còn bao nhiêu kcal.
+  const intent = classifyIntent(userText, mealEstimator)
 
   // Ước lượng bữa ăn bằng pipeline tất định — bước 1 và 2, không cần model.
   const estimate = estimateMeal(userText)
@@ -259,6 +264,8 @@ export async function POST(request: Request): Promise<Response> {
         targets: view.targets,
         safety,
         today: view.localDate,
+        goal: view.profile.goal,
+        remainingKcal: view.remainingKcal,
         ...healthTools,
       })
 
@@ -302,6 +309,26 @@ export async function POST(request: Request): Promise<Response> {
       // Ngược lại: model hỏng trước khi kịp trả chữ nào — rơi xuống đường tất định bên dưới.
     } catch {
       // Rơi về đường giả thay vì trả lỗi: ứng dụng phải luôn dùng được.
+    }
+  }
+
+  // Đường dự phòng không có model, nhưng gợi ý món, thành phần và số kcal còn lại đều là toán
+  // tất định nên vẫn trả lời được. Chỉ câu kể bữa ăn mới rơi xuống bộ ước lượng bên dưới.
+  if (intent.kind !== 'meal') {
+    const reply = buildIntentReply(intent, {
+      catalogue: MEAL_CATALOGUE,
+      goal: view.profile.goal,
+      safety,
+      targetKcal: view.targets.targetKcal,
+      consumedKcal: view.consumed.kcal,
+      remainingKcal: view.remainingKcal,
+    })
+    if (reply !== null) {
+      return buildMockChatStreamResponse({
+        text: reply.text,
+        dataParts: reply.dataParts,
+        suggestions: reply.suggestions,
+      })
     }
   }
 

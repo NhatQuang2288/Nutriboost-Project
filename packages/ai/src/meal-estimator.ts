@@ -25,13 +25,28 @@ import {
  */
 
 /** Một mục trong danh mục món. `FoodRecord` của `@nutriboost/seed` khớp cấu trúc này. */
+export interface CatalogueComponent {
+  name: string
+  grams: number
+  /** Slug nguyên liệu có số liệu trên 100 g; thiếu thì thành phần này không có kcal riêng. */
+  ingredientSlug?: string
+}
+
 export interface MealCatalogueEntry {
   slug: string
   nameVi: string
   /** Phân biệt nguyên liệu và món — dùng để phá thế hoà khi hai bên cùng điểm. */
   kind?: 'ingredient' | 'dish'
   aliases?: readonly string[]
+  /** Nhóm món ("Món Phở", "Món Cơm"…), dùng để lọc khi tư vấn. */
+  category?: string
+  servingName?: string
+  /** Khẩu phần THAM KHẢO. Khách cung cấp khối lượng thật thì tính lại từ số trên 100 g. */
   servingGrams?: number
+  /** Thành phần của món, gram ứng với một khẩu phần tham khảo. */
+  components?: readonly CatalogueComponent[]
+  /** `true` khi gram từng thành phần là số ước tính chứ không phải số gốc. */
+  componentsEstimated?: boolean
   kcalPer100g: number
   proteinG: number
   carbG: number

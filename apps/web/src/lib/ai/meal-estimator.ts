@@ -1,5 +1,5 @@
 import { createMealEstimator } from '@nutriboost/ai'
-import { buildDataset } from '@nutriboost/seed'
+import { buildCatalogue } from '@nutriboost/seed'
 
 /**
  * Bộ ước lượng bữa ăn, gắn với danh mục món thật.
@@ -11,7 +11,7 @@ import { buildDataset } from '@nutriboost/seed'
  * (pg_trgm) — phần còn lại không đổi.
  */
 
-const CATALOGUE = buildDataset().all
+const CATALOGUE = buildCatalogue()
 
 const estimator = createMealEstimator(CATALOGUE)
 

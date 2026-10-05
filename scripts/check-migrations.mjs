@@ -32,7 +32,7 @@ const SEED_FILE = 'supabase/seed.sql'
 
 /** Số dòng mong đợi sau khi nạp seed — chốt lại để phát hiện seed hỏng lặng lẽ. */
 const EXPECTED_ROWS = {
-  foods: 91,
+  foods: 458,
   dish_components: 245,
   exercises: 33,
 }

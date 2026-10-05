@@ -244,6 +244,26 @@ Dự án dùng **npm workspaces**. Đừng thêm lockfile của trình quản l�
 `typescript-eslint@8` khai báo peer `typescript >=4.8.4 <6.1.0`.
 Nâng lên TypeScript 7 sẽ phá toolchain lint. Chỉ nâng khi `typescript-eslint` hỗ trợ.
 
+## Dữ liệu món ăn
+
+Danh mục gồm hai nguồn, gộp trong `buildDataset()` (`packages/seed/src/index.ts`):
+
+- **Món cũ** (`data/ingredients.ts`, `data/dishes.ts`): định nghĩa bằng thành phần × gram thật, số liệu
+  của món tính ra từ đó. Khi trùng tên với món VDD, **món cũ được ưu tiên**.
+- **Bảng VDD** (`source/vdd-tong-hop.xlsx` → `data/vdd.generated.ts`): 376 món. Số dinh dưỡng là của
+  **cả khẩu phần** ghi ở cột "Khối lượng", đổi sang trên 100 g bằng `giá trị × 100 / khối lượng`.
+  Gram từng nguyên liệu là số **ước tính**; giao diện phải ghi "ước tính".
+
+Sửa tệp xlsx rồi chạy `python3 scripts/import-vdd-xlsx.py` (cần `pip install openpyxl`), sau đó
+`npm run seed -- --emit-sql` để sinh lại `supabase/seed.sql`. **Không sửa tay** hai tệp được sinh.
+
+Khẩu phần trong danh mục chỉ là **tham khảo**. Khách cung cấp khối lượng thì tính lại bằng
+`buildDishDetail` (`packages/ai/src/dish-math.ts`). Chỉnh gram một nguyên liệu chỉ tính được khi
+nguyên liệu đó có số trên 100 g; nếu không thì trả `toolRefusal`, không đoán.
+
+Gợi ý món (`packages/ai/src/suggest-meals.ts`) và nhận diện ý định (`intents.ts`) đều tất định. Đường
+dự phòng của route chat dùng chúng nên vẫn tư vấn được khi chưa có khoá AI.
+
 ## Quy ước code
 
 - TypeScript strict, `noUncheckedIndexedAccess` bật → nhớ xử lý `undefined` khi truy cập mảng.

@@ -115,6 +115,29 @@ export const EVAL_CASES: readonly EvalCase[] = [
     note: 'bữa phụ',
   },
 
+  // --- Món từ bảng VDD (danh mục mở rộng): tên ngắn, không dấu, bỏ địa danh ---
+  { text: 'mình ăn bún mọc', expected: ['bun-moc'], note: 'món VDD' },
+  { text: 'trưa nay ăn cháo lòng', expected: ['chao-long'], note: 'món VDD' },
+  {
+    text: 'sáng ăn xôi gấc',
+    expected: ['xoi-gac'],
+    note: 'món VDD, phân biệt với các loại xôi khác',
+  },
+  { text: 'xoi xeo', expected: ['xoi-xeo'], note: 'món VDD, không dấu' },
+  {
+    text: 'ăn xôi đậu xanh',
+    expected: ['xoi-dau-xanh'],
+    note: 'món VDD, nhiều loại xôi gần giống',
+  },
+  { text: 'ăn hủ tiếu nam vang', expected: ['hu-tieu-nam-vang'], note: 'món VDD, bốn từ' },
+  { text: 'mình ăn bún đậu mắm tôm', expected: ['bun-dau-mam-tom'], note: 'món VDD, năm từ' },
+  { text: 'mình ăn cơm chiên dương châu', expected: ['com-chien-duong-chau'], note: 'món VDD' },
+  { text: 'mình ăn cao lầu', expected: ['cao-lau-hoi-an'], note: 'bỏ địa danh cuối tên "Hội An"' },
+  { text: 'ăn cơm hến', expected: ['com-hen-hue'], note: 'bỏ địa danh cuối tên "Huế"' },
+  { text: 'ăn bánh bèo', expected: ['banh-beo-hue'], note: 'bỏ địa danh cuối tên "Huế"' },
+  { text: 'mình ăn canh chua cá lóc', expected: ['canh-chua-ca-loc'], note: 'món VDD, bốn từ' },
+  { text: 'mình ăn gà nướng', expected: ['ga-nuong'], note: 'món VDD, hai từ' },
+
   // --- Viết tắt thường gặp ---
   { text: 'mình uống cf sữa', expected: ['ca-phe-sua-da'], note: 'viết tắt "cf"' },
   { text: 'mình ăn 2 quả trứng', expected: ['trung-ga'], note: 'bí danh "trứng" gắn với trứng gà' },
