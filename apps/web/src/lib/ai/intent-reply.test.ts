@@ -132,10 +132,17 @@ describe('đường dự phòng — khách nêu gram từng nguyên liệu', () 
     expect(card.grams).toBe(300)
   })
 
-  it('nguyên liệu chưa có số liệu thì nói thẳng, không tính bừa', () => {
+  it('nguyên liệu chưa có số riêng vẫn chỉnh được và nói rõ kcal chỉ là ước tính theo tỉ lệ', () => {
     const result = run('bún thang giò lụa 50g bao nhiêu calo')
-    expect(result.dataParts).toEqual([])
-    expect(result.text).toMatch(/Chưa có số dinh dưỡng riêng/)
+    const card = result.dataParts[0]?.data as {
+      items: { name: string; grams: number; adjusted: boolean; share: boolean }[]
+    }
+    expect(card.items.find((item) => item.name === 'Giò lụa')).toMatchObject({
+      grams: 50,
+      adjusted: true,
+      share: true,
+    })
+    expect(result.text).toMatch(/ước tính chia theo tỉ lệ/)
   })
 })
 

@@ -115,8 +115,8 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
    * khớp số Bơ nói trong chat, và quy tắc "model/giao diện không tự tính dinh dưỡng" còn nguyên.
    *
    * Hai cách sửa loại trừ nhau (xem `buildDishDetail`): đổi khối lượng CẢ MÓN, hoặc đổi gram TỪNG
-   * NGUYÊN LIỆU. Chỉ nguyên liệu có số trên 100 g mới sửa được — những dòng "—" không có số để
-   * tính, nên chỉ hiện chứ không cho nhập.
+   * NGUYÊN LIỆU. Nguyên liệu nào cũng sửa được. Có số trên 100 g thì kcal chính xác; chưa có thì
+   * máy chủ chia phần còn lại của món theo khối lượng (`share`, hiện dấu ≈) — chỉ là ước tính.
    */
   const [card, setCard] = useState(props)
   const [overrides, setOverrides] = useState<Record<string, number>>({})
@@ -125,7 +125,7 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
   const [message, setMessage] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
-  const hasUnmatched = card.items.some((item) => item.kcal === null)
+  const hasShare = card.items.some((item) => item.share)
 
   function apply(
     request: { grams: number } | { componentGrams: Record<string, number> } | null,
@@ -245,6 +245,7 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
       ) : (
         <ul className="divide-line-subtle flex flex-col divide-y">
           {card.items.map((item, index) => {
+            // Chỉ không sửa được khi máy chủ không có gì để chia (kcal rỗng).
             const editable = item.kcal !== null
             return (
               <li
@@ -254,7 +255,8 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
                 <div className="min-w-0">
                   <p className="text-body text-ink truncate">{item.name}</p>
                   <p className="text-caption text-ink-faint">
-                    {card.estimated ? 'ước tính' : 'gram gốc'}
+                    {card.estimated ? 'gram ước tính' : 'gram gốc'}
+                    {item.share ? ' · kcal ước tính theo tỉ lệ' : ''}
                     {item.adjusted ? ' · bạn đã chỉnh' : ''}
                     {editable ? '' : ' · chưa có số để chỉnh'}
                   </p>
@@ -285,8 +287,8 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
                     <span className="text-caption text-ink-muted tabular-nums">{item.grams}</span>
                   )}
                   <span className="text-caption text-ink-faint">g</span>
-                  <span className="text-caption text-ink-muted w-16 text-right tabular-nums">
-                    {item.kcal === null ? '—' : `${item.kcal} kcal`}
+                  <span className="text-caption text-ink-muted w-20 text-right tabular-nums">
+                    {item.kcal === null ? '—' : `${item.share ? '≈ ' : ''}${item.kcal} kcal`}
                   </span>
                 </div>
               </li>
@@ -311,10 +313,11 @@ export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) 
           Đạm {card.total.proteinG} g · Tinh bột {card.total.carbG} g · Béo {card.total.fatG} g · Xơ{' '}
           {card.total.fiberG} g · Natri {card.total.sodiumMg} mg
         </p>
-        {hasUnmatched ? (
+        {hasShare ? (
           <p className="text-caption text-ink-faint mt-1">
-            Dấu “—” nghĩa là chưa có số dinh dưỡng riêng cho nguyên liệu đó, nên chưa sửa được từng
-            phần; tổng của món vẫn là số của cả món. Bạn vẫn đổi được khối lượng cả món.
+            Dấu ≈ là nguyên liệu chưa có số dinh dưỡng riêng: kcal của nó là phần còn lại của món
+            chia theo khối lượng. Cách này không phân biệt nước dùng với thịt hay hải sản nên có thể
+            lệch nhiều — con số chắc nhất là tổng của cả món.
           </p>
         ) : null}
         {card.estimated ? (

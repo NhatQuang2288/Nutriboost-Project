@@ -473,13 +473,16 @@ describe('get_dish_detail', () => {
     expect(output.message).toMatch(/Đừng tự nghĩ ra/)
   })
 
-  it('nguyên liệu chưa có số liệu riêng: từ chối chứ không đoán', async () => {
+  it('nguyên liệu chưa có số riêng vẫn chỉnh được và được đánh dấu share', async () => {
     const tools = await toolsWithFixtures()
     const output = (await run(tools.get_dish_detail, {
       foodId: 'pho-bo-chin',
       componentGrams: { 'Thịt bò chín': 100 },
-    })) as ToolRefusal
-    expect(output.refused).toBe(true)
-    expect(output.message).toMatch(/Chưa có số dinh dưỡng riêng/)
+    })) as { items: { name: string; share: boolean; adjusted: boolean; kcal: number | null }[] }
+
+    const beef = output.items.find((item) => item.name === 'Thịt bò chín')!
+    expect(beef).toMatchObject({ share: true, adjusted: true })
+    expect(beef.kcal).toBeGreaterThan(0)
+    expect(parseGenerativePayload('dish_detail_card', output).ok).toBe(true)
   })
 })

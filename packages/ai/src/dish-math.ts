@@ -12,19 +12,30 @@ import type { CatalogueComponent, MealCatalogueEntry } from './meal-estimator'
  *
  * Khẩu phần trong danh mục chỉ là khẩu phần THAM KHẢO. Khách có thể:
  *   • nói khối lượng cả món ("mình ăn 300 g") → mọi thứ co giãn tuyến tính theo gram;
- *   • nói gram một nguyên liệu ("thịt bò 120 g") → chỉ tính được khi nguyên liệu đó có số
- *     liệu trên 100 g; nếu không thì TỪ CHỐI và nói rõ, không đoán.
+ *   • nói gram MỘT nguyên liệu ("thịt bò 120 g") → tổng của món = tổng tham khảo + phần chênh lệch
+ *     của đúng nguyên liệu đó, nên số gốc của bảng VDD cho cả món không bị tính lại từ gram ước tính.
  *
- * Quy tắc cốt lõi khi chỉnh một nguyên liệu: tổng của món = tổng tham khảo + phần chênh lệch
- * của đúng nguyên liệu đó (chênh gram × số trên 100 g). Nhờ vậy số gốc của bảng VDD cho cả
- * món không bị tính lại từ gram ước tính, mà chỉ lệch đúng chỗ khách đổi.
+ * Mọi nguyên liệu đều sửa được, nhưng không phải số nào cũng ngang độ tin cậy:
+ *   • Có số trên 100 g ("own"): chênh gram × số trên 100 g — chính xác theo bảng.
+ *   • Chưa có số riêng ("share"): lấy PHẦN CÒN LẠI của món (tổng món trừ các nguyên liệu đã có số
+ *     riêng) chia cho nhóm nguyên liệu này theo khối lượng. Chỉ dùng dữ liệu của chính món, nhưng
+ *     giả định cả nhóm cùng mật độ — nước dùng và hải sản bị tính như nhau — nên chỉ là ƯỚC TÍNH và
+ *     giao diện phải nói như vậy.
  */
 
 export interface DishDetailItem {
   name: string
   grams: number
-  /** `null` khi nguyên liệu này không có số liệu trên 100 g để tính. */
+  /**
+   * Dinh dưỡng của nguyên liệu ở khối lượng hiện tại. `null` khi không tính được (phần còn lại của
+   * món đã bằng 0 nên không có gì để chia cho nguyên liệu chưa có số riêng).
+   */
   nutrients: ScaledNutrients | null
+  /**
+   * `true` khi nguyên liệu này KHÔNG có số trên 100 g: số ở `nutrients` là phần chia theo khối lượng
+   * từ phần còn lại của món — ước tính theo tỉ lệ, kém tin cậy hơn số có nguồn.
+   */
+  share: boolean
   /** Gram này do khách chỉnh, không phải gram tham khảo. */
   adjusted: boolean
 }
@@ -116,6 +127,33 @@ export function findComponent(
   return partial.length === 1 ? partial[0] : undefined
 }
 
+/** Nhân từng chỉ số với một hệ số (có thể âm), làm tròn như `scaleNutrients`. */
+function mulNutrients(value: ScaledNutrients, factor: number): ScaledNutrients {
+  const r1 = (n: number): number => Math.round(n * factor * 10) / 10
+  return {
+    kcal: Math.round(value.kcal * factor),
+    proteinG: r1(value.proteinG),
+    carbG: r1(value.carbG),
+    fatG: r1(value.fatG),
+    fiberG: r1(value.fiberG),
+    sugarG: r1(value.sugarG),
+    sodiumMg: Math.round(value.sodiumMg * factor),
+  }
+}
+
+function clampMin0(value: ScaledNutrients): ScaledNutrients {
+  const max0 = (n: number): number => Math.max(0, n)
+  return {
+    kcal: max0(value.kcal),
+    proteinG: max0(value.proteinG),
+    carbG: max0(value.carbG),
+    fatG: max0(value.fatG),
+    fiberG: max0(value.fiberG),
+    sugarG: max0(value.sugarG),
+    sodiumMg: max0(value.sodiumMg),
+  }
+}
+
 export function buildDishDetail(
   entry: MealCatalogueEntry,
   catalogue: readonly MealCatalogueEntry[],
@@ -124,6 +162,8 @@ export function buildDishDetail(
   const referenceGrams = entry.servingGrams ?? 100
   const components = entry.components ?? []
   const bySlug = new Map(catalogue.map((item) => [item.slug, item]))
+  const ownOf = (component: CatalogueComponent): MealCatalogueEntry | undefined =>
+    component.ingredientSlug === undefined ? undefined : bySlug.get(component.ingredientSlug)
 
   if (request.grams !== undefined && (!Number.isFinite(request.grams) || request.grams <= 0)) {
     return { ok: false, reason: 'Khối lượng phải là số lớn hơn 0.' }
@@ -142,6 +182,38 @@ export function buildDishDetail(
       ok: false,
       reason: 'Chỉ chỉnh khối lượng cả món HOẶC từng nguyên liệu, không chỉnh cùng lúc cả hai.',
     }
+  }
+
+  /*
+   * Phần còn lại của món để chia cho nguyên liệu chưa có số riêng, tại khẩu phần THAM KHẢO.
+   * Chia theo khối lượng tham khảo của nhóm đó: một gram nguyên liệu "share" mang
+   * `residual / poolGrams` mỗi chỉ số.
+   */
+  const unknown = components.filter((component) => ownOf(component) === undefined)
+  const poolGrams = unknown.reduce((sum, component) => sum + component.grams, 0)
+  const totalRef = scaleNutrients(perHundred(entry), referenceGrams)
+  const knownRef = sumNutrients(
+    components.flatMap((component) => {
+      const own = ownOf(component)
+      return own === undefined ? [] : [scaleNutrients(perHundred(own), component.grams)]
+    }),
+  )
+  const residual = clampMin0({
+    kcal: totalRef.kcal - knownRef.kcal,
+    proteinG: totalRef.proteinG - knownRef.proteinG,
+    carbG: totalRef.carbG - knownRef.carbG,
+    fatG: totalRef.fatG - knownRef.fatG,
+    fiberG: totalRef.fiberG - knownRef.fiberG,
+    sugarG: totalRef.sugarG - knownRef.sugarG,
+    sodiumMg: totalRef.sodiumMg - knownRef.sodiumMg,
+  })
+  // Không còn gì để chia (các nguyên liệu có số riêng đã bằng hoặc vượt tổng của món): đừng bịa.
+  const canShare = poolGrams > 0 && residual.kcal > 0
+
+  const nutrientsFor = (component: CatalogueComponent, grams: number): ScaledNutrients | null => {
+    const own = ownOf(component)
+    if (own !== undefined) return scaleNutrients(perHundred(own), grams)
+    return canShare ? mulNutrients(residual, grams / poolGrams) : null
   }
 
   /* --- Chỉnh từng nguyên liệu ------------------------------------------- */
@@ -164,36 +236,35 @@ export function buildDishDetail(
             .join(', ')}.`,
         }
       }
-      const ingredient =
-        component.ingredientSlug === undefined ? undefined : bySlug.get(component.ingredientSlug)
-      if (ingredient === undefined) {
+      if (ownOf(component) === undefined && !canShare) {
         return {
           ok: false,
-          reason: `Chưa có số dinh dưỡng riêng cho "${component.name}" nên chưa tính được khi bạn đổi lượng nguyên liệu này. Bạn cho biết khối lượng cả món để mình tính theo tỉ lệ nhé.`,
+          reason: `Không chia được kcal cho "${component.name}" vì các nguyên liệu có số riêng đã chiếm hết số của cả món. Bạn cho biết khối lượng cả món để mình tính theo tỉ lệ nhé.`,
         }
       }
       resolved.set(component, grams)
     }
 
-    let total = scaleNutrients(perHundred(entry), referenceGrams)
+    let total = totalRef
     let grams = referenceGrams
     for (const [component, newGrams] of resolved) {
-      const ingredient = bySlug.get(component.ingredientSlug ?? '')
-      if (ingredient === undefined) continue
-      total = addDelta(total, signedScale(ingredient, newGrams - component.grams))
+      const own = ownOf(component)
+      const delta =
+        own !== undefined
+          ? signedScale(own, newGrams - component.grams)
+          : mulNutrients(residual, (newGrams - component.grams) / poolGrams)
+      total = addDelta(total, delta)
       grams += newGrams - component.grams
     }
 
     const items: DishDetailItem[] = components.map((component) => {
       const newGrams = resolved.get(component)
       const effective = newGrams ?? component.grams
-      const ingredient =
-        component.ingredientSlug === undefined ? undefined : bySlug.get(component.ingredientSlug)
       return {
         name: component.name,
         grams: roundGrams(effective),
-        nutrients:
-          ingredient === undefined ? null : scaleNutrients(perHundred(ingredient), effective),
+        nutrients: nutrientsFor(component, effective),
+        share: ownOf(component) === undefined,
         adjusted: newGrams !== undefined,
       }
     })
@@ -217,18 +288,13 @@ export function buildDishDetail(
   /* --- Cả món theo một khối lượng (hoặc khẩu phần tham khảo) ------------ */
   const grams = request.grams ?? referenceGrams
   const factor = grams / referenceGrams
-  const items: DishDetailItem[] = components.map((component) => {
-    const scaledGrams = component.grams * factor
-    const ingredient =
-      component.ingredientSlug === undefined ? undefined : bySlug.get(component.ingredientSlug)
-    return {
-      name: component.name,
-      grams: roundGrams(scaledGrams),
-      nutrients:
-        ingredient === undefined ? null : scaleNutrients(perHundred(ingredient), scaledGrams),
-      adjusted: false,
-    }
-  })
+  const items: DishDetailItem[] = components.map((component) => ({
+    name: component.name,
+    grams: roundGrams(component.grams * factor),
+    nutrients: nutrientsFor(component, component.grams * factor),
+    share: ownOf(component) === undefined,
+    adjusted: false,
+  }))
 
   return {
     ok: true,
@@ -247,7 +313,7 @@ export function buildDishDetail(
   }
 }
 
-/** Tổng các thành phần CÓ số liệu riêng — để đối chiếu với tổng cả món. */
+/** Tổng dinh dưỡng của các thành phần tính được — để đối chiếu với tổng cả món. */
 export function sumKnownItems(items: readonly DishDetailItem[]): ScaledNutrients {
   return sumNutrients(items.flatMap((item) => (item.nutrients === null ? [] : [item.nutrients])))
 }
@@ -265,6 +331,7 @@ export function toDishDetailCard(detail: DishDetail) {
       grams: item.grams,
       kcal: item.nutrients === null ? null : item.nutrients.kcal,
       proteinG: item.nutrients === null ? null : item.nutrients.proteinG,
+      share: item.share,
       adjusted: item.adjusted,
     })),
     total: {

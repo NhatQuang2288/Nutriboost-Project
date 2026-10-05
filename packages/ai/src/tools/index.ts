@@ -254,7 +254,8 @@ export function createAssistantTools(context: ToolContext) {
       description:
         'Xem nguyên liệu và dinh dưỡng của một món. Khẩu phần mặc định chỉ là THAM KHẢO: ' +
         'người dùng nêu khối lượng cả món thì truyền `grams`; nêu gram một nguyên liệu thì truyền ' +
-        '`componentGrams`. Chỉ truyền một trong hai.',
+        '`componentGrams` (nguyên liệu nào cũng chỉnh được). Chỉ truyền một trong hai. ' +
+        'Nguyên liệu chưa có số riêng có `share: true`: kcal của nó là ước tính chia theo tỉ lệ.',
       inputSchema: z.object({
         foodId: z.string().min(1).max(64).optional().describe('Slug món, nếu đã biết'),
         name: z.string().min(1).max(120).optional().describe('Tên món người dùng nói'),

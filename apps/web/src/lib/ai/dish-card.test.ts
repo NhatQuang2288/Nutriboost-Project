@@ -50,13 +50,18 @@ describe('computeDishCard — sửa gram từng nguyên liệu', () => {
     expect(more.total.kcal - base.total.kcal).toBe(47)
   })
 
-  it('nguyên liệu chưa có số liệu riêng: nói thẳng lý do, không đoán', () => {
-    const result = computeDishCard(MEAL_CATALOGUE, {
-      foodId: 'bun-thang',
-      componentGrams: { 'Giò lụa': 100 },
-    })
-    expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.message).toMatch(/Chưa có số dinh dưỡng riêng cho "Giò lụa"/)
+  it('nguyên liệu chưa có số riêng (giò lụa) vẫn sửa được, kcal ước tính theo tỉ lệ', () => {
+    const base = ok({ foodId: 'bun-thang' })
+    const more = ok({ foodId: 'bun-thang', componentGrams: { 'Giò lụa': 60 } })
+    const gio = more.items.find((item) => item.name === 'Giò lụa')!
+
+    expect(gio).toMatchObject({ grams: 60, adjusted: true, share: true })
+    expect(gio.kcal).toBeGreaterThan(0)
+    expect(more.total.kcal).toBeGreaterThan(base.total.kcal)
+    // Nguyên liệu có số riêng không bị ảnh hưởng.
+    expect(more.items.find((item) => item.name === 'Bún tươi')?.kcal).toBe(
+      base.items.find((item) => item.name === 'Bún tươi')?.kcal,
+    )
   })
 })
 

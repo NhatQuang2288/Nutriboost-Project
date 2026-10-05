@@ -19,8 +19,8 @@ const base: DishCardProps = {
   grams: 450,
   referenceGrams: 450,
   items: [
-    { name: 'Bún tươi', grams: 180, kcal: 198, proteinG: 3.1, adjusted: false },
-    { name: 'Giò lụa', grams: 30, kcal: null, proteinG: null, adjusted: false },
+    { name: 'Bún tươi', grams: 180, kcal: 198, proteinG: 3.1, share: false, adjusted: false },
+    { name: 'Giò lụa', grams: 30, kcal: 22, proteinG: 1.4, share: true, adjusted: false },
   ],
   total: { kcal: 395, proteinG: 21.6, carbG: 55.8, fatG: 9, fiberG: 0.9, sodiumMg: 1050 },
   estimated: true,
@@ -30,7 +30,10 @@ const base: DishCardProps = {
 const adjusted: DishCardProps = {
   ...base,
   grams: 520,
-  items: [{ ...base.items[0]!, grams: 250, kcal: 275, adjusted: true }, base.items[1]!],
+  items: [
+    { ...base.items[0]!, grams: 250, kcal: 275, share: false, adjusted: true },
+    base.items[1]!,
+  ],
   total: { ...base.total, kcal: 472 },
   customised: true,
 }
@@ -39,12 +42,52 @@ beforeEach(() => recompute.mockReset())
 afterEach(cleanup)
 
 describe('thẻ chi tiết món — sửa khối lượng', () => {
-  it('chỉ nguyên liệu CÓ số liệu mới có ô nhập; dòng "—" chỉ hiện chữ', () => {
+  it('MỌI nguyên liệu đều có ô nhập, kể cả nguyên liệu chưa có số riêng', () => {
     render(<DishDetailCard props={base} />)
 
     expect(screen.getByLabelText('Khối lượng Bún tươi (g)')).toHaveValue(180)
-    expect(screen.queryByLabelText('Khối lượng Giò lụa (g)')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Khối lượng Giò lụa (g)')).toHaveValue(30)
+  })
+
+  it('nguyên liệu chưa có số riêng hiện dấu ≈ và nói kcal chỉ là ước tính theo tỉ lệ', () => {
+    render(<DishDetailCard props={base} />)
+
+    expect(screen.getByText('≈ 22 kcal')).toBeInTheDocument()
+    expect(screen.getByText('198 kcal')).toBeInTheDocument()
+    expect(screen.getAllByText(/kcal ước tính theo tỉ lệ/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/không phân biệt nước dùng với thịt/)).toBeInTheDocument()
+  })
+
+  it('nguyên liệu máy chủ không chia được kcal (kcal rỗng) thì không có ô nhập', () => {
+    render(
+      <DishDetailCard
+        props={{
+          ...base,
+          items: [
+            { name: 'Nước', grams: 50, kcal: null, proteinG: null, share: true, adjusted: false },
+          ],
+        }}
+      />,
+    )
+    expect(screen.queryByLabelText('Khối lượng Nước (g)')).not.toBeInTheDocument()
     expect(screen.getByText(/chưa có số để chỉnh/)).toBeInTheDocument()
+  })
+
+  it('sửa gram nguyên liệu share gọi máy chủ với đúng tên nguyên liệu đó', async () => {
+    recompute.mockResolvedValue({ ok: true, card: base })
+    const user = userEvent.setup()
+    render(<DishDetailCard props={base} />)
+
+    const input = screen.getByLabelText('Khối lượng Giò lụa (g)')
+    await user.clear(input)
+    await user.type(input, '60{Enter}')
+
+    await waitFor(() =>
+      expect(recompute).toHaveBeenCalledWith({
+        foodId: 'bun-thang',
+        componentGrams: { 'Giò lụa': 60 },
+      }),
+    )
   })
 
   it('sửa gram bún thì gọi máy chủ với đúng nguyên liệu và vẽ lại theo kết quả', async () => {
@@ -131,15 +174,15 @@ describe('thẻ chi tiết món — sửa khối lượng', () => {
     const two: DishCardProps = {
       ...adjusted,
       items: [
-        { ...base.items[0]!, grams: 250, kcal: 275, adjusted: true },
-        { name: 'Dầu ăn', grams: 20, kcal: 180, proteinG: 0, adjusted: true },
+        { ...base.items[0]!, grams: 250, kcal: 275, share: false, adjusted: true },
+        { name: 'Dầu ăn', grams: 20, kcal: 180, proteinG: 0, share: false, adjusted: true },
       ],
     }
     const afterBun: DishCardProps = {
       ...adjusted,
       items: [
-        { ...base.items[0]!, grams: 250, kcal: 275, adjusted: true },
-        { name: 'Dầu ăn', grams: 5, kcal: 45, proteinG: 0, adjusted: false },
+        { ...base.items[0]!, grams: 250, kcal: 275, share: false, adjusted: true },
+        { name: 'Dầu ăn', grams: 5, kcal: 45, proteinG: 0, share: false, adjusted: false },
       ],
     }
     recompute
@@ -152,7 +195,7 @@ describe('thẻ chi tiết món — sửa khối lượng', () => {
           ...base,
           items: [
             base.items[0]!,
-            { name: 'Dầu ăn', grams: 5, kcal: 45, proteinG: 0, adjusted: false },
+            { name: 'Dầu ăn', grams: 5, kcal: 45, proteinG: 0, share: false, adjusted: false },
           ],
         }}
       />,

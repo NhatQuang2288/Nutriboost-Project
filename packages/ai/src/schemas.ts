@@ -190,6 +190,9 @@ export const dishDetailItemSchema = z.object({
   // `null` khi nguyên liệu không có số liệu trên 100 g: hiện gram, không hiện kcal.
   kcal: z.number().min(0).nullable(),
   proteinG: z.number().min(0).nullable(),
+  // `true`: nguyên liệu không có số riêng, số trên thẻ là phần chia theo khối lượng từ phần còn lại
+  // của món — ước tính theo tỉ lệ, giao diện phải nói rõ.
+  share: z.boolean(),
   adjusted: z.boolean(),
 })
 

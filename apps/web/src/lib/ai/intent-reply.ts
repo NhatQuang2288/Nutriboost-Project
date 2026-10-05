@@ -123,6 +123,11 @@ export function buildIntentReply(
     if (detail.items.some((item) => item.adjusted)) {
       parts.push('Mình đã tính lại theo gram bạn nêu cho từng nguyên liệu.')
     }
+    if (detail.items.some((item) => item.adjusted && item.share)) {
+      parts.push(
+        'Nguyên liệu bạn đổi chưa có số riêng nên kcal của nó chỉ là ước tính chia theo tỉ lệ.',
+      )
+    }
     if (!detail.customised) {
       parts.push('Khẩu phần này chỉ để tham khảo; bạn nói khối lượng thật, mình tính lại nhé.')
     }

@@ -19,7 +19,7 @@ export const PARSE_MEAL_VERSION = 'parse-meal@v1'
 export const GENERATE_PLAN_VERSION = 'generate-plan@v1'
 export const INSIGHT_VERSION = 'insight@v1'
 export const THREAD_TITLE_VERSION = 'thread-title@v1'
-export const CHAT_SYSTEM_VERSION = 'chat-system@v2'
+export const CHAT_SYSTEM_VERSION = 'chat-system@v3'
 
 export interface PromptBundle {
   version: string
@@ -289,6 +289,7 @@ export function buildChatSystemPrompt(input: ChatPromptInput): PromptBundle {
     '- Khi người dùng hỏi nguyên liệu, thành phần hay dinh dưỡng của một món: gọi `get_dish_detail`.',
     '- Khẩu phần trong danh mục chỉ là THAM KHẢO. Người dùng nêu khối lượng thật thì truyền `grams` (cả món) hoặc `componentGrams` (từng nguyên liệu).',
     '- Gram từng nguyên liệu của món lấy từ bảng VDD là số ước tính: phải nói rõ "ước tính" khi nhắc tới.',
+    '- Nguyên liệu nào người dùng cũng đổi được gram. Nguyên liệu có `share: true` chưa có số dinh dưỡng riêng: kcal của nó chỉ là ước tính chia theo tỉ lệ, phải nói rõ như vậy và không nói như số chắc chắn.',
     '- Nếu công cụ báo chưa có số liệu hay không tìm thấy món, nói thật điều đó, không bù bằng số tự nghĩ.',
     '',
     'QUY TẮC VỀ GHI NHẬN — đọc kỹ, đây là lỗi người dùng phát hiện được:',

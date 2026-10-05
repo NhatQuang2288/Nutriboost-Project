@@ -53,7 +53,7 @@ describe('checkChatAllowance', () => {
       userId: USER,
       purpose: 'chat',
       model: 'deepseek-flash',
-      promptVersion: 'chat-system@v2',
+      promptVersion: 'chat-system@v3',
       usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 },
       costUsd: 0.05,
       latencyMs: 10,
@@ -80,7 +80,7 @@ describe('checkChatAllowance', () => {
       userId: 'nguoi-khac',
       purpose: 'chat',
       model: 'deepseek-flash',
-      promptVersion: 'chat-system@v2',
+      promptVersion: 'chat-system@v3',
       usage: { inputTokens: 0, outputTokens: 0, cachedTokens: 0 },
       costUsd: 5,
       latencyMs: 10,
@@ -123,7 +123,7 @@ describe('recordChatCall', () => {
     expect(record?.purpose).toBe('chat')
     expect(record?.userId).toBe(USER)
     expect(record?.model).toBe('deepseek-flash')
-    expect(record?.promptVersion).toBe('chat-system@v2')
+    expect(record?.promptVersion).toBe('chat-system@v3')
     expect(record?.usage).toEqual({ inputTokens: 1000, outputTokens: 500, cachedTokens: 0 })
     expect(record?.latencyMs).toBe(1234)
     expect(record?.status).toBe('ok')
