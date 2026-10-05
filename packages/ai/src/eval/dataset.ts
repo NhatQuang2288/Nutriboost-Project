@@ -93,10 +93,12 @@ export const EVAL_CASES: readonly EvalCase[] = [
   },
 
   // --- Bí danh và cách gọi khác ---
-  { text: 'mình ăn phở', expected: ['pho-bo'], note: 'bí danh ngắn của phở bò' },
-  { text: 'mình ăn cơm tấm', expected: ['com-tam-suon'], note: 'bí danh' },
-  { text: 'mình ăn bún bò', expected: ['bun-bo-hue'], note: 'bí danh' },
-  { text: 'mình ăn bánh mì', expected: ['banh-mi-thit'], note: 'hoà nguyên liệu/món → chọn món' },
+  // Tên CHUNG của cả một họ món: phải hỏi lại, không được chọn hộ một món. Trước đây "phở" được
+  // ghi thẳng thành "Phở bò" (484 kcal) vì là bí danh viết tay, dù danh mục có cả chục món phở.
+  { text: 'mình ăn phở', expected: [], note: 'tên chung của họ món phở → hỏi lại' },
+  { text: 'mình ăn cơm tấm', expected: [], note: 'tên chung của họ món cơm tấm → hỏi lại' },
+  { text: 'mình ăn bún bò', expected: [], note: 'tên chung của họ món bún bò → hỏi lại' },
+  { text: 'mình ăn bánh mì', expected: [], note: 'tên chung của họ món bánh mì → hỏi lại' },
   { text: 'mình uống cà phê', expected: ['ca-phe-den'], note: 'cà phê mặc định là cà phê đen' },
   { text: 'mình ăn đậu phụ rán', expected: ['dau-hu-chien'], note: 'cách gọi miền Bắc' },
 

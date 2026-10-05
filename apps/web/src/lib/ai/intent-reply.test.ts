@@ -183,6 +183,22 @@ describe('đường dự phòng — câu "trời mưa" trong ảnh lỗi', () =>
   })
 })
 
+describe('"Phở" không còn bị ghi thẳng thành "Phở bò"', () => {
+  it('hỏi lại với cả họ món phở, và tên món là nút bấm gửi lại được', () => {
+    const estimate = mealEstimator.estimate('Phở')
+    expect(estimate.items[0]?.foodId).toBeNull()
+
+    const result = buildUnmatchedReply('Phở', mealEstimator.suggest('Phở', 4), 667)
+    expect(result.text).toMatch(/Có phải: Phở bò, /)
+    expect(result.suggestions).toHaveLength(4)
+    expect(result.suggestions.every((name) => /^Phở/.test(name))).toBe(true)
+    // Chạm vào một tên thì câu gửi lại khớp đúng món đó, không hỏi lại nữa.
+    for (const name of result.suggestions) {
+      expect(mealEstimator.estimate(name).items[0]?.foodId, name).not.toBeNull()
+    }
+  })
+})
+
 describe('buildUnmatchedReply', () => {
   it('"Cá bống" chưa đủ tên món thì đưa tên gần đúng để khách chọn', () => {
     const result = buildUnmatchedReply('Cá bống', mealEstimator.suggest('Cá bống', 4), 667)

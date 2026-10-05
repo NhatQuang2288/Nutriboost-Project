@@ -160,7 +160,8 @@ export function buildUnmatchedReply(
           },
         },
       ],
-      suggestions: ['Gợi ý bữa tối nhẹ', 'Hôm nay mình còn bao nhiêu calo?'],
+      // Tên món là nút bấm gửi lại được: khách chạm vào một món thay vì gõ lại tên.
+      suggestions: shown.map((item) => item.nameVi),
     }
   }
 
