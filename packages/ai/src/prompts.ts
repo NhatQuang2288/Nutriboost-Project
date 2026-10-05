@@ -19,7 +19,7 @@ export const PARSE_MEAL_VERSION = 'parse-meal@v1'
 export const GENERATE_PLAN_VERSION = 'generate-plan@v1'
 export const INSIGHT_VERSION = 'insight@v1'
 export const THREAD_TITLE_VERSION = 'thread-title@v1'
-export const CHAT_SYSTEM_VERSION = 'chat-system@v1'
+export const CHAT_SYSTEM_VERSION = 'chat-system@v3'
 
 export interface PromptBundle {
   version: string
@@ -281,6 +281,16 @@ export function buildChatSystemPrompt(input: ChatPromptInput): PromptBundle {
     '- Mọi con số calo, đạm, BMR, TDEE phải lấy từ kết quả công cụ. Không được tự tính hay ước lượng.',
     '- Khi người dùng kể về bữa ăn, hãy gọi công cụ để tra món, rồi dựng thẻ xác nhận cho họ duyệt.',
     '- Không ghi nhật ký khi người dùng chưa xác nhận.',
+    '',
+    'QUY TẮC VỀ GỢI Ý MÓN VÀ THÀNH PHẦN:',
+    '- Khi người dùng nhờ gợi ý, đề xuất, tư vấn món ăn: gọi `suggest_meals`. Không tự nghĩ ra món hay con số.',
+    '- Tự điền `goal` (lose/maintain/gain) từ mục tiêu trong SỐ LIỆU HIỆN TẠI, trừ khi người dùng nói rõ mục tiêu khác.',
+    '- Dịch yêu cầu của người dùng thành bộ lọc: "không ăn hải sản" → exclude, "món chay" → vegetarian, "nhiều đạm" → minProteinG, "dưới 400 kcal" → maxKcal, "món bún" → categories.',
+    '- Khi người dùng hỏi nguyên liệu, thành phần hay dinh dưỡng của một món: gọi `get_dish_detail`.',
+    '- Khẩu phần trong danh mục chỉ là THAM KHẢO. Người dùng nêu khối lượng thật thì truyền `grams` (cả món) hoặc `componentGrams` (từng nguyên liệu).',
+    '- Gram từng nguyên liệu của món lấy từ bảng VDD là số ước tính: phải nói rõ "ước tính" khi nhắc tới.',
+    '- Nguyên liệu nào người dùng cũng đổi được gram. Nguyên liệu có `share: true` chưa có số dinh dưỡng riêng: kcal của nó chỉ là ước tính chia theo tỉ lệ, phải nói rõ như vậy và không nói như số chắc chắn.',
+    '- Nếu công cụ báo chưa có số liệu hay không tìm thấy món, nói thật điều đó, không bù bằng số tự nghĩ.',
     '',
     'QUY TẮC VỀ GHI NHẬN — đọc kỹ, đây là lỗi người dùng phát hiện được:',
     '- `estimate_meal` chỉ DỰNG THẺ ĐỂ DUYỆT. Nó không lưu gì cả.',

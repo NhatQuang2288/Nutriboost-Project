@@ -244,6 +244,46 @@ Dự án dùng **npm workspaces**. Đừng thêm lockfile của trình quản l�
 `typescript-eslint@8` khai báo peer `typescript >=4.8.4 <6.1.0`.
 Nâng lên TypeScript 7 sẽ phá toolchain lint. Chỉ nâng khi `typescript-eslint` hỗ trợ.
 
+## Dữ liệu món ăn
+
+Danh mục gồm hai nguồn, gộp trong `buildDataset()` (`packages/seed/src/index.ts`):
+
+- **Món cũ** (`data/ingredients.ts`, `data/dishes.ts`): định nghĩa bằng thành phần × gram thật, số liệu
+  của món tính ra từ đó. Khi trùng với món VDD thì **bảng VDD thắng**: trùng tên thì món cũ bị thay
+  (cùng slug; seed xoá `dish_components` cũ của nó), chỉ trùng bí danh thì món cũ giữ lại nhưng mất
+  bí danh đó để tên đúng của món VDD khớp trước. Xem `planVddOverrides` trong `data/vdd.ts`.
+- **Bảng VDD** (`source/vdd-tong-hop.xlsx` → `data/vdd.generated.ts`): 376 món. Số dinh dưỡng là của
+  **cả khẩu phần** ghi ở cột "Khối lượng", đổi sang trên 100 g bằng `giá trị × 100 / khối lượng`.
+  Gram từng nguyên liệu là số **ước tính**; giao diện phải ghi "ước tính".
+
+Sửa tệp xlsx rồi chạy `python3 scripts/import-vdd-xlsx.py` (cần `pip install openpyxl`), sau đó
+`npm run seed -- --emit-sql` để sinh lại `supabase/seed.sql`. **Không sửa tay** hai tệp được sinh.
+
+Khẩu phần trong danh mục chỉ là **tham khảo**. Khách cung cấp khối lượng thì tính lại bằng
+`buildDishDetail` (`packages/ai/src/dish-math.ts`). **Nguyên liệu nào cũng sửa được**, nhưng độ tin cậy
+khác nhau và giao diện phải nói rõ:
+
+- Có số trên 100 g (`share: false`): chênh gram × số trên 100 g — chính xác theo bảng.
+- Chưa có số riêng (`share: true`, hiện dấu ≈): lấy **phần còn lại của món** (tổng món trừ các nguyên
+  liệu có số riêng) chia theo khối lượng cho nhóm này. Chỉ dùng dữ liệu của chính món, nhưng giả định cả
+  nhóm cùng mật độ nên nước dùng bị tính như hải sản — **chỉ là ước tính**. Đã thử suy số từng nguyên
+  liệu từ tổng của 314 món bằng bình phương tối thiểu: lệch trung vị 44 % khi kiểm trên nguyên liệu đã
+  biết (dầu ăn 899 → 312 kcal), nên **không** dùng cách đó. Số có nguồn thì thêm vào
+  `data/ingredients.ts` (xem `source/nguyen-lieu-can-bo-sung.xlsx`).
+- Không còn gì để chia (nguyên liệu có số riêng đã bằng cả món): trả `toolRefusal`, không bịa.
+
+Giao diện không tự tính: thẻ chi tiết món gọi Server Action `recomputeDishAction` (`lib/actions/dish-detail.ts`)
+và vẽ lại theo kết quả.
+
+**AI đọc danh mục từ Supabase**, không phải từ mã: `apps/web/src/lib/ai/catalogue.ts` đọc bảng `foods`
+(kèm `food_aliases`, cột `components`) và giữ trong bộ nhớ 5 phút. Danh mục trong mã chỉ là dự phòng, và
+được dùng khi (a) chưa có Supabase hoặc lỗi đọc, (b) CSDL có **ít** thực phẩm hơn danh mục trong mã,
+nghĩa là chưa nạp lại seed — khi đó nó ghi `[ai/catalogue]` ra log kèm lệnh `npm run db:reset`. Sửa
+món trong CSDL thì AI thấy sau tối đa 5 phút; sửa trong `packages/seed` thì phải sinh lại seed và nạp.
+
+Gợi ý món (`packages/ai/src/suggest-meals.ts`) và nhận diện ý định (`intents.ts`) đều tất định. Đường
+dự phòng của route chat dùng chúng nên vẫn tư vấn được khi chưa có khoá AI.
+
 ## Quy ước code
 
 - TypeScript strict, `noUncheckedIndexedAccess` bật → nhớ xử lý `undefined` khi truy cập mảng.

@@ -7,6 +7,7 @@ import type { z } from 'zod'
 import type { GENERATIVE_COMPONENTS } from '@nutriboost/ai/schemas'
 
 import { AlertIcon, CheckIcon, InfoIcon } from '@/components/icons'
+import { recomputeDishAction } from '@/lib/actions/dish-detail'
 import { saveMealAction } from '@/lib/actions/meals'
 import type { ActionResult } from '@/lib/actions/types'
 
@@ -46,6 +47,284 @@ export function FoodCandidateChips({ props }: { props: Props<'food_candidate_chi
             <span className="text-ink-faint"> · {Math.round(candidate.kcalPer100g)} kcal/100g</span>
           </span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+export function MealSuggestionCard({ props }: { props: Props<'meal_suggestion_card'> }) {
+  if (props.suggestions.length === 0) {
+    // Trạng thái rỗng là bắt buộc: không có món khớp thì phải nói, không được biến mất im lặng.
+    return (
+      <div className="border-line-strong bg-surface-sunken rounded-lg border border-dashed p-4">
+        <p className="text-body text-ink">Chưa có món nào khớp</p>
+        {props.notes.map((note) => (
+          <p key={note} className="text-caption text-ink-muted mt-1">
+            {note}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-line bg-surface rounded-lg border shadow-sm">
+      <div className="border-line-subtle border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">{props.title}</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          Khoảng {props.budgetKcal} kcal cho một bữa
+          {props.appliedFilters.length > 0 ? ` · ${props.appliedFilters.join(', ')}` : ''}
+        </p>
+      </div>
+
+      <ul className="divide-line-subtle flex flex-col divide-y">
+        {props.suggestions.map((item) => (
+          <li key={item.foodId} className="px-4 py-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-body text-ink min-w-0 truncate">{item.nameVi}</p>
+              <span className="text-caption text-ink-muted shrink-0 tabular-nums">
+                {item.kcal} kcal
+              </span>
+            </div>
+            <p className="text-caption text-ink-faint tabular-nums">
+              {item.grams} g · Đạm {item.proteinG} g · Tinh bột {item.carbG} g · Béo {item.fatG} g
+            </p>
+            <p className="text-caption text-ink-muted mt-0.5">{item.reason}</p>
+          </li>
+        ))}
+      </ul>
+
+      <div className="border-line-subtle border-t px-4 py-2.5">
+        <p className="text-caption text-ink-faint">
+          Khẩu phần chỉ để tham khảo. Bạn nói khối lượng thật để Bơ tính lại cho chính xác.
+        </p>
+        {props.notes.map((note) => (
+          <p key={note} className="text-caption text-warning-text mt-1">
+            {note}
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function DishDetailCard({ props }: { props: Props<'dish_detail_card'> }) {
+  /*
+   * Thẻ cho khách SỬA khối lượng, nhưng KHÔNG tự tính: mỗi lần sửa gọi Server Action để máy chủ
+   * tính lại bằng đúng hàm mà trợ lý dùng, rồi thẻ vẽ lại theo kết quả. Nhờ vậy số trên thẻ luôn
+   * khớp số Bơ nói trong chat, và quy tắc "model/giao diện không tự tính dinh dưỡng" còn nguyên.
+   *
+   * Hai cách sửa loại trừ nhau (xem `buildDishDetail`): đổi khối lượng CẢ MÓN, hoặc đổi gram TỪNG
+   * NGUYÊN LIỆU. Nguyên liệu nào cũng sửa được. Có số trên 100 g thì kcal chính xác; chưa có thì
+   * máy chủ chia phần còn lại của món theo khối lượng (`share`, hiện dấu ≈) — chỉ là ước tính.
+   */
+  const [card, setCard] = useState(props)
+  const [overrides, setOverrides] = useState<Record<string, number>>({})
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [wholeDraft, setWholeDraft] = useState(String(props.grams))
+  const [message, setMessage] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const hasShare = card.items.some((item) => item.share)
+
+  function apply(
+    request: { grams: number } | { componentGrams: Record<string, number> } | null,
+    onDone: (next: Props<'dish_detail_card'>) => void,
+  ): void {
+    setMessage(null)
+    startTransition(async () => {
+      const result = await recomputeDishAction({ foodId: props.foodId, ...(request ?? {}) })
+      if (result.ok) {
+        setCard(result.card)
+        onDone(result.card)
+      } else {
+        setMessage(result.message)
+      }
+    })
+  }
+
+  function changeWhole(): void {
+    const grams = Number(wholeDraft.replace(',', '.'))
+    if (!Number.isFinite(grams) || grams <= 0) {
+      setMessage('Khối lượng phải là số lớn hơn 0.')
+      return
+    }
+    apply({ grams }, (next) => {
+      setOverrides({})
+      setDrafts({})
+      setWholeDraft(String(next.grams))
+    })
+  }
+
+  function changeItem(name: string): void {
+    const raw = drafts[name]
+    if (raw === undefined) return
+    const grams = Number(raw.replace(',', '.'))
+    if (!Number.isFinite(grams) || grams < 0) {
+      setMessage('Khối lượng nguyên liệu phải là số không âm.')
+      return
+    }
+    const next = { ...overrides, [name]: grams }
+    apply({ componentGrams: next }, (updated) => {
+      setOverrides(next)
+      setDrafts({})
+      setWholeDraft(String(updated.grams))
+    })
+  }
+
+  function reset(): void {
+    apply(null, (next) => {
+      setOverrides({})
+      setDrafts({})
+      setWholeDraft(String(next.grams))
+    })
+  }
+
+  const inputClass =
+    'border-line-strong bg-surface text-ink text-caption w-20 rounded-md border px-2 py-1 text-right tabular-nums disabled:opacity-60'
+
+  return (
+    <div className="border-line bg-surface rounded-lg border shadow-sm">
+      <div className="border-line-subtle border-b px-4 py-3">
+        <p className="text-body text-ink font-semibold">{card.nameVi}</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          {card.grams} g
+          {card.customised
+            ? ' · theo khối lượng bạn cung cấp'
+            : ` · khẩu phần tham khảo${card.servingName === null ? '' : ` (1 ${card.servingName})`}`}
+        </p>
+
+        <form
+          noValidate
+          className="mt-2 flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            changeWhole()
+          }}
+        >
+          <label className="text-caption text-ink-muted" htmlFor={`whole-${card.foodId}`}>
+            Cả món
+          </label>
+          <input
+            id={`whole-${card.foodId}`}
+            type="number"
+            inputMode="decimal"
+            min={1}
+            step="any"
+            value={wholeDraft}
+            onChange={(event) => setWholeDraft(event.target.value)}
+            disabled={pending}
+            className={inputClass}
+            aria-label="Khối lượng cả món (g)"
+          />
+          <span className="text-caption text-ink-faint">g</span>
+          <button
+            type="submit"
+            disabled={pending}
+            className="touch-target text-caption text-accent-text rounded-full border border-olive-200 bg-olive-100 px-3 disabled:opacity-60"
+          >
+            {pending ? 'Đang tính…' : 'Tính lại'}
+          </button>
+          {card.customised ? (
+            <button
+              type="button"
+              onClick={reset}
+              disabled={pending}
+              className="text-caption text-ink-muted underline disabled:opacity-60"
+            >
+              Về khẩu phần mẫu
+            </button>
+          ) : null}
+        </form>
+      </div>
+
+      {card.items.length === 0 ? (
+        <p className="text-caption text-ink-muted px-4 py-3">
+          Món này chưa có danh sách nguyên liệu. Số dinh dưỡng bên dưới là của cả món.
+        </p>
+      ) : (
+        <ul className="divide-line-subtle flex flex-col divide-y">
+          {card.items.map((item, index) => {
+            // Chỉ không sửa được khi máy chủ không có gì để chia (kcal rỗng).
+            const editable = item.kcal !== null
+            return (
+              <li
+                key={`${item.name}-${index}`}
+                className="flex items-center justify-between gap-3 px-4 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-body text-ink truncate">{item.name}</p>
+                  <p className="text-caption text-ink-faint">
+                    {card.estimated ? 'gram ước tính' : 'gram gốc'}
+                    {item.share ? ' · kcal ước tính theo tỉ lệ' : ''}
+                    {item.adjusted ? ' · bạn đã chỉnh' : ''}
+                    {editable ? '' : ' · chưa có số để chỉnh'}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {editable ? (
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="any"
+                      value={drafts[item.name] ?? String(item.grams)}
+                      onChange={(event) =>
+                        setDrafts((current) => ({ ...current, [item.name]: event.target.value }))
+                      }
+                      onBlur={() => changeItem(item.name)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          changeItem(item.name)
+                        }
+                      }}
+                      disabled={pending}
+                      className={inputClass}
+                      aria-label={`Khối lượng ${item.name} (g)`}
+                    />
+                  ) : (
+                    <span className="text-caption text-ink-muted tabular-nums">{item.grams}</span>
+                  )}
+                  <span className="text-caption text-ink-faint">g</span>
+                  <span className="text-caption text-ink-muted w-20 text-right tabular-nums">
+                    {item.kcal === null ? '—' : `${item.share ? '≈ ' : ''}${item.kcal} kcal`}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {message !== null ? (
+        <p
+          role="alert"
+          className="border-line-subtle text-caption text-warning-text flex items-center gap-1.5 border-t px-4 py-2"
+        >
+          <AlertIcon size={14} />
+          <span>{message}</span>
+        </p>
+      ) : null}
+
+      <div className="border-line-subtle border-t px-4 py-3">
+        <p className="text-body text-ink font-semibold tabular-nums">{card.total.kcal} kcal</p>
+        <p className="text-caption text-ink-faint tabular-nums">
+          Đạm {card.total.proteinG} g · Tinh bột {card.total.carbG} g · Béo {card.total.fatG} g · Xơ{' '}
+          {card.total.fiberG} g · Natri {card.total.sodiumMg} mg
+        </p>
+        {hasShare ? (
+          <p className="text-caption text-ink-faint mt-1">
+            Dấu ≈ là nguyên liệu chưa có số dinh dưỡng riêng: kcal của nó là phần còn lại của món
+            chia theo khối lượng. Cách này không phân biệt nước dùng với thịt hay hải sản nên có thể
+            lệch nhiều — con số chắc nhất là tổng của cả món.
+          </p>
+        ) : null}
+        {card.estimated ? (
+          <p className="text-caption text-ink-faint mt-1">
+            Gram từng nguyên liệu là số ước tính, chưa đối chiếu nguồn gốc.
+          </p>
+        ) : null}
       </div>
     </div>
   )

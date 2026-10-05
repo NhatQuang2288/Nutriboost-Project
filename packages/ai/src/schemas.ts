@@ -162,12 +162,70 @@ export const macroSummarySchema = z.object({
   fatG: z.number().min(0),
 })
 
+export const mealSuggestionSchema = z.object({
+  foodId: foodRef,
+  nameVi: z.string().min(1).max(120),
+  category: z.string().max(80).nullable(),
+  servingName: z.string().max(60).nullable(),
+  grams: z.number().min(1).max(3000),
+  kcal: z.number().min(0).max(5000),
+  proteinG: z.number().min(0).max(500),
+  carbG: z.number().min(0).max(500),
+  fatG: z.number().min(0).max(500),
+  reason: z.string().max(200),
+})
+
+const nutrientTotalSchema = z.object({
+  kcal: z.number().min(0),
+  proteinG: z.number().min(0),
+  carbG: z.number().min(0),
+  fatG: z.number().min(0),
+  fiberG: z.number().min(0),
+  sodiumMg: z.number().min(0),
+})
+
+export const dishDetailItemSchema = z.object({
+  name: z.string().min(1).max(120),
+  grams: z.number().min(0).max(5000),
+  // `null` khi nguyên liệu không có số liệu trên 100 g: hiện gram, không hiện kcal.
+  kcal: z.number().min(0).nullable(),
+  proteinG: z.number().min(0).nullable(),
+  // `true`: nguyên liệu không có số riêng, số trên thẻ là phần chia theo khối lượng từ phần còn lại
+  // của món — ước tính theo tỉ lệ, giao diện phải nói rõ.
+  share: z.boolean(),
+  adjusted: z.boolean(),
+})
+
 export const GENERATIVE_COMPONENTS = {
   food_candidate_chips: z.object({
     // Cho phép rỗng: khi không tìm thấy món nào, thẻ hiển thị lời nhắn thay vì biến mất
     // im lặng — người dùng cần biết là đã tra nhưng không ra.
     candidates: z.array(foodCandidateSchema).max(8),
     promptText: z.string().max(120),
+  }),
+
+  meal_suggestion_card: z.object({
+    title: z.string().max(80),
+    goal: z.enum(['lose', 'maintain', 'gain']),
+    budgetKcal: z.number().min(0),
+    // Rỗng là hợp lệ: không có món khớp thì thẻ nói rõ thay vì biến mất.
+    suggestions: z.array(mealSuggestionSchema).max(8),
+    appliedFilters: z.array(z.string().max(80)).max(12),
+    notes: z.array(z.string().max(300)).max(4),
+  }),
+
+  dish_detail_card: z.object({
+    foodId: foodRef,
+    nameVi: z.string().min(1).max(120),
+    servingName: z.string().max(60).nullable(),
+    grams: z.number().min(1).max(5000),
+    referenceGrams: z.number().min(1).max(5000),
+    items: z.array(dishDetailItemSchema).max(40),
+    total: nutrientTotalSchema,
+    // Gram từng nguyên liệu là số ước tính — giao diện phải nói rõ.
+    estimated: z.boolean(),
+    // Khách đã cung cấp khối lượng, không còn là số tham khảo thuần.
+    customised: z.boolean(),
   }),
 
   meal_confirm_card: z.object({

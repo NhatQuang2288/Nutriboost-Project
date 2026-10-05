@@ -35,6 +35,10 @@ function sqlNullableNumber(value: number | undefined): string {
   return value === undefined || !Number.isFinite(value) ? 'null' : String(value)
 }
 
+function sqlNullableJson(value: unknown): string {
+  return value === undefined ? 'null' : `${sqlString(JSON.stringify(value))}::jsonb`
+}
+
 function sqlNumber(value: number | undefined): string {
   return value === undefined || !Number.isFinite(value) ? '0' : String(value)
 }
@@ -55,10 +59,13 @@ export function emitFoodsSql(dataset: BuiltDataset): string {
     'sugar_g',
     'sodium_mg',
     'source_ref',
+    'components',
+    'components_estimated',
   ]
 
-  const values = dataset.all.map((food) =>
-    [
+  const values = dataset.all.map((food) => {
+    const breakdown = dataset.breakdowns.get(food.slug)
+    return [
       sqlString(food.slug),
       sqlString(food.nameVi),
       sqlString(food.kind),
@@ -73,8 +80,10 @@ export function emitFoodsSql(dataset: BuiltDataset): string {
       sqlNumber(food.sugarG),
       sqlNumber(food.sodiumMg),
       sqlString(food.sourceRef),
-    ].join(', '),
-  )
+      sqlNullableJson(breakdown?.components),
+      breakdown?.estimated === true ? 'true' : 'false',
+    ].join(', ')
+  })
 
   const updates = columns
     .filter((column) => column !== 'slug')
@@ -145,6 +154,20 @@ export function emitDishComponentsSql(dataset: BuiltDataset): string {
   ].join('\n')
 }
 
+/**
+ * Món cũ bị món VDD thay (cùng slug) không còn thành phần trong seed. Nếu CSDL đã có `dish_components`
+ * từ lần seed trước thì bước tính lại bên dưới sẽ ghi đè số liệu VDD bằng số liệu cũ — nên xoá chúng.
+ */
+export function emitReplacedComponentsSql(dataset: BuiltDataset): string {
+  if (dataset.replacedDishSlugs.length === 0) return '-- (không có món cũ nào bị thay)'
+
+  const slugs = dataset.replacedDishSlugs.map((slug) => sqlString(slug)).join(', ')
+  return [
+    'delete from public.dish_components',
+    `where dish_id in (select id from public.foods where slug in (${slugs}));`,
+  ].join('\n')
+}
+
 export function emitExercisesSql(): string {
   const columns = [
     'slug',
@@ -205,6 +228,9 @@ export function emitSeedSql(dataset: BuiltDataset): string {
     '',
     '-- 3. Thành phần của món',
     emitDishComponentsSql(dataset),
+    '',
+    '-- 3b. Món cũ đã bị món trong bảng VDD thay: bỏ thành phần cũ để không bị tính lại đè lên số VDD.',
+    emitReplacedComponentsSql(dataset),
     '',
     '-- 4. Tính lại chỉ số của món từ thành phần vừa nạp.',
     '--    Bước này khiến CSDL trở thành nguồn chân lý: dù file trên có sai sót,',

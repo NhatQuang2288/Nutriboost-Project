@@ -25,13 +25,28 @@ import {
  */
 
 /** Một mục trong danh mục món. `FoodRecord` của `@nutriboost/seed` khớp cấu trúc này. */
+export interface CatalogueComponent {
+  name: string
+  grams: number
+  /** Slug nguyên liệu có số liệu trên 100 g; thiếu thì thành phần này không có kcal riêng. */
+  ingredientSlug?: string
+}
+
 export interface MealCatalogueEntry {
   slug: string
   nameVi: string
   /** Phân biệt nguyên liệu và món — dùng để phá thế hoà khi hai bên cùng điểm. */
   kind?: 'ingredient' | 'dish'
   aliases?: readonly string[]
+  /** Nhóm món ("Món Phở", "Món Cơm"…), dùng để lọc khi tư vấn. */
+  category?: string
+  servingName?: string
+  /** Khẩu phần THAM KHẢO. Khách cung cấp khối lượng thật thì tính lại từ số trên 100 g. */
   servingGrams?: number
+  /** Thành phần của món, gram ứng với một khẩu phần tham khảo. */
+  components?: readonly CatalogueComponent[]
+  /** `true` khi gram từng thành phần là số ước tính chứ không phải số gốc. */
+  componentsEstimated?: boolean
   kcalPer100g: number
   proteinG: number
   carbG: number
@@ -50,6 +65,9 @@ export interface MealCatalogueEntry {
  * hoà giữa hai món khác nhau vẫn trả về "không khớp" để hỏi lại người dùng.
  */
 const TIE_GAP = 0.08
+
+/** Số món khác có tên bắt đầu bằng khoá thì khoá đó coi là chung chung, cần hỏi lại. */
+const AMBIGUOUS_FAMILY_SIZE = 2
 
 export interface EstimatedItem {
   foodId: string | null
@@ -255,6 +273,13 @@ export interface MealEstimator {
   estimate: (text: string) => MealEstimate
   /** Gợi ý ứng viên cho một đoạn văn bản, dùng cho thẻ chọn món trong chat. */
   suggest: (text: string, limit?: number) => MealCatalogueEntry[]
+  /**
+   * Món (không phải nguyên liệu) có tên nằm NGUYÊN VẸN trong câu; tên dài nhất thắng.
+   *
+   * Cần khi câu còn nhiều chữ khác ngoài tên món ("bún thang bún tươi 250g"): trộn cả câu vào
+   * so khớp mờ sẽ trượt sang nguyên liệu "bún tươi" thay vì món "bún thang".
+   */
+  findMentioned: (text: string) => MealCatalogueEntry | undefined
   /** Số mục trong danh mục đang dùng. */
   size: () => number
 }
@@ -276,6 +301,24 @@ export function createMealEstimator(catalogue: readonly MealCatalogueEntry[]): M
     aliases: item.aliases ?? [],
   }))
 
+  const nameKeys = catalogue.map((item) => ({ item, key: normalizeVi(item.nameVi) }))
+
+  /**
+   * Các MÓN có tên bắt đầu bằng khoá này, ngắn tên trước ("phở" → Phở bò, Phở gà, Phở cuốn…).
+   * Dùng để nhận ra khoá chung chung: một từ như "phở" là cả một họ món chứ không phải một món.
+   */
+  function dishFamily(key: string, exceptSlug?: string): MealCatalogueEntry[] {
+    return nameKeys
+      .filter(
+        ({ item, key: nameKey }) =>
+          (item.kind ?? 'dish') === 'dish' &&
+          item.slug !== exceptSlug &&
+          nameKey.startsWith(`${key} `),
+      )
+      .map(({ item }) => item)
+      .sort((a, b) => a.nameVi.length - b.nameVi.length || a.nameVi.localeCompare(b.nameVi, 'vi'))
+  }
+
   /**
    * Chọn món khớp nhất cho một khoá tìm kiếm, có phá thế hoà giữa nguyên liệu và món.
    *
@@ -295,6 +338,25 @@ export function createMealEstimator(catalogue: readonly MealCatalogueEntry[]): M
     const dishTie = nearTies.find((candidate) => bySlug.get(candidate.food.id)?.kind === 'dish')
 
     const chosen = dishTie ?? best
+    const chosenFood = bySlug.get(chosen.food.id)
+
+    /*
+     * Khớp qua BÍ DANH vào một món mà khoá đó còn là tiền tố của nhiều món khác thì không chắc.
+     *
+     * "Phở" là bí danh viết tay của "Phở bò" nên khớp tuyệt đối và được ghi thẳng 484 kcal — dù
+     * danh mục có cả chục món phở (phở gà, phở cuốn, phở bò chín…). Khách nói tên chung thì phải
+     * được hỏi lại, không được chọn hộ. Khớp theo TÊN ("phở bò") thì vẫn tự chọn như trước, và
+     * nguyên liệu ("trứng") không bị ảnh hưởng.
+     */
+    if (
+      chosen.matchedOn === 'alias' &&
+      chosenFood !== undefined &&
+      (chosenFood.kind ?? 'dish') === 'dish' &&
+      dishFamily(key, chosenFood.slug).length >= AMBIGUOUS_FAMILY_SIZE
+    ) {
+      return null
+    }
+
     return { foodId: chosen.food.id, score: chosen.score }
   }
 
@@ -371,10 +433,28 @@ export function createMealEstimator(catalogue: readonly MealCatalogueEntry[]): M
   function suggest(text: string, limit = 5): MealCatalogueEntry[] {
     const key = dishNameKeyFromClause(text)
     if (key.length === 0) return []
+
+    // Khoá chung chung ("phở") thì đưa cả họ món, ngắn tên trước, thay vì vài món điểm gần nhất.
+    const family = dishFamily(key)
+    if (family.length >= AMBIGUOUS_FAMILY_SIZE) {
+      const exact = nameKeys.find(({ key: nameKey }) => nameKey === key)?.item
+      return [...(exact === undefined ? [] : [exact]), ...family].slice(0, limit)
+    }
+
     return findFoodCandidates(key, candidates, { limit })
       .map((candidate) => bySlug.get(candidate.food.id))
       .filter((food): food is MealCatalogueEntry => food !== undefined)
   }
 
-  return { estimate, suggest, size: () => catalogue.length }
+  const dishesByNameLength = nameKeys
+    .filter(({ item }) => (item.kind ?? 'dish') === 'dish')
+    .sort((a, b) => b.key.length - a.key.length)
+
+  function findMentioned(text: string): MealCatalogueEntry | undefined {
+    const haystack = ` ${normalizeVi(text)} `
+    return dishesByNameLength.find(({ key }) => key.length > 0 && haystack.includes(` ${key} `))
+      ?.item
+  }
+
+  return { estimate, suggest, findMentioned, size: () => catalogue.length }
 }

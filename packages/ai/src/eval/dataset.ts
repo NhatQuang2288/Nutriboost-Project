@@ -93,10 +93,12 @@ export const EVAL_CASES: readonly EvalCase[] = [
   },
 
   // --- Bí danh và cách gọi khác ---
-  { text: 'mình ăn phở', expected: ['pho-bo'], note: 'bí danh ngắn của phở bò' },
-  { text: 'mình ăn cơm tấm', expected: ['com-tam-suon'], note: 'bí danh' },
-  { text: 'mình ăn bún bò', expected: ['bun-bo-hue'], note: 'bí danh' },
-  { text: 'mình ăn bánh mì', expected: ['banh-mi-thit'], note: 'hoà nguyên liệu/món → chọn món' },
+  // Tên CHUNG của cả một họ món: phải hỏi lại, không được chọn hộ một món. Trước đây "phở" được
+  // ghi thẳng thành "Phở bò" (484 kcal) vì là bí danh viết tay, dù danh mục có cả chục món phở.
+  { text: 'mình ăn phở', expected: [], note: 'tên chung của họ món phở → hỏi lại' },
+  { text: 'mình ăn cơm tấm', expected: [], note: 'tên chung của họ món cơm tấm → hỏi lại' },
+  { text: 'mình ăn bún bò', expected: [], note: 'tên chung của họ món bún bò → hỏi lại' },
+  { text: 'mình ăn bánh mì', expected: [], note: 'tên chung của họ món bánh mì → hỏi lại' },
   { text: 'mình uống cà phê', expected: ['ca-phe-den'], note: 'cà phê mặc định là cà phê đen' },
   { text: 'mình ăn đậu phụ rán', expected: ['dau-hu-chien'], note: 'cách gọi miền Bắc' },
 
@@ -114,6 +116,47 @@ export const EVAL_CASES: readonly EvalCase[] = [
     expected: ['sua-chua-khong-duong'],
     note: 'bữa phụ',
   },
+
+  // --- Món từ bảng VDD (danh mục mở rộng): tên ngắn, không dấu, bỏ địa danh ---
+  { text: 'mình ăn bún mọc', expected: ['bun-moc'], note: 'món VDD' },
+  { text: 'trưa nay ăn cháo lòng', expected: ['chao-long'], note: 'món VDD' },
+  {
+    text: 'sáng ăn xôi gấc',
+    expected: ['xoi-gac'],
+    note: 'món VDD, phân biệt với các loại xôi khác',
+  },
+  { text: 'xoi xeo', expected: ['xoi-xeo'], note: 'món VDD, không dấu' },
+  {
+    text: 'ăn xôi đậu xanh',
+    expected: ['xoi-dau-xanh'],
+    note: 'món VDD, nhiều loại xôi gần giống',
+  },
+  { text: 'ăn hủ tiếu nam vang', expected: ['hu-tieu-nam-vang'], note: 'món VDD, bốn từ' },
+  { text: 'mình ăn bún đậu mắm tôm', expected: ['bun-dau-mam-tom'], note: 'món VDD, năm từ' },
+  { text: 'mình ăn cơm chiên dương châu', expected: ['com-chien-duong-chau'], note: 'món VDD' },
+  { text: 'mình ăn cao lầu', expected: ['cao-lau-hoi-an'], note: 'bỏ địa danh cuối tên "Hội An"' },
+  { text: 'ăn cơm hến', expected: ['com-hen-hue'], note: 'bỏ địa danh cuối tên "Huế"' },
+  { text: 'ăn bánh bèo', expected: ['banh-beo-hue'], note: 'bỏ địa danh cuối tên "Huế"' },
+  { text: 'mình ăn canh chua cá lóc', expected: ['canh-chua-ca-loc'], note: 'món VDD, bốn từ' },
+  { text: 'mình ăn gà nướng', expected: ['ga-nuong'], note: 'món VDD, hai từ' },
+
+  // --- Bảng VDD thắng khi trùng: tên đúng của món VDD không bị món cũ nuốt mất ---
+  {
+    text: 'mình ăn phở bò tái',
+    expected: ['pho-bo-tai'],
+    note: 'từng ra món cũ "Phở bò" vì trùng bí danh',
+  },
+  {
+    text: 'ăn cháo gà ta',
+    expected: ['chao-ga-ta'],
+    note: 'từng ra món cũ "Cháo gà" vì trùng bí danh',
+  },
+  {
+    text: 'ăn bún chả hà nội',
+    expected: ['bun-cha-ha-noi'],
+    note: 'phân biệt với "Bún chả" của món cũ',
+  },
+  { text: 'mình ăn phở bò', expected: ['pho-bo'], note: 'tên chung vẫn là món cũ "Phở bò"' },
 
   // --- Viết tắt thường gặp ---
   { text: 'mình uống cf sữa', expected: ['ca-phe-sua-da'], note: 'viết tắt "cf"' },

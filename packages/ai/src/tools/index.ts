@@ -2,9 +2,17 @@ import { type SafetyAssessment } from '@nutriboost/nutrition'
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { buildDishDetail, toDishDetailCard } from '../dish-math'
 import { type MealCatalogueEntry, type MealEstimator } from '../meal-estimator'
 import { buildPlan } from '../plan-builder'
 import { GENERATIVE_COMPONENTS } from '../schemas'
+import {
+  type SuggestGoal,
+  mealBudgetKcal,
+  resolveSuggestGoal,
+  suggestMeals,
+  toSuggestionCard,
+} from '../suggest-meals'
 
 /**
  * Bộ công cụ của trợ lý Bơ.
@@ -73,6 +81,10 @@ export interface ToolContext {
   safety: SafetyAssessment
   /** Ngày hôm nay theo múi giờ người dùng, `YYYY-MM-DD`. */
   today: string
+  /** Mục tiêu cân nặng của người dùng; `suggest_meals` dùng khi model không nêu mục tiêu khác. */
+  goal?: SuggestGoal
+  /** Số kcal còn lại trong ngày, để tính ngân sách cho gợi ý. Thiếu thì dùng cả mục tiêu ngày. */
+  remainingKcal?: number
   /** Ghi nhật ký bữa ăn. Bỏ trống khi chưa nối CSDL. */
   logMeal?: (request: LoggedMealRequest) => Promise<LoggedMealResult>
   /** Đọc dữ liệu tiến độ. Bỏ trống khi chưa nối CSDL. */
@@ -83,6 +95,8 @@ export interface ToolContext {
 export const TOOL_TO_COMPONENT = {
   search_food: 'food_candidate_chips',
   estimate_meal: 'meal_confirm_card',
+  suggest_meals: 'meal_suggestion_card',
+  get_dish_detail: 'dish_detail_card',
   log_meal: 'meal_logged_receipt',
   compute_targets: 'target_summary_card',
   get_progress: 'progress_chart_card',
@@ -171,6 +185,108 @@ export function createAssistantTools(context: ToolContext) {
               ? 'Mình chưa tìm thấy món nào khớp trong danh mục.'
               : 'Bạn chọn món nào?',
         })
+      },
+    }),
+
+    /* ---------------------------------------------------------------------
+     * Gợi ý món — chọn món và tính khẩu phần bằng code, theo kcal còn lại và mục tiêu
+     * ------------------------------------------------------------------- */
+    suggest_meals: tool({
+      description:
+        'Gợi ý món ăn từ danh mục theo số kcal còn lại và mục tiêu cân nặng (giảm/giữ/tăng cân), ' +
+        'có thể lọc theo yêu cầu của người dùng. Món, khẩu phần và con số đều do code tính.',
+      inputSchema: z.object({
+        goal: z
+          .enum(['lose', 'maintain', 'gain'])
+          .optional()
+          .describe('Bỏ trống để dùng mục tiêu của người dùng'),
+        mealType: mealTypeSchema.optional().describe('Bữa đang nói tới, nếu có'),
+        maxKcal: z.number().min(50).max(3000).optional().describe('Trần kcal của một khẩu phần'),
+        minProteinG: z.number().min(0).max(200).optional(),
+        maxFatG: z.number().min(0).max(200).optional(),
+        categories: z
+          .array(z.string().min(1).max(40))
+          .max(4)
+          .optional()
+          .describe('Nhóm món hoặc từ trong tên món, ví dụ "bún", "cháo", "canh", "món nước"'),
+        include: z.array(z.string().min(1).max(40)).max(4).optional().describe('Món phải có'),
+        exclude: z
+          .array(z.string().min(1).max(40))
+          .max(6)
+          .optional()
+          .describe('Món không được có, ví dụ "hải sản", "tôm", "đậu phộng"'),
+        vegetarian: z.boolean().optional().describe('Người dùng muốn món chay'),
+        limit: z.number().int().min(1).max(8).optional(),
+        skipFoodIds: z
+          .array(z.string().max(64))
+          .max(20)
+          .optional()
+          .describe('Món đã gợi ý rồi, dùng khi người dùng xin món khác'),
+      }),
+      execute: async ({ goal, mealType, skipFoodIds, ...filters }) => {
+        const resolved = resolveSuggestGoal(goal ?? context.goal ?? 'maintain', context.safety)
+        const budgetKcal = mealBudgetKcal({
+          remainingKcal: context.remainingKcal ?? context.targets.targetKcal,
+          targetKcal: context.targets.targetKcal,
+          ...(mealType === undefined ? {} : { mealType }),
+        })
+
+        const { limit, ...rest } = filters
+        const result = suggestMeals({
+          catalogue: context.catalogue,
+          goal: resolved.goal,
+          budgetKcal,
+          filters: rest,
+          ...(limit === undefined ? {} : { limit }),
+          ...(skipFoodIds === undefined ? {} : { skipSlugs: skipFoodIds }),
+        })
+
+        return GENERATIVE_COMPONENTS.meal_suggestion_card.parse(
+          toSuggestionCard(resolved.goal, result, resolved.note === null ? [] : [resolved.note]),
+        )
+      },
+    }),
+
+    /* ---------------------------------------------------------------------
+     * Chi tiết món — nguyên liệu và dinh dưỡng theo khối lượng khách cung cấp
+     * ------------------------------------------------------------------- */
+    get_dish_detail: tool({
+      description:
+        'Xem nguyên liệu và dinh dưỡng của một món. Khẩu phần mặc định chỉ là THAM KHẢO: ' +
+        'người dùng nêu khối lượng cả món thì truyền `grams`; nêu gram một nguyên liệu thì truyền ' +
+        '`componentGrams` (nguyên liệu nào cũng chỉnh được). Chỉ truyền một trong hai. ' +
+        'Nguyên liệu chưa có số riêng có `share: true`: kcal của nó là ước tính chia theo tỉ lệ.',
+      inputSchema: z.object({
+        foodId: z.string().min(1).max(64).optional().describe('Slug món, nếu đã biết'),
+        name: z.string().min(1).max(120).optional().describe('Tên món người dùng nói'),
+        grams: z.number().min(1).max(5000).optional().describe('Khối lượng cả món (g)'),
+        componentGrams: z
+          .record(z.string().min(1).max(80), z.number().min(0).max(5000))
+          .optional()
+          .describe('Gram từng nguyên liệu, khoá là tên nguyên liệu'),
+      }),
+      execute: async ({ foodId, name, grams, componentGrams }) => {
+        let entry = foodId === undefined ? undefined : bySlug.get(foodId)
+        if (entry === undefined && name !== undefined) {
+          entry = context.estimator.suggest(name, 1)[0]
+        }
+        if (entry === undefined) {
+          return toolRefusal(
+            'Không tìm thấy món này trong danh mục. Hãy nói thật với người dùng là chưa có ' +
+              'dữ liệu món đó, và gọi search_food hoặc suggest_meals để gợi ý món gần giống. ' +
+              'Đừng tự nghĩ ra nguyên liệu hay con số.',
+          )
+        }
+
+        const result = buildDishDetail(entry, context.catalogue, {
+          ...(grams === undefined ? {} : { grams }),
+          ...(componentGrams === undefined ? {} : { componentGrams }),
+        })
+        if (!result.ok) {
+          return toolRefusal(`${result.reason} Hãy nói lại đúng nội dung này với người dùng.`)
+        }
+
+        return GENERATIVE_COMPONENTS.dish_detail_card.parse(toDishDetailCard(result.detail))
       },
     }),
 

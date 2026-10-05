@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  type MealCatalogueEntry,
   createMealEstimator,
   detectServingMultiplier,
   dishNameKeyFromClause,
@@ -145,5 +146,70 @@ describe('createMealEstimator', () => {
 
   it('size phản ánh kích thước danh mục', () => {
     expect(estimator.size()).toBe(CATALOGUE.length)
+  })
+})
+
+describe('tên chung chung của cả một họ món', () => {
+  const dish = (slug: string, nameVi: string, aliases?: string[]): MealCatalogueEntry => ({
+    slug,
+    nameVi,
+    kind: 'dish',
+    servingGrams: 400,
+    kcalPer100g: 100,
+    proteinG: 5,
+    carbG: 15,
+    fatG: 2,
+    ...(aliases === undefined ? {} : { aliases }),
+  })
+  const ingredient = (slug: string, nameVi: string, aliases?: string[]): MealCatalogueEntry => ({
+    ...dish(slug, nameVi, aliases),
+    kind: 'ingredient',
+  })
+
+  // Đúng cấu trúc đã gây lỗi: "Phở bò" có bí danh viết tay "phở", cạnh nhiều món phở khác.
+  const catalogue = [
+    dish('pho-bo', 'Phở bò', ['pho']),
+    dish('pho-ga', 'Phở gà'),
+    dish('pho-cuon', 'Phở cuốn Hà Nội'),
+    dish('pho-bo-chin', 'Phở bò chín'),
+    dish('com-chien', 'Cơm chiên', ['com rang']),
+    ingredient('trung-ga', 'Trứng gà', ['trung']),
+    dish('trung-chien', 'Trứng chiên'),
+    dish('trung-luoc', 'Trứng luộc'),
+  ]
+  const estimator = createMealEstimator(catalogue)
+  const firstId = (text: string) => estimator.estimate(text).items[0]?.foodId
+
+  it('"phở" khớp bí danh của một món nhưng còn nhiều món phở khác: hỏi lại, không ghi hộ', () => {
+    for (const text of ['Phở', 'phở', 'mình ăn phở', 'sáng nay ăn pho']) {
+      const estimate = estimator.estimate(text)
+      expect(estimate.items[0]?.foodId, text).toBeNull()
+      expect(estimate.unmatched.length, text).toBe(1)
+      expect(estimate.needsConfirmation, text).toBe(true)
+    }
+  })
+
+  it('khớp theo TÊN thì vẫn tự chọn như trước', () => {
+    expect(firstId('mình ăn phở bò')).toBe('pho-bo')
+    expect(firstId('phở gà')).toBe('pho-ga')
+    expect(firstId('phở bò chín')).toBe('pho-bo-chin')
+  })
+
+  it('bí danh của món không có "họ" thì vẫn khớp', () => {
+    // Chỉ có "Cơm chiên", không món nào khác bắt đầu bằng "cơm rang".
+    expect(firstId('cơm rang')).toBe('com-chien')
+  })
+
+  it('nguyên liệu nói chung không bị ảnh hưởng: "2 quả trứng" vẫn là trứng gà', () => {
+    expect(firstId('mình ăn 2 quả trứng')).toBe('trung-ga')
+  })
+
+  it('gợi ý cho tên chung là cả họ món, ngắn tên trước', () => {
+    expect(estimator.suggest('phở', 4).map((item) => item.nameVi)).toEqual([
+      'Phở bò',
+      'Phở gà',
+      'Phở bò chín',
+      'Phở cuốn Hà Nội',
+    ])
   })
 })

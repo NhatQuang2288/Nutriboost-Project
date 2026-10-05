@@ -87,10 +87,10 @@ async function run(tool: unknown, input: unknown): Promise<unknown> {
 }
 
 describe('bộ công cụ', () => {
-  it('có đủ tám công cụ, tên khớp bảng ánh xạ component', () => {
+  it('có đủ mười công cụ, tên khớp bảng ánh xạ component', () => {
     const tools = createAssistantTools(makeContext())
     expect(Object.keys(tools).sort()).toEqual([...ASSISTANT_TOOL_NAMES].sort())
-    expect(ASSISTANT_TOOL_NAMES).toHaveLength(8)
+    expect(ASSISTANT_TOOL_NAMES).toHaveLength(10)
   })
 
   it('mọi đầu ra đều dựng được thành giao diện', async () => {
@@ -374,5 +374,115 @@ describe('weekdayLabelVi', () => {
 
   it('trả về nguyên chuỗi khi ngày sai định dạng', () => {
     expect(weekdayLabelVi('không-phải-ngày')).toBe('không-phải-ngày')
+  })
+})
+
+describe('suggest_meals', () => {
+  const fixtures = async () => (await import('./fixtures')).FIXTURE_CATALOGUE
+
+  async function toolsWith(overrides: Record<string, unknown> = {}) {
+    const catalogue = await fixtures()
+    return createAssistantTools(
+      makeContext({ catalogue, estimator: createMealEstimator(catalogue), ...overrides }),
+    )
+  }
+
+  it('dựng được thẻ gợi ý hợp lệ', async () => {
+    const tools = await toolsWith({ goal: 'lose', remainingKcal: 667 })
+    const output = await run(tools.suggest_meals, {})
+    const parsed = parseGenerativePayload('meal_suggestion_card', output)
+    expect(parsed.ok).toBe(true)
+    expect((output as { goal: string }).goal).toBe('lose')
+    expect((output as { budgetKcal: number }).budgetKcal).toBe(667)
+  })
+
+  it('dùng mục tiêu của người dùng khi model không nêu, và để model ghi đè khi có', async () => {
+    const tools = await toolsWith({ goal: 'gain', remainingKcal: 800 })
+    expect(((await run(tools.suggest_meals, {})) as { goal: string }).goal).toBe('gain')
+    expect(((await run(tools.suggest_meals, { goal: 'maintain' })) as { goal: string }).goal).toBe(
+      'maintain',
+    )
+  })
+
+  it('đánh giá an toàn chặn giảm cân thì không gợi ý như giảm cân, và nói rõ', async () => {
+    const tools = await toolsWith({
+      safety: { level: 'caution', reasons: [], blockWeightLoss: true },
+      goal: 'lose',
+    })
+    const output = (await run(tools.suggest_meals, {})) as { goal: string; notes: string[] }
+    expect(output.goal).toBe('maintain')
+    expect(output.notes.join(' ')).toMatch(/giữ cân/)
+  })
+
+  it('model chỉ chuyển yêu cầu thành bộ lọc; món và số liệu vẫn do code tính', async () => {
+    const tools = await toolsWith({ remainingKcal: 700 })
+    const output = (await run(tools.suggest_meals, { exclude: ['hải sản'], vegetarian: true })) as {
+      suggestions: { nameVi: string }[]
+      appliedFilters: string[]
+    }
+    expect(output.suggestions.map((item) => item.nameVi)).not.toContain('Bún tôm')
+    expect(output.appliedFilters).toContain('món chay')
+  })
+
+  it('không có món nào khớp thì trả thẻ rỗng kèm lời nhắn, không ném lỗi', async () => {
+    const tools = await toolsWith({ remainingKcal: 700 })
+    const output = (await run(tools.suggest_meals, {
+      exclude: ['hải sản'],
+      include: ['tôm'],
+    })) as { suggestions: unknown[]; notes: string[] }
+    expect(output.suggestions).toEqual([])
+    expect(output.notes.length).toBeGreaterThan(0)
+    expect(parseGenerativePayload('meal_suggestion_card', output).ok).toBe(true)
+  })
+})
+
+describe('get_dish_detail', () => {
+  async function toolsWithFixtures() {
+    const catalogue = (await import('./fixtures')).FIXTURE_CATALOGUE
+    return createAssistantTools(
+      makeContext({ catalogue, estimator: createMealEstimator(catalogue) }),
+    )
+  }
+
+  it('dựng được thẻ chi tiết hợp lệ từ slug hoặc từ tên', async () => {
+    const tools = await toolsWithFixtures()
+    for (const input of [{ foodId: 'pho-bo-chin' }, { name: 'phở bò chín' }]) {
+      const output = await run(tools.get_dish_detail, input)
+      expect(parseGenerativePayload('dish_detail_card', output).ok).toBe(true)
+      expect((output as { foodId: string }).foodId).toBe('pho-bo-chin')
+    }
+  })
+
+  it('khối lượng khách cung cấp thay khẩu phần tham khảo', async () => {
+    const tools = await toolsWithFixtures()
+    const output = (await run(tools.get_dish_detail, { foodId: 'pho-bo-chin', grams: 225 })) as {
+      grams: number
+      customised: boolean
+      total: { kcal: number }
+    }
+    expect(output.grams).toBe(225)
+    expect(output.customised).toBe(true)
+    expect(output.total.kcal).toBe(Math.round(0.97 * 225))
+  })
+
+  it('món không có trong danh mục: từ chối và dặn model nói thật', async () => {
+    const tools = await toolsWithFixtures()
+    const output = (await run(tools.get_dish_detail, { name: 'zzzzz qqqq' })) as ToolRefusal
+    expect(output.refused).toBe(true)
+    expect(output.message).toMatch(/Không tìm thấy món/)
+    expect(output.message).toMatch(/Đừng tự nghĩ ra/)
+  })
+
+  it('nguyên liệu chưa có số riêng vẫn chỉnh được và được đánh dấu share', async () => {
+    const tools = await toolsWithFixtures()
+    const output = (await run(tools.get_dish_detail, {
+      foodId: 'pho-bo-chin',
+      componentGrams: { 'Thịt bò chín': 100 },
+    })) as { items: { name: string; share: boolean; adjusted: boolean; kcal: number | null }[] }
+
+    const beef = output.items.find((item) => item.name === 'Thịt bò chín')!
+    expect(beef).toMatchObject({ share: true, adjusted: true })
+    expect(beef.kcal).toBeGreaterThan(0)
+    expect(parseGenerativePayload('dish_detail_card', output).ok).toBe(true)
   })
 })

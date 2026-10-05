@@ -85,17 +85,20 @@ describe('bộ dữ liệu', () => {
 
   it('món tính ra được đưa vào bộ bản ghi', () => {
     const dataset = buildDataset()
-    expect(dataset.dishes.length).toBe(DISHES.length)
-    expect(dataset.all.length).toBe(INGREDIENTS.length + DISHES.length)
+    // Món cũ (định nghĩa bằng gram thật) cộng món lấy từ bảng VDD.
+    expect(dataset.dishes.length).toBeGreaterThanOrEqual(DISHES.length)
+    expect(dataset.all.length).toBe(dataset.ingredients.length + dataset.dishes.length)
+    expect(dataset.ingredients.length).toBeGreaterThanOrEqual(INGREDIENTS.length)
   })
 
   it('báo đúng số dòng còn thiếu so với mục tiêu', () => {
     const stats = datasetStats()
     expect(stats.errorCount).toBe(0)
+    // Có bảng VDD thì số món đã vượt mục tiêu; phần dư không được bù trừ cho phần thiếu.
     expect(stats.remainingToTarget).toBe(
-      TARGET_INGREDIENTS - stats.ingredientCount + (TARGET_DISHES - stats.dishCount),
+      Math.max(0, TARGET_INGREDIENTS - stats.ingredientCount) +
+        Math.max(0, TARGET_DISHES - stats.dishCount),
     )
-    expect(stats.remainingToTarget).toBeGreaterThan(0)
   })
 
   it('không có cảnh báo nào nghiêm trọng về năng lượng', () => {
