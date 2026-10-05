@@ -58,6 +58,36 @@ describe('classifyIntent — gợi ý món', () => {
   })
 })
 
+describe('classifyIntent — ngữ cảnh thời tiết và "nhé"', () => {
+  it('"trời mưa" là ưu tiên MỀM món nước nóng, không loại món nào', () => {
+    const result = intent('hôm nay trời mưa bạn có món ăn gì muốn đề xuất không')
+    expect(result.kind).toBe('suggest')
+    expect(result).toMatchObject({
+      filters: { prefer: expect.arrayContaining(['canh', 'pho', 'lau']) },
+    })
+    expect(result).not.toMatchObject({ filters: { categories: expect.anything() } })
+    expect(result).not.toMatchObject({ filters: { include: expect.anything() } })
+  })
+
+  it('trời lạnh, rét cũng vậy; trời nóng thì ưu tiên món thanh mát', () => {
+    expect(intent('trời lạnh quá gợi ý món đi')).toMatchObject({
+      filters: { prefer: expect.arrayContaining(['canh']) },
+    })
+    expect(intent('trời nóng bức gợi ý món')).toMatchObject({
+      filters: { prefer: expect.arrayContaining(['goi', 'cuon']) },
+    })
+  })
+
+  it('"mua" không dấu (mua đồ) không bị hiểu là trời mưa', () => {
+    expect(intent('mình mua cơm xong gợi ý món')).not.toHaveProperty('filters.prefer')
+  })
+
+  it('"nhé" cuối câu không phải "nhẹ": không tự đổi mục tiêu hay đặt trần kcal', () => {
+    expect(intent('gợi ý món nhé')).toEqual({ kind: 'suggest', filters: {} })
+    expect(intent('gợi ý món nhẹ')).toMatchObject({ goal: 'lose', filters: { maxKcal: 450 } })
+  })
+})
+
 describe('classifyIntent — nói ý muốn ăn', () => {
   it('"nay tôi muốn ăn thịt" là nhờ tư vấn chứ không phải kể bữa ăn', () => {
     expect(intent('Nay tôi muốn ăn thịt')).toEqual({

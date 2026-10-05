@@ -149,6 +149,40 @@ describe('đường dự phòng — câu hỏi từng không được đáp ứn
   })
 })
 
+describe('đường dự phòng — câu "trời mưa" trong ảnh lỗi', () => {
+  it('ưu tiên món nước nóng và nói rõ lý do, không phải cùng một danh sách cho mọi câu hỏi', () => {
+    const rainy = reply('hôm nay trời mưa bạn có món ăn gì muốn đề xuất không')
+    const plain = reply('bạn có đề xuất món ăn gì cho ngày hôm nay không')
+
+    const rainyCard = rainy.dataParts[0]?.data as {
+      suggestions: { foodId: string; nameVi: string; category: string | null }[]
+      appliedFilters: string[]
+    }
+    const plainCard = plain.dataParts[0]?.data as { suggestions: { foodId: string }[] }
+
+    expect(rainyCard.appliedFilters.join(' ')).toMatch(/ưu tiên món nước nóng/)
+    // Có phản ứng với ngữ cảnh: danh sách khác hẳn danh sách của câu không nhắc thời tiết.
+    expect(rainyCard.suggestions.map((item) => item.foodId)).not.toEqual(
+      plainCard.suggestions.map((item) => item.foodId),
+    )
+    const soupy = rainyCard.suggestions.filter((item) =>
+      /nước|lẩu|phở|bún|cháo|canh|miến|hủ tiếu|mỳ/i.test(`${item.nameVi} ${item.category ?? ''}`),
+    )
+    expect(soupy.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('không còn dồn cả danh sách vào cùng một nhóm món', () => {
+    const card = reply('gợi ý món').dataParts[0]?.data as {
+      suggestions: { category: string | null }[]
+    }
+    const counts = new Map<string, number>()
+    for (const item of card.suggestions) {
+      counts.set(item.category ?? '', (counts.get(item.category ?? '') ?? 0) + 1)
+    }
+    expect(Math.max(...counts.values())).toBeLessThanOrEqual(2)
+  })
+})
+
 describe('buildUnmatchedReply', () => {
   it('"Cá bống" chưa đủ tên món thì đưa tên gần đúng để khách chọn', () => {
     const result = buildUnmatchedReply('Cá bống', mealEstimator.suggest('Cá bống', 4), 667)

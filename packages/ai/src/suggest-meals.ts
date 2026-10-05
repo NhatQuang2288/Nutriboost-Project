@@ -26,6 +26,13 @@ export interface SuggestFilters {
   /** Món không được có BẤT KỲ từ nào trong số này (dị ứng, kiêng). */
   exclude?: readonly string[]
   vegetarian?: boolean
+  /**
+   * Ưu tiên (không loại trừ): món khớp một trong các từ này được cộng điểm. Dùng cho ngữ cảnh mềm
+   * như "trời mưa" → món nước nóng — loại hết món khác thì danh sách có thể rỗng hoặc đơn điệu.
+   */
+  prefer?: readonly string[]
+  /** Lý do ưu tiên, hiện trên thẻ gợi ý: "trời mưa nên ưu tiên món nước nóng". */
+  preferLabel?: string
 }
 
 export interface MealSuggestion {
@@ -64,6 +71,15 @@ export interface SuggestMealsResult {
 
 /** Ngân sách kcal tối thiểu để còn gợi ý được một món nhẹ. */
 const MIN_BUDGET_KCAL = 150
+
+/** Điểm cộng khi món hợp ngữ cảnh khách nêu (trời mưa, trời nóng…). */
+const PREFER_BONUS = 0.3
+
+/** Giảm cân thì nhắm thấp hơn ngân sách một chút: dùng hết sạch kcal còn lại không phải mục tiêu. */
+const LOSE_TARGET_SHARE = 0.85
+
+/** Mỗi nhóm món tối đa bấy nhiêu món trong danh sách, để không toàn cơm tấm hay toàn bún. */
+const MAX_PER_CATEGORY = 2
 
 /** Một bữa hiếm khi vượt tỉ lệ này của mục tiêu cả ngày. */
 const MAX_SINGLE_MEAL_SHARE = 0.45
@@ -354,6 +370,10 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
   for (const word of filters.exclude ?? []) applied.push(`không có ${label(word)}`)
   for (const word of filters.include ?? []) applied.push(`có ${label(word)}`)
   for (const word of filters.categories ?? []) applied.push(`nhóm ${label(word)}`)
+  const prefer = filters.prefer ?? []
+  if (prefer.length > 0 && filters.preferLabel !== undefined) {
+    applied.push(`ưu tiên ${filters.preferLabel}`)
+  }
   if (filters.maxKcal !== undefined) applied.push(`tối đa ${filters.maxKcal} kcal`)
   if (filters.minProteinG !== undefined) applied.push(`đạm từ ${filters.minProteinG} g`)
   if (filters.maxFatG !== undefined) applied.push(`béo tối đa ${filters.maxFatG} g`)
@@ -370,7 +390,8 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
     const categories = filters.categories ?? []
     if (categories.length > 0 && !categories.some((word) => matchesKeyword(text, word))) continue
 
-    const item = scaleDishToTarget(entry, budget, minBound, maxBound)
+    const targetKcal = input.goal === 'lose' ? budget * LOSE_TARGET_SHARE : budget
+    const item = scaleDishToTarget(entry, targetKcal, minBound, maxBound)
 
     // Không vừa ngân sách ngay cả ở khẩu phần nhỏ nhất thì không gợi ý.
     if (item.kcal > budget * 1.15) continue
@@ -380,9 +401,10 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
     if (filters.maxFatG !== undefined && item.fatG > filters.maxFatG) continue
 
     const proteinShare = item.kcal > 0 ? (item.proteinG * 4) / item.kcal : 0
-    const fit = clamp01(1 - Math.abs(item.kcal - budget) / budget)
+    const fit = clamp01(1 - Math.abs(item.kcal - targetKcal) / budget)
+    const bonus = prefer.some((word) => matchesKeyword(text, word)) ? PREFER_BONUS : 0
     const score =
-      0.5 * fit + 0.5 * goalScore(input.goal, entry, item.kcal, item.proteinG, item.fatG)
+      0.5 * fit + 0.5 * goalScore(input.goal, entry, item.kcal, item.proteinG, item.fatG) + bonus
 
     scored.push({
       score,
@@ -403,7 +425,22 @@ export function suggestMeals(input: SuggestMealsInput): SuggestMealsResult {
 
   // Điểm bằng nhau thì theo slug, để cùng đầu vào luôn ra cùng thứ tự.
   scored.sort((a, b) => b.score - a.score || a.suggestion.slug.localeCompare(b.suggestion.slug))
-  const suggestions = scored.slice(0, limit).map((item) => item.suggestion)
+
+  // Chọn theo điểm nhưng mỗi nhóm món tối đa MAX_PER_CATEGORY; thiếu thì mới nới để đủ số lượng.
+  const picked: MealSuggestion[] = []
+  const perCategory = new Map<string, number>()
+  for (const { suggestion } of scored) {
+    if (picked.length >= limit) break
+    const key = suggestion.category ?? ''
+    if ((perCategory.get(key) ?? 0) >= MAX_PER_CATEGORY) continue
+    perCategory.set(key, (perCategory.get(key) ?? 0) + 1)
+    picked.push(suggestion)
+  }
+  for (const { suggestion } of scored) {
+    if (picked.length >= limit) break
+    if (!picked.includes(suggestion)) picked.push(suggestion)
+  }
+  const suggestions = picked
 
   if (suggestions.length === 0) {
     notes.push(

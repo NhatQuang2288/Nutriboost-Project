@@ -124,6 +124,77 @@ describe('suggestMeals', () => {
   })
 })
 
+describe('suggestMeals — ngữ cảnh, khoảng dư và đa dạng', () => {
+  const rank = (result: ReturnType<typeof suggestMeals>, slug: string) =>
+    result.suggestions.findIndex((item) => item.slug === slug)
+
+  it('ưu tiên mềm: món hợp ngữ cảnh lên trước nhưng món khác không bị loại', () => {
+    const plain = run({ budgetKcal: 600, limit: 8 })
+    const rainy = run({
+      budgetKcal: 600,
+      limit: 8,
+      filters: { prefer: ['canh', 'pho'], preferLabel: 'món nước nóng' },
+    })
+
+    expect(rank(rainy, 'canh-ga')).toBeGreaterThanOrEqual(0)
+    expect(rank(rainy, 'canh-ga')).toBeLessThan(
+      rank(plain, 'canh-ga') === -1 ? 99 : rank(plain, 'canh-ga') + 1,
+    )
+    expect(rank(rainy, 'pho-bo-chin')).toBeLessThan(rank(plain, 'pho-bo-chin'))
+    // Vẫn còn món không khớp ngữ cảnh: đây là ưu tiên, không phải bộ lọc.
+    expect(rainy.suggestions.length).toBe(plain.suggestions.length)
+    expect(names(rainy)).toContain('Cơm tấm sườn nướng')
+    expect(rainy.appliedFilters).toContain('ưu tiên món nước nóng')
+  })
+
+  it('giảm cân nhắm thấp hơn ngân sách, giữ cân thì dùng sát ngân sách', () => {
+    const lose = run({ goal: 'lose', budgetKcal: 600, limit: 8 })
+    const maintain = run({ goal: 'maintain', budgetKcal: 600, limit: 8 })
+    const kcalOf = (result: ReturnType<typeof suggestMeals>) =>
+      result.suggestions.find((item) => item.slug === 'com-suon')!.kcal
+
+    // Cơm tấm sườn co giãn thoải mái tới 600 kcal: khoảng dư chỉ do mục tiêu quyết định, không do trần khẩu phần.
+    expect(kcalOf(lose)).toBeLessThanOrEqual(600 * 0.9)
+    expect(kcalOf(maintain)).toBeGreaterThanOrEqual(600 * 0.95)
+  })
+
+  it('mỗi nhóm món tối đa hai món khi còn món ở nhóm khác', () => {
+    const phoDish = (slug: string, kcal: number) => ({
+      slug,
+      nameVi: `Phở ${slug}`,
+      kind: 'dish' as const,
+      category: 'Món Phở',
+      servingGrams: 400,
+      kcalPer100g: kcal,
+      proteinG: 8,
+      carbG: 12,
+      fatG: 2,
+    })
+    const catalogue = [
+      phoDish('a', 120),
+      phoDish('b', 119),
+      phoDish('c', 118),
+      phoDish('d', 117),
+      ...FIXTURE_CATALOGUE,
+    ]
+
+    const result = suggestMeals({ catalogue, goal: 'maintain', budgetKcal: 480, limit: 5 })
+    const phoCount = result.suggestions.filter((item) => item.category === 'Món Phở').length
+    expect(phoCount).toBeLessThanOrEqual(2)
+    expect(result.suggestions).toHaveLength(5)
+  })
+
+  it('chỉ có một nhóm thì vẫn đủ số lượng, không trả thiếu', () => {
+    const only = FIXTURE_CATALOGUE.filter(
+      (item) => item.category === 'Món Phở' || item.kind === 'ingredient',
+    )
+    const result = suggestMeals({ catalogue: only, goal: 'maintain', budgetKcal: 600, limit: 5 })
+    expect(result.suggestions.map((item) => item.slug)).toEqual(
+      expect.arrayContaining(['pho-bo-chin', 'pho-bo']),
+    )
+  })
+})
+
 describe('mealBudgetKcal', () => {
   it('có chỉ định bữa thì lấy phần của bữa đó, không vượt số kcal còn lại', () => {
     expect(mealBudgetKcal({ remainingKcal: 2000, targetKcal: 2000, mealType: 'breakfast' })).toBe(

@@ -165,7 +165,7 @@ function parseMealType(text: string, folded: string): MealType | undefined {
   return undefined
 }
 
-function parseGoal(folded: string): { goal?: SuggestGoal; light: boolean } {
+function parseGoal(text: string, folded: string): { goal?: SuggestGoal; light: boolean } {
   if (
     hasPhrase(folded, 'tang can') ||
     hasPhrase(folded, 'tang co') ||
@@ -181,9 +181,14 @@ function parseGoal(folded: string): { goal?: SuggestGoal; light: boolean } {
   ) {
     return { goal: 'lose', light: false }
   }
-  if (hasPhrase(folded, 'nhe') || hasPhrase(folded, 'it calo') || hasPhrase(folded, 'it kcal')) {
-    return { goal: 'lose', light: true }
-  }
+  // "nhẹ" (bữa nhẹ) và "nhé" (cuối câu) cùng thành "nhe" khi bỏ dấu — "gợi ý món nhé" từng bị hiểu
+  // là xin món nhẹ. Có dấu thì tin; không dấu chỉ nhận trong cụm "bữa … nhẹ" ("bữa tối nhẹ").
+  const light =
+    accentedTokens(text).includes('nhẹ') ||
+    /\bbua\s+(?:\w+\s+)?nhe\b/.test(folded) ||
+    hasPhrase(folded, 'it calo') ||
+    hasPhrase(folded, 'it kcal')
+  if (light) return { goal: 'lose', light: true }
   return { light: false }
 }
 
@@ -220,6 +225,38 @@ function parseCategories(folded: string): string[] {
   return [...found]
 }
 
+/**
+ * Ngữ cảnh thời tiết thành mức ưu tiên MỀM: "trời mưa" → món nước nóng. Không loại món nào khác,
+ * vì khách chỉ nêu hoàn cảnh chứ không cấm món.
+ *
+ * "mưa" phải đọc có dấu: "mua" (mua đồ) khớp hết các câu như "mình mua cơm". Không dấu thì chỉ nhận
+ * cả cụm "trời mưa".
+ */
+const HOT_SOUPY = ['canh', 'pho', 'bun', 'chao', 'lau', 'mien', 'hu tieu']
+// Chỉ nhóm món, không dùng "rau": gần như món nước nào cũng có rau sống trong thành phần.
+const LIGHT_COOL = ['goi', 'cuon', 'che', 'trang mieng']
+
+function parseWeather(text: string, folded: string): { prefer: string[]; label: string } | null {
+  const tokens = accentedTokens(text)
+  const rainyOrCold =
+    tokens.includes('mưa') ||
+    tokens.includes('lạnh') ||
+    tokens.includes('rét') ||
+    hasPhrase(folded, 'troi mua') ||
+    hasPhrase(folded, 'troi lanh') ||
+    hasPhrase(folded, 'troi ret')
+  if (rainyOrCold) return { prefer: HOT_SOUPY, label: 'món nước nóng cho ngày mưa, lạnh' }
+
+  const hot =
+    hasPhrase(folded, 'troi nong') ||
+    hasPhrase(folded, 'nong buc') ||
+    hasPhrase(folded, 'oi buc') ||
+    hasPhrase(folded, 'nang nong')
+  if (hot) return { prefer: LIGHT_COOL, label: 'món thanh mát cho ngày nóng' }
+
+  return null
+}
+
 function parseSuggestFilters(text: string, folded: string): SuggestFilters {
   const filters: SuggestFilters = {}
 
@@ -242,6 +279,12 @@ function parseSuggestFilters(text: string, folded: string): SuggestFilters {
     filters.minProteinG = 20
   }
   if (hasPhrase(folded, 'it beo')) filters.maxFatG = 12
+
+  const weather = parseWeather(text, folded)
+  if (weather !== null) {
+    filters.prefer = weather.prefer
+    filters.preferLabel = weather.label
+  }
 
   const cap = /(?:duoi|toi da|khong qua)\s+(\d{2,4})(?:\s*(?:kcal|calo|cal))?/.exec(folded)
   if (cap?.[1] !== undefined) filters.maxKcal = Number(cap[1])
@@ -344,7 +387,7 @@ export function classifyIntent(text: string, estimator: MealEstimator): ChatInte
     if (desire?.categories !== undefined) {
       filters.categories = [...new Set([...(filters.categories ?? []), ...desire.categories])]
     }
-    const { goal, light } = parseGoal(folded)
+    const { goal, light } = parseGoal(text, folded)
     if (light && filters.maxKcal === undefined) filters.maxKcal = 450
     const mealType = parseMealType(text, folded)
 
