@@ -65,6 +65,17 @@ export const INGREDIENTS: readonly FoodRecord[] = [
     sourceRef: SOURCE,
   },
   {
+    slug: 'bun-tuoi',
+    nameVi: 'Bún tươi',
+    kind: 'ingredient',
+    category: 'Ngũ cốc',
+    kcalPer100g: 110,
+    proteinG: 1.7,
+    carbG: 25.7,
+    fatG: 0.1,
+    sourceRef: SOURCE,
+  },
+  {
     slug: 'banh-mi',
     nameVi: 'Bánh mì',
     kind: 'ingredient',

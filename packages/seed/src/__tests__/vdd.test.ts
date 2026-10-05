@@ -149,6 +149,19 @@ describe('bảng VDD', () => {
     expect(line?.trimEnd().replace(/\),?$/, '')).toMatch(/, true$/)
   })
 
+  it('bún là nguyên liệu nền: "Bún", "Bún tươi", "Bún lá" đều có số liệu để tính kcal', () => {
+    const buns = [...dataset.breakdowns.values()]
+      .flatMap((item) => item.components)
+      .filter((item) => ['Bún', 'Bún tươi', 'Bún lá'].includes(item.name))
+    expect(buns.length).toBeGreaterThan(20)
+    for (const item of buns) expect(item.ingredientSlug, item.name).toBe('bun-tuoi')
+
+    const bun = dataset.all.find((food) => food.slug === 'bun-tuoi')
+    expect(bun?.kind).toBe('ingredient')
+    expect(bun?.kcalPer100g).toBeGreaterThan(90)
+    expect(bun?.kcalPer100g).toBeLessThan(140)
+  })
+
   it('không có lỗi số liệu vật lý nào', () => {
     const { food } = validateFullDataset()
     expect(food.errors, JSON.stringify(food.errors.slice(0, 5), null, 2)).toEqual([])

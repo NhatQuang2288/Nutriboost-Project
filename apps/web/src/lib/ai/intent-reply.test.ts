@@ -92,6 +92,22 @@ describe('đường dự phòng — chi tiết món', () => {
   })
 })
 
+describe('đường dự phòng — nguyên liệu nền có kcal riêng', () => {
+  it('"thành phần bún thang" tính được kcal của bún thay vì dấu "—"', () => {
+    const card = reply('thành phần bún thang').dataParts[0]?.data as {
+      total: { kcal: number }
+      items: { name: string; grams: number; kcal: number | null }[]
+    }
+    const bun = card.items.find((item) => item.name === 'Bún tươi')
+
+    expect(bun?.kcal).not.toBeNull()
+    // 180 g × 110 kcal/100 g.
+    expect(bun?.kcal).toBe(Math.round(bun!.grams * 1.1))
+    // Tổng của món vẫn là số của cả món, không phải tổng các thành phần đã biết.
+    expect(card.total.kcal).toBeGreaterThan(bun!.kcal!)
+  })
+})
+
 describe('đường dự phòng — còn bao nhiêu kcal', () => {
   it('trả lời bằng số thật, không coi là bữa ăn', () => {
     const result = reply('Hôm nay mình còn bao nhiêu calo?')

@@ -36,6 +36,8 @@ const INGREDIENT_CATEGORIES: ReadonlySet<string> = new Set([
  */
 const COMPONENT_SYNONYMS: Readonly<Record<string, string>> = {
   'Bánh phở': 'pho-tuoi',
+  Bún: 'bun-tuoi',
+  'Bún lá': 'bun-tuoi',
   Dầu: 'dau-an',
   'Dầu (thấm)': 'dau-an',
   Tôm: 'tom-tuoi',
